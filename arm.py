@@ -16,14 +16,14 @@ def arm(id):
     print "Setup complete"
 
     print "Set Mode"
-    print setmode_service(custom_mode = "GUIDED")
+    print setmode_service(custom_mode = "STABILIZE")
 
     time.sleep(1)
 
     print "Arming"
     print arm_service(True)
 
-    time.sleep(1)
+    time.sleep(5)
 
     print "Disarming"
     print arm_service(False)

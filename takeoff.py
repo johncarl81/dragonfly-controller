@@ -26,7 +26,7 @@ def takeoff(id):
     print "Arming"
     print arm_service(True)
 
-    time.sleep(1)
+    time.sleep(5)
 
     print "Change to Guided"
 
