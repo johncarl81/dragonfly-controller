@@ -5,11 +5,10 @@ import time
 from datetime import datetime, timedelta
 
 import rospy
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, TimeReference
 from std_msgs.msg import String
 
 from led import LED
-
 
 class co2Logger:
 
@@ -23,6 +22,7 @@ class co2Logger:
         self.sincezero = datetime.now()
         self.zeroing = False
         self.s = sched.scheduler(time.time, time.sleep)
+        self.time_offset = 0
 
     def validUpdate(self, inputTime):
         return inputTime is not None and datetime.now() - inputTime < timedelta(seconds=3)
@@ -55,14 +55,20 @@ class co2Logger:
         self.position = data
         self.updateStatus(position=True)
 
+    def getDate(self):
+        corrected_time = rospy.Time.now() + self.time_offset
+        return datetime.fromtimestamp(corrected_time.secs + (corrected_time.nsecs/1e9))
+
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print(
-                "{} co2: '{}' @ {} {} {}".format(datetime.now(), data, self.position.latitude, self.position.longitude,
-                                                 self.position.altitude))
+            print("{} co2: '{}' @ {} {} {}".format(self.getDate(),
+                                                   data,
+                                                   self.position.latitude,
+                                                   self.position.longitude,
+                                                   self.position.altitude))
         else:
-            print("{} cos: '{}' @ -".format(datetime.now(), data))
+            print("{} cos: '{}' @ -".format(self.getDate(), data))
 
     def logCallback(self, data):
         print("LOG: {}".format(data))
@@ -76,6 +82,10 @@ class co2Logger:
         # run simultaneously.
         rospy.init_node('gpslistener', anonymous=True)
 
+        flight_computer_time = rospy.wait_for_message("{}/mavros/time_reference".format(self.id), TimeReference)
+        self.time_offset = flight_computer_time.time_ref - rospy.Time.now()
+        
+        print("got time reference: {} diff: {} current: {}".format(flight_computer_time, self.time_offset, self.getDate()))
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.callback)
         rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
         rospy.Subscriber("{}/log".format(self.id), String, self.logCallback)
