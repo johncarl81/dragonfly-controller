@@ -2,6 +2,7 @@
 import rospy
 import argparse
 import math
+from mavros_msgs.srv import SetMode
 from mavros_msgs.msg import WaypointReached
 from sensor_msgs.msg import NavSatFix
 from mavros_msgs.msg import Waypoint
@@ -55,12 +56,17 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
   return waypoints
 
 def setpoint(id):
+
     
     rospy.init_node('guide_service')
     def logWaypoint(waypoint):
         print "Waypoint: ", waypoint.wp_seq
     
     rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
+
+    print "Change to Guided"
+    setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
+    print setmode_service(custom_mode = "GUIDED")
     
     def updatePosition(position):
         position_update.unregister()
