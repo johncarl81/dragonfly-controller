@@ -1,0 +1,40 @@
+= Dragonfly Scripts
+
+Steps to setup Dragonfly:
+
+1. Setup network interfaces file:
+`/etc/networks/interfaces` :
+----
+auto wlan0
+iface wlan0 inet static
+    address 10.42.0.3
+    netmask 255.255.255.0
+    gateway 10.42.0.1
+    wireless-channel 1
+    wireless-essid dragonflyadhoc
+    wireless-mode ad-hoc
+    wireless-key s:drago
+----
+
+2. Setup DHCP server:
+`/etc/rc.local`:
+----
+sudo dhclient wlan0
+----
+
+3. Setup hardware static names:
+`/etc/udev/rules.d/10-dragonfly.rules`:
+----
+ACTION=="add", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", SYMLINK+="ttysba5"
+ACTION=="add", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="ttypixhawk"
+----
+
+4. Setup crontab, this includes log rotation and starting the co2 logging at startup:
+----
+*/15 * * * * /usr/sbin/logrotate -s /tmp/logrotate.tmp /home/ubuntu/dev/dragonfly/logrotate.conf
+@reboot cd /home/ubuntu/dev/dragonfly/ ; ./startup.sh&
+----
+
+5. Install and configure ros including rospy and mavros (found in setup.sh script)
+
+
