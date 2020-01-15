@@ -8,15 +8,7 @@ position = None
 
 def callback(data):
     global position
-    #rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
-    position = data
-
-def co2Callback(data):
-    global position
-    if position is not None:
-        print "{} co2: '{}' @ {} {} {}".format(datetime.now(), data, position.latitude, position.longitude, position.altitude)
-    else:
-        print "{} cos: '{}' @ -".format(datetime.now(), data)
+    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
 
 def listener():
 
@@ -28,7 +20,6 @@ def listener():
     rospy.init_node('gpslistener', anonymous=True)
 
     rospy.Subscriber('/mavros/global_position/global', NavSatFix, callback)
-    rospy.Subscriber('JUAV1/co2', String, co2Callback)
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()

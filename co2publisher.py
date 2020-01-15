@@ -9,7 +9,7 @@ rate = rospy.Rate(10) # 10hz
 with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE) as port:
     while True:
         hello_str = port.readline()
-        #rospy.loginfo(hello_str)
+        rospy.loginfo(hello_str)
         pub.publish(hello_str)
         # rate.sleep()
 
