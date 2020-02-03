@@ -1,18 +1,46 @@
 #!/usr/bin/env python
 import rospy
-from datetime import datetime
+import led
+import sched, time
+from datetime import datetime, timedelta
 from std_msgs.msg import String
 from sensor_msgs.msg import NavSatFix
 
+s = sched.scheduler(time.time, time.sleep)
+
 position = None
+positionReceived = None
+co2Received = None
+
+def validUpdate(inputTime):
+    return inputTime is not None and datetime.now() - inputTime < timedelta(seconds = 3)
+
+def updateStatus(position = None, co2 = None): 
+    global positionReceived
+    global co2Received
+    if position is not None:
+        positionReceived = datetime.now()
+    if co2 is not None:
+        co2Received = datetime.now()
+
+def updateLED(sc):
+    print "Update LED"
+    validPosition = validUpdate(positionReceived)
+    validCo2 = validUpdate(co2Received)
+    led.setColor([255 if validPosition and not validCo2 else 0,  
+        255 if validPosition and validCo2 else 0,
+        255 if not validPosition and validCo2 else 0])
+    s.enter(1, 1, updateLED, (sc,))
 
 def callback(data):
     global position
     #rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
     position = data
+    updateStatus(position = True)
 
 def co2Callback(data):
     global position
+    updateStatus(co2 = True)
     if position is not None:
         print "{} co2: '{}' @ {} {} {}".format(datetime.now(), data, position.latitude, position.longitude, position.altitude)
     else:
@@ -29,6 +57,9 @@ def listener():
 
     rospy.Subscriber('/mavros/global_position/global', NavSatFix, callback)
     rospy.Subscriber('JUAV1/co2', String, co2Callback)
+
+    s.enter(1, 1, updateLED, (s,))
+    s.run()
 
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
