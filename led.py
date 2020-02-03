@@ -1,5 +1,4 @@
 #! /usr/bin/env python
-
 import argparse
 import time
 import RPi.GPIO as GPIO
@@ -38,8 +37,7 @@ def setColor(rgb = []):
 if __name__ == '__main__':
     # Get RGB colors from command line arguments.
     parser = argparse.ArgumentParser(description = 'Light up the world!')
-    parser.add_argument('rgb', metavar='0-255', type=int, nargs=3,
-                       help='Red, Green, and Blue color values (0-255).')
+    parser.add_argument('rgb', metavar='0-255', type=int, nargs=3, help='Red, Green, and Blue color values (0-255).')
     args = parser.parse_args()
     setColor(args.rgb)
     time.sleep(60)

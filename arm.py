@@ -1,47 +1,38 @@
 #!/usr/bin/env python
 import rospy
 import time
-import argparse
 from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import CommandBool
-from mavros_msgs.srv import CommandTOL
 
-def takeoff(id):
-
-    rospy.init_node('takeoff_service')
+def arm(id):
+    rospy.init_node('arm_test_service')
     rospy.wait_for_service("{}/mavros/set_mode".format(id))
     rospy.wait_for_service("{}/mavros/cmd/arming".format(id))
-    rospy.wait_for_service("{}/mavros/cmd/takeoff".format(id))
-    
+
     setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
     arm_service = rospy.ServiceProxy("{}/mavros/cmd/arming".format(id), CommandBool)
-    takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(id), CommandTOL)
+
     print "Setup complete"
 
     print "Set Mode"
-    print setmode_service(custom_mode = "STABILIZE")
+    print setmode_service(custom_mode = "GUIDED")
 
-    time.sleep(1)
+    time.sleep(10)
 
     print "Arming"
     print arm_service(True)
 
-    time.sleep(1)
+    time.sleep(10)
 
-    print "Change to Guided"
+    print "Disarming"
+    print arm_service(False)
 
-    print setmode_service(custom_mode = "GUIDED")
-
-    print "Take off"
-    print takeoff_service(altitude = 3)
-
+    print "Commanded"
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Command a drone to takeoff.')
+    # Get RGB colors from command line arguments.
+    parser = argparse.ArgumentParser(description = 'Arm a drone.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 
-    takeoff(args.id)
-
-
-
+    arm(args.id)

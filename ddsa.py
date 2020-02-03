@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 import rospy
-import serial
 import time
 import math
-from std_msgs.msg import String
+import argparse
 from mavros_msgs.srv import SetMode
-from mavros_msgs.srv import CommandBool
-from mavros_msgs.srv import CommandTOL
 from mavros_msgs.srv import WaypointClear
 from mavros_msgs.srv import WaypointPush
 from mavros_msgs.msg import Waypoint
@@ -41,8 +38,6 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
   waypoints.append(start)
   for loop in range(0, loops):
     for corner in range(0, 4):
-      xoffset = 0
-      yoffset = 0
 
       if (loop == 0 and corner == 0):
         xoffset = 0
@@ -64,49 +59,57 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
   waypoints.append(start)
   return waypoints
 
+def ddsa(id):
 
+    rospy.init_node('ddsa_service')
+    rospy.wait_for_service("{}/mavros/set_mode".format(id))
+    rospy.wait_for_service("{}/mavros/mission/clear".format(id))
+    rospy.wait_for_service("{}/mavros/mission/push".format(id))
+    
+    setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
+    wp_clear_srv = rospy.ServiceProxy("{}/mavros/mission/clear".format(id), WaypointClear)
+    wp_push_srv = rospy.ServiceProxy("{}/mavros/mission/push".format(id), WaypointPush)
+    
+    print "Waypoint clear"
+    print wp_clear_srv()
+    
+    time.sleep(5)
+    
+    def logWaypoint(waypoint):
+        print "Waypoint: ", waypoint.wp_seq
+    
+    rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
+    
+    def updatePosition(position):
+        position_update.unregister()
+    
+        print "Position: ", position.latitude, " ", position.longitude
+    
+        altitude = 3
+    
+        waypoints = buildDDSAWaypoints(position.latitude, position.longitude, altitude, 1, 0, 5, 1)
+    
+        print "Push waypoints"
+        print wp_push_srv(start_index=0, waypoints=waypoints)
+    
+        time.sleep(10)
+    
+        print "Set Mode"
+        print setmode_service(custom_mode = "AUTO")	
+    
+        print "Commanded"
+    
+    position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)
+    
+    rospy.spin()
 
-rospy.init_node('ddsa_service')
-rospy.wait_for_service('JUAV1/mavros/set_mode')
-rospy.wait_for_service('JUAV1/mavros/mission/clear')
-rospy.wait_for_service('JUAV1/mavros/mission/push')
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Command a drone to follow the DDSA.')
+    parser.add_argument('id', type=str, help='Name of the drone.')
+    args = parser.parse_args()
 
-setmode_service = rospy.ServiceProxy('JUAV1/mavros/set_mode', SetMode)
-wp_clear_srv = rospy.ServiceProxy('JUAV1/mavros/mission/clear', WaypointClear)
-wp_push_srv = rospy.ServiceProxy('JUAV1/mavros/mission/push', WaypointPush)
+    ddsa(args.id)
 
-print "Waypoint clear"
-print wp_clear_srv()
-
-time.sleep(5)
-
-def logWaypoint(waypoint):
-    print "Waypoint: ", waypoint.wp_seq
-
-rospy.Subscriber('JUAV1/mavros/mission/reached', WaypointReached, logWaypoint)
-
-def updatePosition(position):
-    position_update.unregister()
-
-    print "Position: ", position.latitude, " ", position.longitude
-
-    altitude = 3
-
-    waypoints = buildDDSAWaypoints(position.latitude, position.longitude, altitude, 1, 0, 1, 1)
-
-    print "Push waypoints"
-    print wp_push_srv(start_index=0, waypoints=waypoints)
-
-    time.sleep(10)
-
-    print "Set Mode"
-    print setmode_service(custom_mode = "AUTO")	
-
-    print "Commanded"
-
-position_update = rospy.Subscriber('JUAV1/mavros/global_position/global', NavSatFix, updatePosition)
-
-rospy.spin()
 
 
 

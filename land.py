@@ -1,24 +1,22 @@
 #!/usr/bin/env python
 import rospy
-import serial
-import time
-import math
-from std_msgs.msg import String
-from mavros_msgs.srv import SetMode
-from mavros_msgs.srv import CommandBool
+import argparse
 from mavros_msgs.srv import CommandTOL
-from mavros_msgs.srv import WaypointClear
-from mavros_msgs.srv import WaypointPush
-from mavros_msgs.msg import Waypoint
-from mavros_msgs.msg import CommandCode
-from sensor_msgs.msg import NavSatFix
 
-rospy.init_node('land_service')
-rospy.wait_for_service('JUAV1/mavros/cmd/land')
+def land(id):
 
-land_service = rospy.ServiceProxy('JUAV1/mavros/cmd/land', CommandTOL)
+    rospy.init_node('land_service')
+    rospy.wait_for_service("{}/mavros/cmd/land".format(id))
 
-print "Landing"
-print land_service(altitude = 0)
-time.sleep(30)
+    land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(id), CommandTOL)
 
+    print "Landing"
+    print land_service(altitude = 0)
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description = 'Command a drone to land.')
+    parser.add_argument('id', type=str, help='Name of the drone.')
+    args = parser.parse_args()
+
+    land(args.id)

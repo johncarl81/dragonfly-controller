@@ -2,6 +2,7 @@
 import rospy
 import led
 import sched, time
+import argparse
 from datetime import datetime, timedelta
 from std_msgs.msg import String
 from sensor_msgs.msg import NavSatFix
@@ -46,7 +47,7 @@ def co2Callback(data):
     else:
         print "{} cos: '{}' @ -".format(datetime.now(), data)
 
-def listener():
+def listener(id):
 
     # In ROS, nodes are uniquely named. If two nodes with the same
     # name are launched, the previous one is kicked off. The
@@ -55,8 +56,8 @@ def listener():
     # run simultaneously.
     rospy.init_node('gpslistener', anonymous=True)
 
-    rospy.Subscriber('/mavros/global_position/global', NavSatFix, callback)
-    rospy.Subscriber('JUAV1/co2', String, co2Callback)
+    rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, callback)
+    rospy.Subscriber("{}/co2".format(id), String, co2Callback)
 
     s.enter(1, 1, updateLED, (s,))
     s.run()
@@ -65,5 +66,8 @@ def listener():
     rospy.spin()
 
 if __name__ == '__main__':
-    listener()
+    parser = argparse.ArgumentParser(description = 'Log the given drone\'s GPS And CO2.')
+    parser.add_argument('id', type=str, help='Name of the drone.')
+    args = parser.parse_args()
 
+    listener(args.id)
