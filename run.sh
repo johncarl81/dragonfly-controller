@@ -1,4 +1,4 @@
-
+#!/bin/bash
 roscore &
 P1=$!
 roslaunch apm.launch &

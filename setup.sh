@@ -1,4 +1,4 @@
-
+#!/bin/bash
 sudo cp system_config/10-dragonfly.rules /etc/udev/rules.d/
 sudo cp system_config/rc.local /etc/rc.local
 sudo cp system_config/interfaces /etc/network/interfaces

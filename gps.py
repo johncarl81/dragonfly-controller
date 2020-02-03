@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 import rospy
-from datetime import datetime
-from std_msgs.msg import String
 from sensor_msgs.msg import NavSatFix
 
 position = None
