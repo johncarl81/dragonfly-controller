@@ -20,9 +20,9 @@ GPIO.setup(blue, GPIO.OUT)
 RED = GPIO.PWM(red, 100)
 GREEN = GPIO.PWM(green, 100)
 BLUE = GPIO.PWM(blue, 100)
-RED.start(1)
-GREEN.start(1)
-BLUE.start(1)
+RED.start(100)
+GREEN.start(100)
+BLUE.start(100)
 
 # Set a color by giving R, G, and B values of 0-255.
 def setColor(rgb = []):
