@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 import rospy
 import time
+import argparse
 from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import CommandBool
 
@@ -17,12 +18,12 @@ def arm(id):
     print "Set Mode"
     print setmode_service(custom_mode = "GUIDED")
 
-    time.sleep(10)
+    time.sleep(1)
 
     print "Arming"
     print arm_service(True)
 
-    time.sleep(10)
+    time.sleep(1)
 
     print "Disarming"
     print arm_service(False)
