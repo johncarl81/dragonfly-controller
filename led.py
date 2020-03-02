@@ -4,9 +4,9 @@ import time
 import RPi.GPIO as GPIO
 
 # LED pin mapping.
-red = 22
-green = 27
-blue = 17
+red = 18
+green = 17
+blue = 4
 
 # GPIO setup.
 GPIO.setmode(GPIO.BCM)

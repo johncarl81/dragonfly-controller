@@ -25,7 +25,6 @@ def updateStatus(position = None, co2 = None):
         co2Received = datetime.now()
 
 def updateLED(sc):
-    print "Update LED"
     validPosition = validUpdate(positionReceived)
     validCo2 = validUpdate(co2Received)
     led.setColor([255 if validPosition and not validCo2 else 0,  

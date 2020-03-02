@@ -5,7 +5,7 @@ import argparse
 from std_msgs.msg import String
 
 def publishco2(id):
-
+    print "publishing co2 readings on {}/co2".format(id)
     pub = rospy.Publisher("{}/co2".format(id), String, queue_size=10)
     rospy.init_node('talker', anonymous=True)
     # rate = rospy.Rate(10) # 10hz
@@ -23,4 +23,4 @@ if __name__ == '__main__':
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 
-    publishco2(id)
+    publishco2(args.id)
