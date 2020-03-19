@@ -78,6 +78,9 @@ class DragonflyCommand:
         print "Disarming"
         print self.arm_service(False)
 
+    def hello(self, command):
+        print "hello"
+        return TriggerResponse(success=True, message="Commanded {} hello successful.".format(self.id))
 
     def armcommand(self, operation):
         print "Commanded to arm"
@@ -224,6 +227,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/rtl".format(self.id), Trigger, self.rtl)
         rospy.Service("/{}/command/goto".format(self.id), Trigger, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), Trigger, self.ddsa)
+        rospy.Service("/{}/command/hello".format(self.id), Trigger, self.hello)
 
         print "Setup complete"
 
