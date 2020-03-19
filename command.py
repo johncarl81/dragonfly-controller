@@ -1,15 +1,67 @@
 #! /usr/bin/env python
-import rospy
-import time
-import argparse
+import rospy, time, argparse, math
 from std_srvs.srv import Trigger, TriggerResponse
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
-from mavros_msgs.msg import State
+from mavros_msgs.msg import State, Waypoint
+from sensor_msgs.msg import NavSatFix
+from geometry_msgs.msg import PoseStamped
+from mavros_msgs.msg import CommandCode
+
+def calculateLatitude(latitude, offset):
+    return latitude + (offset * 0.00000898)
+
+def calculateLongitude(latitude, longitude, offset):
+    return longitude + (offset * 0.00000898) / math.cos(latitude * 0.01745)
+
+def createWaypoint(lat, lon, altitude, type):
+    waypoint = Waypoint()
+    waypoint.frame = Waypoint.FRAME_GLOBAL_REL_ALT
+    waypoint.command = type
+    waypoint.is_current = 0
+    waypoint.autocontinue = 0
+    waypoint.x_lat = lat
+    waypoint.y_long = lon
+    waypoint.z_alt = altitude
+    waypoint.param1 = 1
+
+    return waypoint
+
+def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
+
+    waypoints = []
+    start = createWaypoint(centerx, centery, altitude, CommandCode.NAV_WAYPOINT)
+    start.is_current = 1
+    waypoints.append(start)
+    for loop in range(0, loops):
+        for corner in range(0, 4):
+
+            if (loop == 0 and corner == 0):
+                xoffset = 0
+                yoffset = index + 1
+            else:
+                xoffset = 1 + index + (loop * size)
+                yoffset = xoffset
+                if (corner == 0):
+                    xoffset = -(1 + index + ((loop - 1) * size))
+                elif (corner == 3):
+                    xoffset = -xoffset
+                if (corner == 2 or corner == 3):
+                    yoffset = -yoffset
+
+            latitude = calculateLatitude(centerx, xoffset * radius)
+            longitude = calculateLongitude(centerx, centery, yoffset * radius)
+            waypoint = createWaypoint(latitude, longitude, altitude, CommandCode.NAV_WAYPOINT)
+            waypoints.append(waypoint)
+    waypoints.append(start)
+    return waypoints
 
 class DragonflyCommand:
 
-    def __init__(self, id):
+    def __init__(self, id, altitude, index, swarmsize):
         self.id = id
+        self.altitude = altitude
+        self.index = index
+        self.swarmsize = swarmsize
 
     def setmode(self, mode):
         print "Set Mode ", mode
@@ -39,16 +91,27 @@ class DragonflyCommand:
         return TriggerResponse(success=True, message="Commanded {} to arm.".format(self.id))
 
     def takeoff(self, operation):
-        print "Commanded to takeoff"
 
-        self.setmode("STABILIZE")
+        print "Verifying disarmed..."
+        def updateState(state):
 
-        self.arm()
+            if not state.armed:
+                print "Commanded to takeoff"
 
-        self.setmode("GUIDED")
+                self.setmode("STABILIZE")
 
-        print "Take off"
-        print self.takeoff_service(altitude = 3)
+                self.arm()
+
+                self.setmode("GUIDED")
+
+                print "Take off"
+                print self.takeoff_service(altitude = self.altitude)
+            else:
+                print "Takeoff aborted, {} is armed".format(self.id)
+
+            disabled_update.unregister()
+
+        disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
 
         return TriggerResponse(success=True, message="Commanded {} to takeoff.".format(self.id))
 
@@ -80,6 +143,66 @@ class DragonflyCommand:
 
         return TriggerResponse(success=True, message="Commanded {} to rtl.".format(self.id))
 
+    def goto(self, operation):
+        print "Commanded to goto"
+
+        def updatePosition(position):
+            position_update.unregister()
+            print "Position: ", position.latitude, " ", position.longitude
+
+            rospy.rostime.wallsleep(0.5)
+
+            goalPos = PoseStamped()
+            goalPos.pose.position.x = 10
+            goalPos.pose.position.y = 0
+            goalPos.pose.position.z = self.altitude
+
+            print "Going to: ", goalPos.pose.position
+            print self.local_setposition_publisher.publish(goalPos)
+
+            rospy.rostime.wallsleep(10)
+
+            goalPos = PoseStamped()
+            goalPos.pose.position.x = 0
+            goalPos.pose.position.y = 0
+            goalPos.pose.position.z = self.altitude
+
+            print "Going to: ", goalPos.pose.position
+            print self.local_setposition_publisher.publish(goalPos)
+
+        position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
+
+        return TriggerResponse(success=True, message="Commanded {} to goto.".format(self.id))
+
+    def ddsa(self, operation):
+        print "Commanded to ddsa"
+
+        def updatePosition(position):
+            position_update.unregister()
+            print "Position: ", position.latitude, " ", position.longitude
+
+            rospy.rostime.wallsleep(0.5)
+
+            waypoints = buildDDSAWaypoints(0, 0, self.altitude, self.swarmsize, self.index, 5, 2)
+
+            for waypoint in waypoints:
+                rospy.rostime.wallsleep(10)
+
+                goalPos = PoseStamped()
+                goalPos.pose.position.x = waypoint.x_lat
+                goalPos.pose.position.y = waypoint.y_long
+                goalPos.pose.position.z = 5
+
+                print "Going to: ", goalPos
+
+                print self.local_setposition_publisher.publish(goalPos)
+
+                print "Commanded"
+
+        position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
+
+        return TriggerResponse(success=True, message="Commanded {} to ddsa.".format(self.id))
+
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id))
 
@@ -92,11 +215,15 @@ class DragonflyCommand:
         self.arm_service = rospy.ServiceProxy("{}/mavros/cmd/arming".format(self.id), CommandBool)
         self.takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(self.id), CommandTOL)
         self.land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(self.id), CommandTOL)
+        self.local_setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(self.id), PoseStamped, queue_size=1)
+
 
         rospy.Service("/{}/command/arm".format(self.id), Trigger, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Trigger, self.takeoff)
         rospy.Service("/{}/command/land".format(self.id), Trigger, self.land)
         rospy.Service("/{}/command/rtl".format(self.id), Trigger, self.rtl)
+        rospy.Service("/{}/command/goto".format(self.id), Trigger, self.goto)
+        rospy.Service("/{}/command/ddsa".format(self.id), Trigger, self.ddsa)
 
         print "Setup complete"
 
@@ -105,9 +232,12 @@ class DragonflyCommand:
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Drone command service.')
     parser.add_argument('id', type=str, help='Name of the drone.')
+    parser.add_argument('alt', type=int, help='Altitude to fly.')
+    parser.add_argument('index', type=int, help='Index in swarm.')
+    parser.add_argument('size', type=int, help='Swarm size.')
     args = parser.parse_args()
 
-    command = DragonflyCommand(args.id)
+    command = DragonflyCommand(args.id, args.alt, args.index, args.size)
 
     command.setup()
 
