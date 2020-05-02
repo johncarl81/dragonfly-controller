@@ -1,1 +1,7 @@
 logs/*
+
+.idea
+
+build
+devel
+.catkin_tools
