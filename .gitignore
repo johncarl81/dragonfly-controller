@@ -5,3 +5,5 @@ logs/*
 build
 devel
 .catkin_tools
+
+*.pyc

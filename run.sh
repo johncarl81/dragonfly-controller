@@ -6,12 +6,14 @@ then
     exit 1
 fi
 
+source ./devel/setup.bash
+
 roscore &
 P1=$!
-roslaunch apm.launch &
+roslaunch config/apm.launch &
 P2=$!
-python co2publisher.py $1 &
+rosrun dragonfly co2publisher.py $1 &
 P3=$!
-python logger.py $1 > output.log &
+rosrun dragonfly logger.py $1 > output.log &
 P4=$!
 wait $P1 $P2 $P3 $P4
