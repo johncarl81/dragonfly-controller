@@ -10,6 +10,7 @@ devel
 
 .gradle
 src/dragonfly_dashboard/gradle
+src/dragonfly_dashboard/dashboard/out
 
 *~
 *.autosave
