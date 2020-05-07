@@ -21,6 +21,11 @@ plugins{
 }
 mainClassName = 'org.ros.RosRun'
 
+java{
+  sourceCompatibility = JavaVersion.VERSION_1_8
+  targetCompatibility = JavaVersion.VERSION_1_8
+}
+
 
 /*
  Examples of
@@ -55,7 +60,7 @@ repositories {
 }
 
 ext {
-  arcgisVersion = '100.7.0'
+  arcgisVersion = '100.8.0'
 }
 
 configurations {
@@ -65,11 +70,16 @@ configurations {
 dependencies {
   /* An external maven artifact dependency */
   compile 'org.ros.rosjava_core:rosjava:[0.3,0.4)'
+  compile 'org.ros.rosjava_messages:geometry_msgs:1.12.7'
+  compile 'org.ros.rosjava_messages:sensor_msgs:1.12.7'
+  compile 'org.ros.rosjava_messages:mavros:0.8.5'
   /* Example of a local subproject dependency */
   /* compile project(':sibling_gradle_project') */
   compile "com.esri.arcgisruntime:arcgis-java:$arcgisVersion"
   natives "com.esri.arcgisruntime:arcgis-java-jnilibs:$arcgisVersion"
   natives "com.esri.arcgisruntime:arcgis-java-resources:$arcgisVersion"
+
+  compile 'com.google.inject:guice:4.0'
 }
 
 task copyNatives(type: Copy) {

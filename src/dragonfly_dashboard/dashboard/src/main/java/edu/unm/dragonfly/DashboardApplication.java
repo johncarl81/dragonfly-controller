@@ -1,5 +1,7 @@
 package edu.unm.dragonfly;
 
+import com.google.inject.Guice;
+import com.google.inject.Injector;
 import javafx.application.Application;
 import javafx.fxml.FXMLLoader;
 import javafx.scene.Parent;
@@ -7,14 +9,17 @@ import javafx.scene.Scene;
 import javafx.stage.Stage;
 
 
-public class DisplaySceneSample extends Application {
+public class DashboardApplication extends Application {
 
     private static DashboardController controller;
 
     @Override
     public void start(Stage stage) throws Exception {
 
+        final Injector injector = Guice.createInjector(new DashboardModule());
+
         FXMLLoader loader = new FXMLLoader(getClass().getResource("/dashboard.fxml"));
+        loader.setControllerFactory(injector::getInstance);
 
         Parent root = loader.load();
         controller = loader.getController();
