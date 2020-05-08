@@ -1,14 +1,30 @@
 <?xml version="1.0" encoding="UTF-8"?>
 
 <?import com.esri.arcgisruntime.mapping.view.SceneView?>
-<?import java.lang.*?>
-<?import java.util.*?>
-<?import javafx.scene.*?>
-<?import javafx.scene.control.*?>
-<?import javafx.scene.layout.*?>
+<?import javafx.geometry.Insets?>
+<?import javafx.scene.control.Button?>
+<?import javafx.scene.control.ListView?>
+<?import javafx.scene.control.TitledPane?>
+<?import javafx.scene.layout.BorderPane?>
+<?import javafx.scene.layout.HBox?>
+<?import javafx.scene.layout.VBox?>
 
-<StackPane fx:controller="edu.unm.dragonfly.DashboardController"
-           xmlns="http://javafx.com/javafx"
-           xmlns:fx="http://javafx.com/fxml">
-    <SceneView fx:id="sceneView"/>
-</StackPane>
+<BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="edu.unm.dragonfly.DashboardController">
+    <center>
+        <SceneView fx:id="sceneView"/>
+    </center>
+    <right>
+        <VBox>
+            <TitledPane text="Drones">
+                <ListView fx:id="drones" />
+            </TitledPane>
+
+            <HBox spacing="2">
+                <Button fx:id="add" text="Add..." /><Button fx:id="delete" text="Remove" /><Button fx:id="center" text="Center"/>
+            </HBox>
+            <TitledPane text="Log">
+                <ListView fx:id="log" />
+            </TitledPane>
+        </VBox>
+    </right>
+</BorderPane>
