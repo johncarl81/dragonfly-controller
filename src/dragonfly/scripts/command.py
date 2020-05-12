@@ -6,6 +6,7 @@ from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import CommandCode
+from dragonfly_messages.srv import Lawnmower, LawnmowerResponse
 
 def calculateLatitude(latitude, offset):
     return latitude + (offset * 0.00000898)
@@ -53,6 +54,10 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
             waypoint = createWaypoint(latitude, longitude, altitude, CommandCode.NAV_WAYPOINT)
             waypoints.append(waypoint)
     waypoints.append(start)
+    return waypoints
+
+def buildLawnmowerWaypoints(altitude, boundary, steplegnth):
+    waypoints = []
     return waypoints
 
 class DragonflyCommand:
@@ -206,6 +211,35 @@ class DragonflyCommand:
 
         return TriggerResponse(success=True, message="Commanded {} to ddsa.".format(self.id))
 
+    def lawnmower(self, operation):
+        print "Commanded to lawnmower"
+
+        def updatePosition(position):
+            position_update.unregister()
+            print "Position: ", position.latitude, " ", position.longitude
+
+            rospy.rostime.wallsleep(0.5)
+
+            waypoints = buildLawnmowerWaypoints(operation.altitude, operation.boundary, operation.steplength)
+
+            for waypoint in waypoints:
+                rospy.rostime.wallsleep(10)
+
+                goalPos = PoseStamped()
+                goalPos.pose.position.x = waypoint.x_lat
+                goalPos.pose.position.y = waypoint.y_long
+                goalPos.pose.position.z = 5
+
+                print "Going to: ", goalPos
+
+                print self.local_setposition_publisher.publish(goalPos)
+
+                print "Commanded"
+
+        position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
+
+        return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
+
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id))
 
@@ -227,6 +261,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/rtl".format(self.id), Trigger, self.rtl)
         rospy.Service("/{}/command/goto".format(self.id), Trigger, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), Trigger, self.ddsa)
+        rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/hello".format(self.id), Trigger, self.hello)
 
         print "Setup complete"

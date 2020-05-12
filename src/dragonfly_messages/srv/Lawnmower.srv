@@ -1,0 +1,6 @@
+sensor_msgs/NavSatFix[] boundary
+float32 steplength
+float32 altitude
+---
+int8 success
+string message
