@@ -1,5 +1,5 @@
 #! /usr/bin/env python
-import rospy, time, argparse, math, std_msgs
+import rospy, time, argparse, math, std_msgs, pulp
 from std_srvs.srv import Trigger, TriggerResponse
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
@@ -63,8 +63,66 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
     waypoints.append(start)
     return waypoints
 
+def linearXRange(points, setY, type):
+
+    problem = pulp.LpProblem('range', type)
+
+    x = pulp.LpVariable('x', cat='Continuous')
+    y = pulp.LpVariable('y', cat='Continuous')
+
+    # Objective function
+    problem += x
+
+    def buildLineEquation(index1, index2):
+        a = -(points[index2][1] - points[index1][1])
+        b = points[index2][0] - points[index1][0]
+        c = (a * points[index1][0]) + (b * points[index1][1])
+        # print '(', a, 'x+',b,'y >=',c,'),'
+        return (a * x) + (b * y) >= c
+
+    for i in range(1, len(points)):
+        problem +=buildLineEquation(i-1, i)
+
+    problem += buildLineEquation(len(points)-1, 0)
+
+    problem += y == setY
+
+    # print problem
+    pulp.GLPK_CMD(msg=0).solve(problem)
+
+    return x.value()
+
+def linearYRange(points, type):
+
+    problem = pulp.LpProblem('range', type)
+
+    x = pulp.LpVariable('x', cat='Continuous')
+    y = pulp.LpVariable('y', cat='Continuous')
+
+    # Objective function
+    problem += y
+
+    def buildLineEquation(index1, index2):
+        a = -(points[index2][1] - points[index1][1])
+        b = points[index2][0] - points[index1][0]
+        c = (a * points[index1][0]) + (b * points[index1][1])
+        # print '(', a, 'x+',b,'y >=',c,'),'
+        return (a * x) + (b * y) >= c
+
+    for i in range(1, len(points)):
+        problem +=buildLineEquation(i-1, i)
+
+    problem += buildLineEquation(len(points)-1, 0)
+
+    # print problem
+    pulp.GLPK_CMD(msg=0).solve(problem)
+
+    return y.value()
+
 def buildLawnmowerWaypoints(altitude, position, boundary, steplegnth):
     boundary_meters = []
+
+    waypoints = []
 
     for waypoint in boundary:
 
@@ -73,12 +131,40 @@ def buildLawnmowerWaypoints(altitude, position, boundary, steplegnth):
         goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
         goalPos.pose.position.z = altitude
 
-        goalPos.pose.position.x = (position.longitude - waypoint.longitude) * 111358 * math.cos(position.longitude * 0.01745)
-        goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
+        waypoints.append(goalPos)
 
-        boundary_meters.append(goalPos)
+        boundary_meters.append((goalPos.pose.position.x, goalPos.pose.position.y))
 
-    return boundary_meters
+
+    # Get minimum in Y dimension
+    miny = linearYRange(boundary_meters, pulp.LpMinimize)
+    # Get maximum in Y dimension
+    maxy = linearYRange(boundary_meters, pulp.LpMaximize)
+
+
+    print "miny:{} maxy:{} ".format(miny, maxy)
+
+    for y in range(int(miny), int(maxy), 2):
+        minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
+        maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
+        print "minx:{} maxx:{} ".format(minx, maxx)
+        for x in range(int(minx), int(maxx), 1):
+            goalPos = PoseStamped()
+            goalPos.pose.position.x = x
+            goalPos.pose.position.y = y
+            goalPos.pose.position.z = altitude
+            waypoints.append(goalPos)
+        minx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMinimize)
+        maxx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMaximize)
+        print "minx:{} maxx:{} ".format(minx, maxx)
+        for x in range(int(maxx), int(minx), -1):
+            goalPos = PoseStamped()
+            goalPos.pose.position.x = x
+            goalPos.pose.position.y = y + 1
+            goalPos.pose.position.z = altitude
+            waypoints.append(goalPos)
+
+    return waypoints
 
 class DragonflyCommand:
 
@@ -243,6 +329,7 @@ class DragonflyCommand:
 
             waypoints = buildLawnmowerWaypoints(operation.altitude, position, operation.boundary, operation.steplength)
 
+            print len(waypoints)
             for waypoint in waypoints:
 
                 # header = std_msgs.msg.Header()
@@ -259,15 +346,16 @@ class DragonflyCommand:
                 #
                 # print self.global_setpoint_publisher.publish(goalPos)
 
-                print "Going to: ", waypoint
+                #print "Going to: ", waypoint
 
-                print self.local_setposition_publisher.publish(waypoint)
+                self.local_setposition_publisher.publish(waypoint)
 
-                print "Commanded"
+                #print "Commanded"
 
                 while(distance(waypoint.pose.position, self.position) > 1) :
-                    print "Distance to point: ", distance(waypoint.pose.position, self.position)
+                    #print "Distance to point: ", distance(waypoint.pose.position, self.position)
                     rospy.rostime.wallsleep(1)
+                print "{}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
                 #rospy.rostime.wallsleep(10)
 
             goalPos = PoseStamped()
