@@ -321,6 +321,17 @@ class DragonflyCommand:
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
 
+        zeroPoint = PoseStamped()
+        zeroPoint.pose.position.x = 0
+        zeroPoint.pose.position.y = 0
+        zeroPoint.pose.position.z = operation.altitude
+
+        self.local_setposition_publisher.publish(zeroPoint)
+        while(distance(zeroPoint.pose.position, self.position) > 1) :
+            rospy.rostime.wallsleep(1)
+
+        print "Zero position"
+
         def updatePosition(position):
             position_update.unregister()
             print "Position: ", position.latitude, " ", position.longitude
