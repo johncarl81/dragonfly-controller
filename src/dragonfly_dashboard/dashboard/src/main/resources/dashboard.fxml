@@ -9,9 +9,15 @@
 <?import javafx.scene.layout.HBox?>
 <?import javafx.scene.layout.VBox?>
 
+<?import javafx.scene.control.TextField?>
+<?import javafx.scene.layout.StackPane?>
 <BorderPane maxHeight="-Infinity" maxWidth="-Infinity" minHeight="-Infinity" minWidth="-Infinity" prefHeight="400.0" prefWidth="600.0" xmlns="http://javafx.com/javafx/11.0.1" xmlns:fx="http://javafx.com/fxml/1" fx:controller="edu.unm.dragonfly.DashboardController">
     <center>
-        <SceneView fx:id="sceneView"/>
+        <StackPane>
+            <SceneView fx:id="sceneView"/>
+            <TextField fx:id="coordinates" visible="false" prefWidth="200.0"             alignment="BOTTOM_LEFT"/>
+            <Button fx:id="select" text="Select Bounds"/>
+        </StackPane>
     </center>
     <right>
         <VBox>
@@ -20,7 +26,10 @@
             </TitledPane>
 
             <HBox spacing="2">
-                <Button fx:id="add" text="Add..." /><Button fx:id="delete" text="Remove" /><Button fx:id="center" text="Center"/>
+                <Button fx:id="add" text="Add..." />
+                <Button fx:id="delete" text="Remove" />
+                <Button fx:id="center" text="Center"/>
+                <Button fx:id="send" text="Send Bounds"/>
             </HBox>
             <TitledPane text="Log">
                 <ListView fx:id="log" />

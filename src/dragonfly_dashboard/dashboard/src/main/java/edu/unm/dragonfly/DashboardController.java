@@ -1,6 +1,9 @@
 package edu.unm.dragonfly;
 
+import com.esri.arcgisruntime.concurrent.ListenableFuture;
 import com.esri.arcgisruntime.geometry.Point;
+import com.esri.arcgisruntime.geometry.PointCollection;
+import com.esri.arcgisruntime.geometry.Polygon;
 import com.esri.arcgisruntime.mapping.ArcGISScene;
 import com.esri.arcgisruntime.mapping.ArcGISTiledElevationSource;
 import com.esri.arcgisruntime.mapping.Basemap;
@@ -9,11 +12,7 @@ import com.esri.arcgisruntime.mapping.view.Camera;
 import com.esri.arcgisruntime.mapping.view.Graphic;
 import com.esri.arcgisruntime.mapping.view.GraphicsOverlay;
 import com.esri.arcgisruntime.mapping.view.SceneView;
-import com.esri.arcgisruntime.symbology.CompositeSymbol;
-import com.esri.arcgisruntime.symbology.SceneSymbol;
-import com.esri.arcgisruntime.symbology.SimpleMarkerSceneSymbol;
-import com.esri.arcgisruntime.symbology.TextSymbol;
-import com.sun.tools.javac.util.List;
+import com.esri.arcgisruntime.symbology.*;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
@@ -25,23 +24,26 @@ import javafx.collections.ObservableList;
 import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
-import javafx.scene.control.Button;
-import javafx.scene.control.ListView;
-import javafx.scene.control.TextInputDialog;
+import javafx.geometry.Point2D;
+import javafx.scene.control.*;
+import javafx.scene.input.MouseEvent;
+import org.ros.exception.ServiceNotFoundException;
 import org.ros.node.ConnectedNode;
 import sensor_msgs.NavSatFix;
 
 import javax.inject.Inject;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
-import java.util.Date;
-import java.util.Optional;
+import java.util.*;
+import java.util.concurrent.ExecutionException;
 
 public class DashboardController {
 
     private static final DateFormat DATE_FORMAT = new SimpleDateFormat("hh:mm:ss");
     private static final String ELEVATION_IMAGE_SERVICE =
             "https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
+    private static final int ALPHA_RED = 0x33FF0000;
+    private static final int RED = 0xFFFF0000;
 
     @FXML
     private SceneView sceneView;
@@ -55,10 +57,19 @@ public class DashboardController {
     private ListView<Drone> drones;
     @FXML
     private ListView<String> log;
+    @FXML
+    private TextField coordinates;
+    @FXML
+    private Button select;
+    @FXML
+    private Button send;
 
     private final ObservableList<Drone> droneList = FXCollections.observableArrayList();
     private final ObservableList<String> logList = FXCollections.observableArrayList();
     private final GraphicsOverlay droneOverlay = new GraphicsOverlay();
+    private final GraphicsOverlay boundaryOverlay = new GraphicsOverlay();
+    private final List<Point> boundaryPoints = new ArrayList<Point>();
+    private boolean selectPoints = false;
 
     @Inject
     private ConnectedNode node;
@@ -71,7 +82,81 @@ public class DashboardController {
         sceneView.setArcGISScene(scene);
 
         sceneView.getGraphicsOverlays().add(droneOverlay);
+        sceneView.getGraphicsOverlays().add(boundaryOverlay);
 
+        sceneView.setOnMouseMoved(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                Point2D point2D = new Point2D(event.getX(), event.getY());
+
+                // get the scene location from the screen position
+                ListenableFuture<Point> pointFuture = sceneView.screenToLocationAsync(point2D);
+                pointFuture.addDoneListener(() -> {
+                    try {
+                        Point point = pointFuture.get();
+                        // update the target location
+                        //coordinates.setVisible(true);
+                        //coordinates.setText("Lat: " + point.getY() + " Lon: " + point.getX());
+
+                    } catch (InterruptedException | ExecutionException e) {
+                        e.printStackTrace();
+                    }
+                });
+            }
+        });
+
+        sceneView.setOnMouseClicked(new EventHandler<MouseEvent>() {
+            @Override
+            public void handle(MouseEvent event) {
+                if(selectPoints) {
+                    Point2D point2D = new Point2D(event.getX(), event.getY());
+
+                    // get the scene location from the screen position
+                    ListenableFuture<Point> pointFuture = sceneView.screenToLocationAsync(point2D);
+                    pointFuture.addDoneListener(() -> {
+                        try {
+                            Point point = pointFuture.get();
+
+                            boundaryPoints.add(point);
+
+                            boundaryOverlay.getGraphics().clear();
+
+                            Graphic boudaryGraphic;
+                            if(boundaryPoints.size() == 1) {
+                                SimpleMarkerSymbol markerSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, RED, 1);
+                                boudaryGraphic = new Graphic(new Point(boundaryPoints.get(0).getX(), boundaryPoints.get(0).getY()), markerSymbol);
+                            } else if(boundaryPoints.size() == 2) {
+                                SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, RED, 1);
+                                boudaryGraphic = new Graphic(new Point(boundaryPoints.get(0).getX(), boundaryPoints.get(0).getY()), lineSymbol);
+                            } else {
+                                PointCollection polygonPoints = new PointCollection(boundaryPoints);
+                                SimpleFillSymbol polygonSynbol = new SimpleFillSymbol(SimpleFillSymbol.Style.SOLID, ALPHA_RED, new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, RED, .1f));
+                                boudaryGraphic = new Graphic(new Polygon(polygonPoints), polygonSynbol);
+                            }
+                            boundaryOverlay.getGraphics().add(boudaryGraphic);
+
+
+                        } catch (InterruptedException | ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                    });
+                }
+            }
+        });
+
+        sceneView.setOnMouseExited(event -> coordinates.setVisible(false));
+
+        select.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                if(selectPoints) {
+                    boundaryOverlay.getGraphics().clear();
+                    boundaryPoints.clear();
+
+                }
+                selectPoints = !selectPoints;
+            }
+        });
 
         // add base surface for elevation data
         Surface surface = new Surface();
@@ -114,12 +199,27 @@ public class DashboardController {
             }
         });
 
+        send.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                if(!boundaryPoints.isEmpty()) {
+                    try {
+                        drones.getSelectionModel().getSelectedItem().send(boundaryPoints);
+                    } catch (ServiceNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                }
+                drones.getSelectionModel().clearSelection();
+            }
+        });
+
         drones.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Drone>() {
             @Override
             public void changed(ObservableValue observable, Drone oldValue, Drone newValue) {
                 boolean selected = newValue != null;
                 delete.setDisable(!selected);
                 center.setDisable(!selected);
+                send.setDisable(!selected);
             }
         });
 
@@ -146,9 +246,13 @@ public class DashboardController {
 
     private void addDrone(String name) {
 
-        Drone drone = new Drone(name);
+        Drone drone = new Drone(node, name);
 
-        drone.init(node);
+        try {
+            drone.init();
+        } catch (ServiceNotFoundException e) {
+            e.printStackTrace();
+        }
 
         drone.getPositions()
                 .observeOn(JavaFxScheduler.platform())
@@ -164,7 +268,7 @@ public class DashboardController {
                             SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
                             TextSymbol nameText = new TextSymbol(10, name, 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
                             nameText.setOffsetX(25);
-                            droneGraphic = new Graphic(point, new CompositeSymbol(List.of(symbol, nameText)));
+                            droneGraphic = new Graphic(point, new CompositeSymbol(Arrays.asList(symbol, nameText)));
                             droneOverlay.getGraphics().add(droneGraphic);
                         } else {
                             droneGraphic.setGeometry(point);

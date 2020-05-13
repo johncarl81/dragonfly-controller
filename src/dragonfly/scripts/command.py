@@ -1,12 +1,19 @@
 #! /usr/bin/env python
-import rospy, time, argparse, math
+import rospy, time, argparse, math, std_msgs
 from std_srvs.srv import Trigger, TriggerResponse
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import CommandCode
+from mavros_msgs.msg import CommandCode, GlobalPositionTarget
 from dragonfly_messages.srv import Lawnmower, LawnmowerResponse
+
+def distance(position1, position2):
+    x = position1.x - position2.x
+    y = position1.y - position2.y
+    z = position1.z - position2.z
+
+    return math.sqrt((x * x) + (y * y) + (z * z))
 
 def calculateLatitude(latitude, offset):
     return latitude + (offset * 0.00000898)
@@ -56,9 +63,22 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
     waypoints.append(start)
     return waypoints
 
-def buildLawnmowerWaypoints(altitude, boundary, steplegnth):
-    waypoints = []
-    return waypoints
+def buildLawnmowerWaypoints(altitude, position, boundary, steplegnth):
+    boundary_meters = []
+
+    for waypoint in boundary:
+
+        goalPos = PoseStamped()
+        goalPos.pose.position.x = (position.longitude - waypoint.longitude) * 111358 * math.cos(position.longitude * 0.01745)
+        goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
+        goalPos.pose.position.z = altitude
+
+        goalPos.pose.position.x = (position.longitude - waypoint.longitude) * 111358 * math.cos(position.longitude * 0.01745)
+        goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
+
+        boundary_meters.append(goalPos)
+
+    return boundary_meters
 
 class DragonflyCommand:
 
@@ -211,6 +231,7 @@ class DragonflyCommand:
 
         return TriggerResponse(success=True, message="Commanded {} to ddsa.".format(self.id))
 
+
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
 
@@ -218,27 +239,52 @@ class DragonflyCommand:
             position_update.unregister()
             print "Position: ", position.latitude, " ", position.longitude
 
-            rospy.rostime.wallsleep(0.5)
+            #rospy.rostime.wallsleep(0.5)
 
-            waypoints = buildLawnmowerWaypoints(operation.altitude, operation.boundary, operation.steplength)
+            waypoints = buildLawnmowerWaypoints(operation.altitude, position, operation.boundary, operation.steplength)
 
             for waypoint in waypoints:
-                rospy.rostime.wallsleep(10)
 
-                goalPos = PoseStamped()
-                goalPos.pose.position.x = waypoint.x_lat
-                goalPos.pose.position.y = waypoint.y_long
-                goalPos.pose.position.z = 5
+                # header = std_msgs.msg.Header()
+                # header.stamp = rospy.Time.now()
+                #
+                # goalPos = GlobalPositionTarget()
+                # goalPos.header = header
+                #
+                # goalPos.latitude = waypoint.latitude
+                # goalPos.longitude = waypoint.longitude
+                # goalPos.altitude = operation.altitude
+                #
+                # print "Going to: ", goalPos
+                #
+                # print self.global_setpoint_publisher.publish(goalPos)
 
-                print "Going to: ", goalPos
+                print "Going to: ", waypoint
 
-                print self.local_setposition_publisher.publish(goalPos)
+                print self.local_setposition_publisher.publish(waypoint)
 
                 print "Commanded"
+
+                while(distance(waypoint.pose.position, self.position) > 1) :
+                    print "Distance to point: ", distance(waypoint.pose.position, self.position)
+                    rospy.rostime.wallsleep(1)
+                #rospy.rostime.wallsleep(10)
+
+            goalPos = PoseStamped()
+            goalPos.pose.position.x = 0
+            goalPos.pose.position.y = 0
+            goalPos.pose.position.z = operation.altitude
+
+            print "Going to: ", goalPos
+
+            print self.local_setposition_publisher.publish(goalPos)
 
         position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
 
         return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
+
+    def position(self, data):
+        self.position = data.pose.position
 
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id))
@@ -253,6 +299,10 @@ class DragonflyCommand:
         self.takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(self.id), CommandTOL)
         self.land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(self.id), CommandTOL)
         self.local_setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(self.id), PoseStamped, queue_size=1)
+        self.global_setpoint_publisher = rospy.Publisher("{}/mavros/setpoint_position/global".format(self.id), GlobalPositionTarget, queue_size=1)
+
+        rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.position)
+
 
 
         rospy.Service("/{}/command/arm".format(self.id), Trigger, self.armcommand)

@@ -39,6 +39,7 @@ dependencies {
   compile 'org.ros.rosjava_messages:geometry_msgs:1.12.7'
   compile 'org.ros.rosjava_messages:sensor_msgs:1.12.7'
   compile 'org.ros.rosjava_messages:mavros:0.8.5'
+  compile 'org.ros.rosjava_messages:std_srvs:1.9.50'
 
   compile "com.esri.arcgisruntime:arcgis-java:$arcgisVersion"
   natives "com.esri.arcgisruntime:arcgis-java-jnilibs:$arcgisVersion"
@@ -48,6 +49,8 @@ dependencies {
 
   implementation 'io.reactivex.rxjava2:rxjava:2.2.19'
   implementation 'io.reactivex.rxjava2:rxjavafx:2.2.2'
+
+  compile 'org.ros.rosjava_messages:dragonfly_messages:0.0.1'
 }
 
 task copyNatives(type: Copy) {
