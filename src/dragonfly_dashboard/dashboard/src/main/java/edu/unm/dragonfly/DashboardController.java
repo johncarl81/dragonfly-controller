@@ -20,11 +20,13 @@ import javafx.event.ActionEvent;
 import javafx.event.EventHandler;
 import javafx.fxml.FXML;
 import javafx.geometry.Point2D;
-import javafx.scene.control.*;
+import javafx.scene.control.Button;
+import javafx.scene.control.ListView;
+import javafx.scene.control.TextField;
+import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.MouseEvent;
 import org.ros.exception.ServiceNotFoundException;
 import org.ros.node.ConnectedNode;
-import sensor_msgs.NavSatFix;
 
 import javax.inject.Inject;
 import java.text.DateFormat;
@@ -92,7 +94,7 @@ public class DashboardController {
         sceneView.setArcGISScene(scene);
 
         sceneView.getGraphicsOverlays().add(droneOverlay);
-        droneOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.ABSOLUTE);
+        droneOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE_TO_SCENE);
         sceneView.getGraphicsOverlays().add(droneShadowOverlay);
         droneShadowOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
         sceneView.getGraphicsOverlays().add(boundaryOverlay);
@@ -262,10 +264,10 @@ public class DashboardController {
     private void centerDrone(Drone drone) {
          drone.getLatestPosition()
                  .observeOn(JavaFxScheduler.platform())
-                 .subscribe(new Consumer<NavSatFix>() {
+                 .subscribe(new Consumer<Drone.LatLonRelativeAltitude>() {
                      @Override
-                     public void accept(NavSatFix position) {
-                         Camera camera = new Camera(position.getLatitude(), position.getLongitude(), 0, 0, 0, 0);
+                     public void accept(Drone.LatLonRelativeAltitude position) {
+                         Camera camera = new Camera(position.getLatitude(), position.getLongitude(), 10, 0, 0, 0);
                          sceneView.setViewpointCameraAsync(camera);
                      }
                  });
@@ -289,15 +291,15 @@ public class DashboardController {
 
         drone.getPositions()
                 .observeOn(JavaFxScheduler.platform())
-                .subscribe(new Observer<NavSatFix>() {
+                .subscribe(new Observer<Drone.LatLonRelativeAltitude>() {
                     private Graphic droneGraphic;
                     private Graphic droneShadowGraphic;
                     @Override
                     public void onSubscribe(Disposable d) {}
 
                     @Override
-                    public void onNext(NavSatFix navSatFix) {
-                        Point point = new Point(navSatFix.getLongitude(), navSatFix.getLatitude(), navSatFix.getAltitude());
+                    public void onNext(Drone.LatLonRelativeAltitude navSatFix) {
+                        Point point = new Point(navSatFix.getLongitude(), navSatFix.getLatitude(), navSatFix.getRelativeAltitude());
                         if (droneGraphic == null) {
                             SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
                             TextSymbol nameText = new TextSymbol(10, name, 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
