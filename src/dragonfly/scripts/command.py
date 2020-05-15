@@ -329,9 +329,9 @@ class DragonflyCommand:
     def ddsa(self, operation):
         print "Commanded to ddsa"
 
-        self.setmode("GUIDED")
+        self.setmode('GUIDED')
 
-        print "Position: ", self.localposition.x, " ", self.localposition.y
+        print "Position: ", self.localposition.x, " ", self.localposition.y, " ", self.localposition.z
 
         waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 5, self.swarmsize, self.index, 5, 1)
 
@@ -339,7 +339,7 @@ class DragonflyCommand:
             goalPos = PoseStamped()
             goalPos.pose.position.x = waypoint.x_lat
             goalPos.pose.position.y = waypoint.y_long
-            goalPos.pose.position.z = 5
+            goalPos.pose.position.z = waypoint.z_alt
 
             print "Going to: ", goalPos
 
@@ -366,8 +366,10 @@ class DragonflyCommand:
         zeroPoint.pose.position.y = 0
         zeroPoint.pose.position.z = self.localposition.z
 
+        print "Going to zero: "
         self.local_setposition_publisher.publish(zeroPoint)
         while(distance(zeroPoint.pose.position, self.localposition) > 1) :
+            print "Distance to point: ", distance(zeroPoint.pose.position, self.localposition)
             rospy.rostime.wallsleep(1)
 
         print "Zero position"
@@ -439,7 +441,7 @@ class DragonflyCommand:
         self.takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(self.id), CommandTOL)
         self.land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(self.id), CommandTOL)
         self.local_setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(self.id), PoseStamped, queue_size=1)
-        self.global_setpoint_publisher = rospy.Publisher("{}/mavros/setpoint_position/global".format(self.id), GlobalPositionTarget, queue_size=1)
+        # self.global_setpoint_publisher = rospy.Publisher("{}/mavros/setpoint_position/global".format(self.id), GlobalPositionTarget, queue_size=1)
 
         # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position)
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position)
