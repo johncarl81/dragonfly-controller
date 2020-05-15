@@ -57,7 +57,9 @@ public class DashboardController {
     @FXML
     private Button select;
     @FXML
-    private Button send;
+    private Button lawnmower;
+    @FXML
+    private Button ddsa;
 
     private final ObservableList<Drone> droneList = FXCollections.observableArrayList();
     private final ObservableList<String> logList = FXCollections.observableArrayList();
@@ -162,7 +164,7 @@ public class DashboardController {
             public void handle(ActionEvent event) {
                 if(mode == CoordianteSelectionMode.SELECT) {
                     mode = CoordianteSelectionMode.FINISHED;
-                    send.setDisable(!(!drones.getSelectionModel().isEmpty() && !boundaryPoints.isEmpty()));
+                    lawnmower.setDisable(!(!drones.getSelectionModel().isEmpty() && !boundaryPoints.isEmpty()));
                 } else if (mode == CoordianteSelectionMode.FINISHED) {
                     mode = CoordianteSelectionMode.CLEAR;
                     boundaryOverlay.getGraphics().clear();
@@ -184,7 +186,8 @@ public class DashboardController {
 
         delete.setDisable(true);
         center.setDisable(true);
-        send.setDisable(true);
+        lawnmower.setDisable(true);
+        ddsa.setDisable(true);
 
         add.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -216,15 +219,27 @@ public class DashboardController {
             }
         });
 
-        send.setOnAction(new EventHandler<ActionEvent>() {
+        lawnmower.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
                     try {
-                        drones.getSelectionModel().getSelectedItem().send(boundaryPoints);
+                        drones.getSelectionModel().getSelectedItem().lawnmower(boundaryPoints);
                     } catch (ServiceNotFoundException e) {
                         e.printStackTrace();
                     }
+                }
+                drones.getSelectionModel().clearSelection();
+            }
+        });
+
+        ddsa.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                try {
+                    drones.getSelectionModel().getSelectedItem().ddsa();
+                } catch (ServiceNotFoundException e) {
+                    e.printStackTrace();
                 }
                 drones.getSelectionModel().clearSelection();
             }
@@ -236,7 +251,8 @@ public class DashboardController {
                 boolean selected = newValue != null;
                 delete.setDisable(!selected);
                 center.setDisable(!selected);
-                send.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
+                lawnmower.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
+                ddsa.setDisable(!selected);
             }
         });
 

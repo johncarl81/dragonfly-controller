@@ -15,7 +15,7 @@ import org.ros.node.service.ServiceClient;
 import org.ros.node.service.ServiceResponseListener;
 import org.ros.node.topic.Subscriber;
 import sensor_msgs.NavSatFix;
-import std_srvs.Empty;
+import std_srvs.EmptyRequest;
 import std_srvs.EmptyResponse;
 
 import java.util.List;
@@ -43,7 +43,7 @@ public class Drone {
         });
     }
 
-    public void send(List<Point> points) throws ServiceNotFoundException {
+    public void lawnmower(List<Point> points) throws ServiceNotFoundException {
         ServiceClient<LawnmowerRequest, LawnmowerResponse> client = node.newServiceClient(name + "/command/lawnmower", Lawnmower._TYPE);
         LawnmowerRequest request = client.newMessage();
 
@@ -72,9 +72,9 @@ public class Drone {
 
     }
 
-    public void sendDDSA() throws ServiceNotFoundException {
-        ServiceClient<Empty, EmptyResponse> client = node.newServiceClient(name + "/command/ddsa", Empty._TYPE);
-        Empty request = client.newMessage();
+    public void ddsa() throws ServiceNotFoundException {
+        ServiceClient<Object, EmptyResponse> client = node.newServiceClient(name + "/command/ddsa", EmptyRequest._TYPE);
+        Object request = client.newMessage();
         client.call(request, new ServiceResponseListener<EmptyResponse>() {
             @Override
             public void onSuccess(EmptyResponse response) {

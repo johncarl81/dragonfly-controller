@@ -34,7 +34,8 @@
                 <Button fx:id="add" text="Add..." />
                 <Button fx:id="delete" text="Remove" />
                 <Button fx:id="center" text="Center"/>
-                <Button fx:id="send" text="Send Bounds"/>
+                <Button fx:id="lawnmower" text="Lawnmower"/>
+                <Button fx:id="ddsa" text="DDSA"/>
             </HBox>
             <TitledPane text="Log">
                 <ListView fx:id="log" />
