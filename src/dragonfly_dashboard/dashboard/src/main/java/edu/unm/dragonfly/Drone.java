@@ -125,7 +125,9 @@ public class Drone {
 
     public void shutdown() {
         subscriber.shutdown();
+        localPositionSubscriber.shutdown();
         position.onComplete();
+        localPosition.onComplete();
     }
 
     public static class LatLonRelativeAltitude {
