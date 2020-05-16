@@ -22,6 +22,6 @@ rosrun dragonfly co2publisher.py $1 &
 P4=$!
 rosrun dragonfly logger.py $1 >> logs/run.log &
 P5=$!
-rosrun dragonfly command.py $1 1 0 >> logs/command.log &
+rosrun dragonfly command.py $1 >> logs/command.log &
 P6=$!
 wait $P1 $P2 $P3 $P4 $P5 $P6

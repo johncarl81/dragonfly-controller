@@ -62,12 +62,19 @@ def build3DDDSAWaypoints(centerx, centery, altitude, stacks, size, index, loops,
     return waypoints
 
 
+def buildWaypoint(centerx, centery, xoffset, yoffset, altitude):
+    return createWaypoint(centerx + xoffset, centery + yoffset, altitude, CommandCode.NAV_WAYPOINT)
+
+
+
 def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
 
     waypoints = []
     start = createWaypoint(centerx, centery, altitude, CommandCode.NAV_WAYPOINT)
     start.is_current = 1
     waypoints.append(start)
+    previousxoffset = 0
+    previousyoffset = 0
     for loop in range(0, loops):
         for corner in range(0, 4):
 
@@ -84,11 +91,20 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
                 if (corner == 2 or corner == 3):
                     yoffset = -yoffset
 
-            latitude = centerx + (xoffset * radius)
-            longitude = centery + (yoffset * radius)
-            waypoint = createWaypoint(latitude, longitude, altitude, CommandCode.NAV_WAYPOINT)
-            waypoints.append(waypoint)
-    waypoints.append(start)
+            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset)
+
+            if(corner == 1 or corner == 3):
+                for x in range(previousxoffset, xoffset, 1 if xoffset > previousxoffset else -1):
+                    print "x {}. {}".format(x, yoffset)
+                    waypoints.append(buildWaypoint(centerx, centery, x * radius, yoffset * radius, altitude))
+            else:
+                for y in range(previousyoffset, yoffset, 1 if yoffset > previousyoffset else -1):
+                    print "y {}. {}".format(xoffset, y)
+                    waypoints.append(buildWaypoint(centerx, centery, xoffset * radius, y * radius, altitude))
+
+            previousxoffset = xoffset
+            previousyoffset = yoffset
+
     return waypoints
 
 def linearXRange(points, setY, type):
@@ -207,10 +223,8 @@ def buildLawnmowerWaypoints(altitude, position, boundary, steplegnth):
 
 class DragonflyCommand:
 
-    def __init__(self, id, index, swarmsize):
+    def __init__(self, id):
         self.id = id
-        self.index = index
-        self.swarmsize = swarmsize
 
     def setmode(self, mode):
         print "Set Mode ", mode
@@ -333,7 +347,7 @@ class DragonflyCommand:
 
         print "Position: ", self.localposition.x, " ", self.localposition.y, " ", self.localposition.z
 
-        waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 5, self.swarmsize, self.index, 5, 1)
+        waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 1, 1, 0, 5, 1.0)
 
         for waypoint in waypoints:
             goalPos = PoseStamped()
@@ -341,11 +355,9 @@ class DragonflyCommand:
             goalPos.pose.position.y = waypoint.y_long
             goalPos.pose.position.z = waypoint.z_alt
 
-            print "Going to: ", goalPos
+            print "going to: {}, {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y, goalPos.pose.position.z)
 
-            print self.local_setposition_publisher.publish(goalPos)
-
-            print "Commanded"
+            self.local_setposition_publisher.publish(goalPos)
 
             print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
             while(distance(goalPos.pose.position, self.localposition) > 1) :
@@ -390,9 +402,10 @@ class DragonflyCommand:
 
                 self.local_setposition_publisher.publish(goalPos)
 
-                print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
+                print "going to: {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y)
+                # print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
                 while(distance(goalPos.pose.position, self.localposition) > 1) :
-                    print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
+                    # print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
                     rospy.rostime.wallsleep(1)
 
             waypoints = build3DLawnmowerWaypoints(operation.altitude, position, 5, operation.boundary, operation.steplength)
@@ -466,11 +479,11 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Drone command service.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     # parser.add_argument('alt', type=int, help='Altitude to fly.')
-    parser.add_argument('index', type=int, help='Index in swarm.')
-    parser.add_argument('size', type=int, help='Swarm size.')
+    # parser.add_argument('index', type=int, help='Index in swarm.')
+    # parser.add_argument('size', type=int, help='Swarm size.')
     args = parser.parse_args()
 
-    command = DragonflyCommand(args.id, args.index, args.size)
+    command = DragonflyCommand(args.id)
 
     command.setup()
 
