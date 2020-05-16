@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import rospy, time, argparse, math, std_msgs, pulp
 from std_srvs.srv import Empty, EmptyResponse
+from std_msgs.msg import String
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
@@ -349,6 +350,7 @@ class DragonflyCommand:
 
         waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 1, 1, 0, 5, 1.0)
 
+        i = 0
         for waypoint in waypoints:
             goalPos = PoseStamped()
             goalPos.pose.position.x = waypoint.x_lat
@@ -360,10 +362,12 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(goalPos)
 
             print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
-            while(distance(goalPos.pose.position, self.localposition) > 1) :
+            while(distance(goalPos.pose.position, self.localposition) > 1 or self.zeroing) :
                 print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
+            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, goalPos.pose.position.x, goalPos.pose.position.y, goalPos.pose.position.z))
             rospy.rostime.wallsleep(3)
+            i = i+1
 
         return EmptyResponse()
 
@@ -411,15 +415,19 @@ class DragonflyCommand:
             waypoints = build3DLawnmowerWaypoints(operation.altitude, position, 5, operation.boundary, operation.steplength)
 
             print len(waypoints)
+            i = 0
             for waypoint in waypoints:
                 self.local_setposition_publisher.publish(waypoint)
 
                 print "Commanded"
 
                 print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
-                while(distance(waypoint.pose.position, self.localposition) > 1) :
+                while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
                     print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                     rospy.rostime.wallsleep(1)
+                self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
+                rospy.rostime.wallsleep(3)
+                i = i+1
 
             goalPos = PoseStamped()
             goalPos.pose.position.x = 0
@@ -441,6 +449,14 @@ class DragonflyCommand:
     def localposition(self, data):
         self.localposition = data.pose.position
 
+    def co2Callback(self, data):
+        previous = self.zeroing
+        self.zeroing = data.data.startswith('W')
+        if self.zeroing and not previous:
+            self.logPublisher.publish('Zeroing')
+        elif not self.zeroing and previous:
+            self.logPublisher.publish('Finished zeroing')
+
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id))
 
@@ -459,8 +475,10 @@ class DragonflyCommand:
         # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position)
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position)
         rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.localposition)
+        rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
 
-
+        self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
+        self.zeroing = False
 
         rospy.Service("/{}/command/arm".format(self.id), Empty, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)

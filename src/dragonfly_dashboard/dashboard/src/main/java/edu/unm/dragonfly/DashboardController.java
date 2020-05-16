@@ -289,6 +289,10 @@ public class DashboardController {
             e.printStackTrace();
         }
 
+        drone.getLog()
+                .observeOn(JavaFxScheduler.platform())
+                .subscribe(message -> logList.add(name + ": " + message));
+
         drone.getPositions()
                 .observeOn(JavaFxScheduler.platform())
                 .subscribe(new Observer<Drone.LatLonRelativeAltitude>() {

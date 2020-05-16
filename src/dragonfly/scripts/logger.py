@@ -46,6 +46,9 @@ def co2Callback(data):
     else:
         print "{} cos: '{}' @ -".format(datetime.now(), data)
 
+def logCallback(data):
+    print "LOG: {}".format(data)
+
 def listener(id):
 
     # In ROS, nodes are uniquely named. If two nodes with the same
@@ -57,6 +60,7 @@ def listener(id):
 
     rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, callback)
     rospy.Subscriber("{}/co2".format(id), String, co2Callback)
+    rospy.Subscriber("{}/log".format(id), String, logCallback)
 
     s.enter(1, 1, updateLED, (s,))
     s.run()

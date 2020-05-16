@@ -8,9 +8,9 @@ import geometry_msgs.PoseStamped;
 import io.reactivex.Observable;
 import io.reactivex.functions.BiFunction;
 import io.reactivex.subjects.BehaviorSubject;
+import io.reactivex.subjects.PublishSubject;
 import org.ros.exception.RemoteException;
 import org.ros.exception.ServiceNotFoundException;
-import org.ros.message.MessageListener;
 import org.ros.node.ConnectedNode;
 import org.ros.node.NodeConfiguration;
 import org.ros.node.service.ServiceClient;
@@ -29,8 +29,10 @@ public class Drone {
     private final ConnectedNode node;
     private Subscriber<NavSatFix> subscriber;
     private Subscriber<PoseStamped> localPositionSubscriber;
+    private Subscriber<std_msgs.String> logSubscriber;
     private final BehaviorSubject<NavSatFix> position = BehaviorSubject.create();
     private final BehaviorSubject<PoseStamped> localPosition = BehaviorSubject.create();
+    private final PublishSubject<String> logSubject = PublishSubject.create();
     private final Observable<LatLonRelativeAltitude> relativeAltitudeObservable;
 
     public Drone(ConnectedNode node, String name) {
@@ -48,20 +50,13 @@ public class Drone {
     public void init() throws ServiceNotFoundException {
 
         subscriber = node.newSubscriber(name + "/mavros/global_position/global", NavSatFix._TYPE);
-        subscriber.addMessageListener(new MessageListener<NavSatFix>() {
-            @Override
-            public void onNewMessage(NavSatFix navSatFix) {
-                position.onNext(navSatFix);
-            }
-        });
+        subscriber.addMessageListener(navSatFix -> position.onNext(navSatFix));
 
         localPositionSubscriber = node.newSubscriber(name + "/mavros/local_position/pose", PoseStamped._TYPE);
-        localPositionSubscriber.addMessageListener(new MessageListener<PoseStamped>() {
-            @Override
-            public void onNewMessage(PoseStamped pose) {
-                localPosition.onNext(pose);
-            }
-        });
+        localPositionSubscriber.addMessageListener(pose -> localPosition.onNext(pose));
+
+        logSubscriber = node.newSubscriber(name + "/log", std_msgs.String._TYPE);
+        logSubscriber.addMessageListener(message -> logSubject.onNext(message.getData()));
     }
 
     public void lawnmower(List<Point> points) throws ServiceNotFoundException {
@@ -115,6 +110,10 @@ public class Drone {
         return name;
     }
 
+    public Observable<String> getLog() {
+        return logSubject;
+    }
+
     public Observable<LatLonRelativeAltitude> getLatestPosition() {
         return relativeAltitudeObservable.take(1);
     }
@@ -126,6 +125,7 @@ public class Drone {
     public void shutdown() {
         subscriber.shutdown();
         localPositionSubscriber.shutdown();
+        logSubscriber.shutdown();
         position.onComplete();
         localPosition.onComplete();
     }
