@@ -450,8 +450,10 @@ class DragonflyCommand:
         self.localposition = data.pose.position
 
     def co2Callback(self, data):
+        if data.data.startswith('W') or data.data.startswith('Z'):
+            self.sincezero = 0
         previous = self.zeroing
-        self.zeroing = data.data.startswith('W')
+        self.zeroing = self.sincezero < 4
         if self.zeroing and not previous:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:
