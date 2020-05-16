@@ -450,10 +450,11 @@ class DragonflyCommand:
         self.localposition = data.pose.position
 
     def co2Callback(self, data):
+        self.sincezero = self.sincezero + 1
         if data.data.startswith('W') or data.data.startswith('Z'):
             self.sincezero = 0
         previous = self.zeroing
-        self.zeroing = self.sincezero < 4
+        self.zeroing = self.sincezero < 6
         if self.zeroing and not previous:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:
@@ -481,6 +482,7 @@ class DragonflyCommand:
 
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
         self.zeroing = False
+        self.sincezero = 0
 
         rospy.Service("/{}/command/arm".format(self.id), Empty, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)
