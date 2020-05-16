@@ -291,7 +291,7 @@ public class DashboardController {
 
         drone.getLog()
                 .observeOn(JavaFxScheduler.platform())
-                .subscribe(message -> logList.add(name + ": " + message));
+                .subscribe(message -> log(name + ": " + message));
 
         drone.getPositions()
                 .observeOn(JavaFxScheduler.platform())
