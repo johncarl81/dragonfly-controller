@@ -16,37 +16,20 @@ def distance(position1, position2):
 
     return math.sqrt((x * x) + (y * y) + (z * z))
 
-def calculateLatitude(latitude, offset):
-    return latitude + (offset * 0.00000898)
-
-def calculateLongitude(latitude, longitude, offset):
-    return longitude + (offset * 0.00000898) / math.cos(latitude * 0.01745)
-
-def createWaypointLatLon(lat, lon, altitude, type):
-    waypoint = Waypoint()
-    waypoint.frame = Waypoint.FRAME_GLOBAL_REL_ALT
-    waypoint.command = type
-    waypoint.is_current = 0
-    waypoint.autocontinue = 0
-    waypoint.x_lat = lat
-    waypoint.y_long = lon
-    waypoint.z_alt = altitude
-    waypoint.param1 = 1
+def createWaypoint(x, y, altitude):
+    waypoint = PoseStamped()
+    waypoint.pose.position.x = x
+    waypoint.pose.position.y = y
+    waypoint.pose.position.z = altitude
 
     return waypoint
 
-def createWaypoint(x, y, altitude, type):
-    waypoint = Waypoint()
-    waypoint.frame = Waypoint.FRAME_GLOBAL_REL_ALT
-    waypoint.command = type
-    waypoint.is_current = 0
-    waypoint.autocontinue = 0
-    waypoint.x_lat = x
-    waypoint.y_long = y
-    waypoint.z_alt = altitude
-    waypoint.param1 = 1
-
-    return waypoint
+def buildGPSWaypoint(positionLon, positionLat, waypointLon, waypointLat, altitude):
+    return createWaypoint(
+        (positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745),
+        -(positionLat - waypointLat) * 111358,
+        altitude
+    )
 
 def build3DDDSAWaypoints(centerx, centery, altitude, stacks, size, index, loops, radius):
     waypoints = []
@@ -64,14 +47,12 @@ def build3DDDSAWaypoints(centerx, centery, altitude, stacks, size, index, loops,
 
 
 def buildWaypoint(centerx, centery, xoffset, yoffset, altitude):
-    return createWaypoint(centerx + xoffset, centery + yoffset, altitude, CommandCode.NAV_WAYPOINT)
-
-
+    return createWaypoint(centerx + xoffset, centery + yoffset, altitude)
 
 def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
 
     waypoints = []
-    start = createWaypoint(centerx, centery, altitude, CommandCode.NAV_WAYPOINT)
+    start = createWaypoint(centerx, centery, altitude)
     start.is_current = 1
     waypoints.append(start)
     previousxoffset = 0
@@ -346,28 +327,24 @@ class DragonflyCommand:
 
         self.setmode('GUIDED')
 
-        print "Position: ", self.localposition.x, " ", self.localposition.y, " ", self.localposition.z
+        print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
         waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 1, 1, 0, 5, 1.0)
 
         i = 0
         for waypoint in waypoints:
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = waypoint.x_lat
-            goalPos.pose.position.y = waypoint.y_long
-            goalPos.pose.position.z = waypoint.z_alt
+            print "going to: {}, {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z)
+            self.local_setposition_publisher.publish(waypoint)
 
-            print "going to: {}, {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y, goalPos.pose.position.z)
-
-            self.local_setposition_publisher.publish(goalPos)
-
-            print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
-            while(distance(goalPos.pose.position, self.localposition) > 1 or self.zeroing) :
-                print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
+            print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
+            while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+                print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
-            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, goalPos.pose.position.x, goalPos.pose.position.y, goalPos.pose.position.z))
+            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
             rospy.rostime.wallsleep(3)
             i = i+1
+
+        self.logPublisher.publish("DDSA Finished")
 
         return EmptyResponse()
 
@@ -377,68 +354,40 @@ class DragonflyCommand:
 
         self.setmode('GUIDED')
 
-        zeroPoint = PoseStamped()
-        zeroPoint.pose.position.x = 0
-        zeroPoint.pose.position.y = 0
-        zeroPoint.pose.position.z = self.localposition.z
+        print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        print "Going to zero: "
-        self.local_setposition_publisher.publish(zeroPoint)
-        while(distance(zeroPoint.pose.position, self.localposition) > 1) :
-            print "Distance to point: ", distance(zeroPoint.pose.position, self.localposition)
-            rospy.rostime.wallsleep(1)
+        print "Walking boundary"
 
-        print "Zero position"
+        position = self.position
 
-        def updatePosition(position):
-            position_update.unregister()
-            print "Position: ", position.latitude, " ", position.longitude
-
-            print "Walking boundary"
-
-            wrappedBoundary = operation.boundary
-            wrappedBoundary.append(operation.boundary[0])
-            for waypoint in wrappedBoundary:
-                goalPos = PoseStamped()
-                goalPos.pose.position.x = (position.longitude - waypoint.longitude) * 111358 * math.cos(position.longitude * 0.01745)
-                goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
-                goalPos.pose.position.z = self.localposition.z
-
-                self.local_setposition_publisher.publish(goalPos)
-
-                print "going to: {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y)
-                # print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
-                while(distance(goalPos.pose.position, self.localposition) > 1) :
-                    # print "Distance to point: ", distance(goalPos.pose.position, self.localposition)
-                    rospy.rostime.wallsleep(1)
-
-            waypoints = build3DLawnmowerWaypoints(operation.altitude, position, 5, operation.boundary, operation.steplength)
-
-            print len(waypoints)
-            i = 0
-            for waypoint in waypoints:
-                self.local_setposition_publisher.publish(waypoint)
-
-                print "Commanded"
-
-                print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
-                while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
-                    print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
-                    rospy.rostime.wallsleep(1)
-                self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
-                rospy.rostime.wallsleep(3)
-                i = i+1
-
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = 0
-            goalPos.pose.position.y = 0
-            goalPos.pose.position.z = operation.altitude
-
-            print "Going to: ", goalPos
+        wrappedBoundary = operation.boundary
+        wrappedBoundary.append(operation.boundary[0])
+        for waypoint in wrappedBoundary:
+            goalPos = buildGPSWaypoint(position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z)
 
             self.local_setposition_publisher.publish(goalPos)
 
-        position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
+            print "going to: {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y)
+            while(distance(goalPos.pose.position, self.localposition) > 1) :
+                rospy.rostime.wallsleep(1)
+
+        waypoints = build3DLawnmowerWaypoints(operation.altitude, position, 5, operation.boundary, operation.steplength)
+
+        i = 0
+        for waypoint in waypoints:
+            self.local_setposition_publisher.publish(waypoint)
+
+            print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
+            while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+                print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
+                rospy.rostime.wallsleep(1)
+            self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
+            rospy.rostime.wallsleep(3)
+            i = i+1
+
+        self.logPublisher.publish("Lawnmower Finished")
+
+        self.local_setposition_publisher.publish(goalPos)
 
         return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
 
