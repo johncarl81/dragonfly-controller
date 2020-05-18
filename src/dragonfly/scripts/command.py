@@ -24,10 +24,10 @@ def createWaypoint(x, y, altitude):
 
     return waypoint
 
-def buildGPSWaypoint(positionLon, positionLat, waypointLon, waypointLat, altitude):
+def buildGPSWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
     return createWaypoint(
-        (positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745),
-        -(positionLat - waypointLat) * 111358,
+        ((positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745)) + localx,
+        (-(positionLat - waypointLat) * 111358) + localy,
         altitude
     )
 
@@ -145,12 +145,12 @@ def linearYRange(points, type):
 
     return y.value()
 
-def build3DLawnmowerWaypoints(altitude, position, stacks, boundary, steplegnth):
+def build3DLawnmowerWaypoints(altitude, localPosition, position, stacks, boundary, steplegnth):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(altitude + stack, position, boundary, steplegnth)
+        lawnmowerWaypoints = buildLawnmowerWaypoints(altitude + stack, localPosition, position, boundary, steplegnth)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
         waypoints = waypoints + lawnmowerWaypoints
@@ -159,16 +159,13 @@ def build3DLawnmowerWaypoints(altitude, position, stacks, boundary, steplegnth):
 
     return waypoints
 
-def buildLawnmowerWaypoints(altitude, position, boundary, steplegnth):
+def buildLawnmowerWaypoints(altitude, localposition, position, boundary, steplegnth):
     boundary_meters = []
 
     waypoints = []
 
     for waypoint in boundary:
-        goalPos = PoseStamped()
-        goalPos.pose.position.x = (position.longitude - waypoint.longitude) * 111358 * math.cos(position.longitude * 0.01745)
-        goalPos.pose.position.y = -(position.latitude - waypoint.latitude) * 111358
-        goalPos.pose.position.z = altitude
+        goalPos = buildGPSWaypoint(localposition.x, localposition.y, position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, altitude)
 
         boundary_meters.append((goalPos.pose.position.x, goalPos.pose.position.y))
 
@@ -358,20 +355,21 @@ class DragonflyCommand:
 
         print "Walking boundary"
 
-        position = self.position
+        wrappedGPSBoundary = operation.boundary
+        wrappedGPSBoundary.append(operation.boundary[0])
 
-        wrappedBoundary = operation.boundary
-        wrappedBoundary.append(operation.boundary[0])
+        wrappedBoundary = []
+        for waypoint in wrappedGPSBoundary:
+            wrappedBoundary.append(buildGPSWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z))
+
         for waypoint in wrappedBoundary:
-            goalPos = buildGPSWaypoint(position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z)
+            self.local_setposition_publisher.publish(waypoint)
 
-            self.local_setposition_publisher.publish(goalPos)
-
-            print "going to: {}, {}".format(goalPos.pose.position.x, goalPos.pose.position.y)
-            while(distance(goalPos.pose.position, self.localposition) > 1) :
+            print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
+            while(distance(waypoint.pose.position, self.localposition) > 1) :
                 rospy.rostime.wallsleep(1)
 
-        waypoints = build3DLawnmowerWaypoints(operation.altitude, position, 5, operation.boundary, operation.steplength)
+        waypoints = build3DLawnmowerWaypoints(operation.altitude, self.localposition, self.position, 5, operation.boundary, operation.steplength)
 
         i = 0
         for waypoint in waypoints:
@@ -386,8 +384,6 @@ class DragonflyCommand:
             i = i+1
 
         self.logPublisher.publish("Lawnmower Finished")
-
-        self.local_setposition_publisher.publish(goalPos)
 
         return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
 
