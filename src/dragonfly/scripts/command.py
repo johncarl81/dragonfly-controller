@@ -326,7 +326,7 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 1, 1, 0, 5, 1.0)
+        waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 3, 1, 0, 5, 1.0)
 
         i = 0
         for waypoint in waypoints:
@@ -369,7 +369,7 @@ class DragonflyCommand:
             while(distance(waypoint.pose.position, self.localposition) > 1) :
                 rospy.rostime.wallsleep(1)
 
-        waypoints = build3DLawnmowerWaypoints(operation.altitude, self.localposition, self.position, 5, operation.boundary, operation.steplength)
+        waypoints = build3DLawnmowerWaypoints(operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
 
         i = 0
         for waypoint in waypoints:
