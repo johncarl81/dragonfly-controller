@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 import rospy, time, argparse, math, std_msgs, pulp
+from enum import Enum
 from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import String
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
@@ -8,6 +9,10 @@ from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import CommandCode, GlobalPositionTarget
 from dragonfly_messages.srv import Lawnmower, LawnmowerResponse
+
+class Span(Enum):
+    WALK = 1
+    RANGE = 2
 
 def distance(position1, position2):
     x = position1.x - position2.x
@@ -24,6 +29,21 @@ def createWaypoint(x, y, altitude):
 
     return waypoint
 
+def calculateRange(type, x1, y1, x2, y2, length):
+    if type == Span.WALK:
+        waypoints = []
+        print "Calculating walk"
+        xdistance = x2 - x1
+        ydistance = y2 - y1
+        distance = math.sqrt((xdistance * xdistance) + (ydistance * ydistance))
+        xratio = xdistance / distance
+        yratio = ydistance / distance
+        for i in range(1, int(distance / length) + 1):
+            waypoints.append((x1 + (i * length * xratio),y1 + (i * length * yratio)))
+        return waypoints
+    elif type == Span.RANGE:
+        return [(x2, y2)]
+
 def buildGPSWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
     return createWaypoint(
         ((positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745)) + localx,
@@ -31,12 +51,12 @@ def buildGPSWaypoint(localx, localy, positionLon, positionLat, waypointLon, wayp
         altitude
     )
 
-def build3DDDSAWaypoints(centerx, centery, altitude, stacks, size, index, loops, radius):
+def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, index, loops, radius):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        ddsaWaypoints = buildDDSAWaypoints(centerx, centery, altitude + stack, size, index, loops, radius)
+        ddsaWaypoints = buildDDSAWaypoints(rangeType, centerx, centery, altitude + stack, size, index, loops, radius)
         if toggleReverse:
             ddsaWaypoints = ddsaWaypoints[::-1]
         waypoints = waypoints + ddsaWaypoints
@@ -49,7 +69,7 @@ def build3DDDSAWaypoints(centerx, centery, altitude, stacks, size, index, loops,
 def buildWaypoint(centerx, centery, xoffset, yoffset, altitude):
     return createWaypoint(centerx + xoffset, centery + yoffset, altitude)
 
-def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
+def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops, radius):
 
     waypoints = []
     start = createWaypoint(centerx, centery, altitude)
@@ -72,16 +92,11 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
                 if (corner == 2 or corner == 3):
                     yoffset = -yoffset
 
-            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset)
+            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset, radius)
 
-            if(corner == 1 or corner == 3):
-                for x in range(previousxoffset, xoffset, 1 if xoffset > previousxoffset else -1):
-                    print "x {}. {}".format(x, yoffset)
-                    waypoints.append(buildWaypoint(centerx, centery, x * radius, yoffset * radius, altitude))
-            else:
-                for y in range(previousyoffset, yoffset, 1 if yoffset > previousyoffset else -1):
-                    print "y {}. {}".format(xoffset, y)
-                    waypoints.append(buildWaypoint(centerx, centery, xoffset * radius, y * radius, altitude))
+            for (x, y) in calculateRange(rangeType, previousxoffset, previousyoffset, xoffset, yoffset, radius):
+                print "y {}. {}".format(x, y)
+                waypoints.append(buildWaypoint(centerx, centery, x * radius, y * radius, altitude))
 
             previousxoffset = xoffset
             previousyoffset = yoffset
@@ -144,12 +159,12 @@ def linearYRange(points, type):
 
     return y.value()
 
-def build3DLawnmowerWaypoints(altitude, localPosition, position, stacks, boundary, steplegnth):
+def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, steplegnth):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(altitude + stack, localPosition, position, boundary, steplegnth)
+        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, steplegnth)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
         waypoints = waypoints + lawnmowerWaypoints
@@ -158,7 +173,7 @@ def build3DLawnmowerWaypoints(altitude, localPosition, position, stacks, boundar
 
     return waypoints
 
-def buildLawnmowerWaypoints(altitude, localposition, position, boundary, steplegnth):
+def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, steplegnth):
     boundary_meters = []
 
     waypoints = []
@@ -181,19 +196,29 @@ def buildLawnmowerWaypoints(altitude, localposition, position, boundary, stepleg
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        for x in range(int(minx), int(maxx), 1):
+        goalPos = PoseStamped()
+        goalPos.pose.position.x = minx
+        goalPos.pose.position.y = y
+        goalPos.pose.position.z = altitude
+        waypoints.append(goalPos)
+        for (x, rangey) in calculateRange(rangeType, minx, y, maxx, y, steplegnth):
             goalPos = PoseStamped()
             goalPos.pose.position.x = x
-            goalPos.pose.position.y = y
+            goalPos.pose.position.y = rangey
             goalPos.pose.position.z = altitude
             waypoints.append(goalPos)
         minx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        for x in range(int(maxx), int(minx), -1):
+        goalPos = PoseStamped()
+        goalPos.pose.position.x = maxx
+        goalPos.pose.position.y = y + steplegnth
+        goalPos.pose.position.z = altitude
+        waypoints.append(goalPos)
+        for (x, rangey) in calculateRange(rangeType, maxx, y + steplegnth, minx, y + steplegnth, steplegnth):
             goalPos = PoseStamped()
             goalPos.pose.position.x = x
-            goalPos.pose.position.y = y + 1
+            goalPos.pose.position.y = rangey
             goalPos.pose.position.z = altitude
             waypoints.append(goalPos)
 
@@ -327,7 +352,7 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        waypoints = build3DDDSAWaypoints(self.localposition.x, self.localposition.y, self.localposition.z, 3, 1, 0, 5, 1.0)
+        waypoints = build3DDDSAWaypoints(Span.WALK, self.localposition.x, self.localposition.y, self.localposition.z, 3, 1, 0, 5, 1.0)
 
         i = 0
         for waypoint in waypoints:
@@ -380,7 +405,7 @@ class DragonflyCommand:
                 self.logPublisher.publish("Boundary walk canceled")
                 break
 
-        waypoints = build3DLawnmowerWaypoints(operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
+        waypoints = build3DLawnmowerWaypoints(Span.WALK, operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
 
         i = 0
         for waypoint in waypoints:
