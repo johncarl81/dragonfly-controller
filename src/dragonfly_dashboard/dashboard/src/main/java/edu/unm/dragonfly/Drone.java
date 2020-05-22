@@ -105,6 +105,22 @@ public class Drone {
 
     }
 
+    public void cancel() throws ServiceNotFoundException {
+        ServiceClient<Object, EmptyResponse> client = node.newServiceClient(name + "/command/cancel", EmptyRequest._TYPE);
+        Object request = client.newMessage();
+        client.call(request, new ServiceResponseListener<EmptyResponse>() {
+            @Override
+            public void onSuccess(EmptyResponse response) {
+                System.out.println("Got: " + response.toString());
+            }
+
+            @Override
+            public void onFailure(RemoteException e) {
+
+            }
+        });
+    }
+
     @Override
     public String toString() {
         return name;

@@ -53,7 +53,6 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
 
     waypoints = []
     start = createWaypoint(centerx, centery, altitude)
-    start.is_current = 1
     waypoints.append(start)
     previousxoffset = 0
     previousyoffset = 0
@@ -321,8 +320,9 @@ class DragonflyCommand:
 
     def ddsa(self, operation):
         print "Commanded to ddsa"
+        self.logPublisher.publish("DDSA started")
 
-        self.cancel = False
+        self.canceled = False
         self.setmode('GUIDED')
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
@@ -335,14 +335,14 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
-            while(not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing)) :
+            while(not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing)) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
             rospy.rostime.wallsleep(3)
             i = i+1
 
-            if self.cancel:
+            if self.canceled:
                 self.logPublisher.publish("DDSA canceled")
                 break
 
@@ -353,6 +353,7 @@ class DragonflyCommand:
 
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
+        self.logPublisher.publish("Lawnmower started")
 
         self.canceled = False
         self.setmode('GUIDED')
@@ -372,10 +373,10 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
-            while not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1):
+            while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1):
                 rospy.rostime.wallsleep(1)
 
-            if self.cancel:
+            if self.canceled:
                 self.logPublisher.publish("Boundary walk canceled")
                 break
 
@@ -386,14 +387,14 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
-            while not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+            while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
             rospy.rostime.wallsleep(3)
             i = i+1
 
-            if self.cancel:
+            if self.canceled:
                 self.logPublisher.publish("Lawnmower canceled")
                 break
 

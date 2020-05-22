@@ -62,6 +62,8 @@ public class DashboardController {
     private Button lawnmower;
     @FXML
     private Button ddsa;
+    @FXML
+    private Button cancel;
 
     private final ObservableList<Drone> droneList = FXCollections.observableArrayList();
     private final ObservableList<String> logList = FXCollections.observableArrayList();
@@ -190,6 +192,7 @@ public class DashboardController {
         center.setDisable(true);
         lawnmower.setDisable(true);
         ddsa.setDisable(true);
+        cancel.setDisable(true);
 
         add.setOnAction(new EventHandler<ActionEvent>() {
             @Override
@@ -247,6 +250,18 @@ public class DashboardController {
             }
         });
 
+        cancel.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                try {
+                    drones.getSelectionModel().getSelectedItem().cancel();
+                } catch (ServiceNotFoundException e) {
+                    e.printStackTrace();
+                }
+                drones.getSelectionModel().clearSelection();
+            }
+        });
+
         drones.getSelectionModel().selectedItemProperty().addListener(new ChangeListener<Drone>() {
             @Override
             public void changed(ObservableValue observable, Drone oldValue, Drone newValue) {
@@ -255,6 +270,7 @@ public class DashboardController {
                 center.setDisable(!selected);
                 lawnmower.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
                 ddsa.setDisable(!selected);
+                cancel.setDisable(!selected);
             }
         });
 
