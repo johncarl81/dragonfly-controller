@@ -322,6 +322,7 @@ class DragonflyCommand:
     def ddsa(self, operation):
         print "Commanded to ddsa"
 
+        self.cancel = False
         self.setmode('GUIDED')
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
@@ -334,12 +335,16 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
-            while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+            while(not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing)) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
             rospy.rostime.wallsleep(3)
             i = i+1
+
+            if self.cancel:
+                self.logPublisher.publish("DDSA canceled")
+                break
 
         self.logPublisher.publish("DDSA Finished")
 
@@ -349,6 +354,7 @@ class DragonflyCommand:
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
 
+        self.canceled = False
         self.setmode('GUIDED')
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
@@ -366,8 +372,12 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
-            while(distance(waypoint.pose.position, self.localposition) > 1) :
+            while not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1):
                 rospy.rostime.wallsleep(1)
+
+            if self.cancel:
+                self.logPublisher.publish("Boundary walk canceled")
+                break
 
         waypoints = build3DLawnmowerWaypoints(operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
 
@@ -376,12 +386,16 @@ class DragonflyCommand:
             self.local_setposition_publisher.publish(waypoint)
 
             print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
-            while(distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+            while not self.cancel and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
             rospy.rostime.wallsleep(3)
             i = i+1
+
+            if self.cancel:
+                self.logPublisher.publish("Lawnmower canceled")
+                break
 
         self.logPublisher.publish("Lawnmower Finished")
 
@@ -404,6 +418,9 @@ class DragonflyCommand:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:
             self.logPublisher.publish('Finished zeroing')
+
+    def cancel(self, data):
+        self.canceled = True
 
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id))
@@ -428,6 +445,7 @@ class DragonflyCommand:
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
         self.zeroing = False
         self.sincezero = 0
+        self.canceled = False
 
         rospy.Service("/{}/command/arm".format(self.id), Empty, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)
@@ -436,6 +454,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/goto".format(self.id), Empty, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), Empty, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
+        rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
 
         print "Setup complete"
