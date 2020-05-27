@@ -1,12 +1,12 @@
 package edu.unm.dragonfly;
 
 import com.esri.arcgisruntime.geometry.Point;
+import dragonfly_messages.LatLon;
 import dragonfly_messages.Lawnmower;
 import dragonfly_messages.LawnmowerRequest;
 import dragonfly_messages.LawnmowerResponse;
 import geometry_msgs.PoseStamped;
 import io.reactivex.Observable;
-import io.reactivex.functions.BiFunction;
 import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.PublishSubject;
 import org.ros.exception.RemoteException;
@@ -39,21 +39,17 @@ public class Drone {
         this.node = node;
         this.name = name;
 
-        relativeAltitudeObservable = Observable.combineLatest(position, localPosition, new BiFunction<NavSatFix, PoseStamped, LatLonRelativeAltitude>() {
-            @Override
-            public LatLonRelativeAltitude apply(NavSatFix navSatFix, PoseStamped poseStamped) throws Exception {
-                return new LatLonRelativeAltitude(navSatFix.getLatitude(), navSatFix.getLongitude(), poseStamped.getPose().getPosition().getZ());
-            }
-        });
+        relativeAltitudeObservable = Observable.combineLatest(position, localPosition,
+                (navSatFix, poseStamped) -> new LatLonRelativeAltitude(navSatFix.getLatitude(), navSatFix.getLongitude(), poseStamped.getPose().getPosition().getZ()));
     }
 
-    public void init() throws ServiceNotFoundException {
+    public void init() {
 
         subscriber = node.newSubscriber(name + "/mavros/global_position/global", NavSatFix._TYPE);
-        subscriber.addMessageListener(navSatFix -> position.onNext(navSatFix));
+        subscriber.addMessageListener(position::onNext);
 
         localPositionSubscriber = node.newSubscriber(name + "/mavros/local_position/pose", PoseStamped._TYPE);
-        localPositionSubscriber.addMessageListener(pose -> localPosition.onNext(pose));
+        localPositionSubscriber.addMessageListener(localPosition::onNext);
 
         logSubscriber = node.newSubscriber(name + "/log", std_msgs.String._TYPE);
         logSubscriber.addMessageListener(message -> logSubject.onNext(message.getData()));
@@ -67,10 +63,10 @@ public class Drone {
 
         request.setAltitude(10);
         request.setBoundary(points.stream().map(input -> {
-                    NavSatFix navSatFix = config.getTopicMessageFactory().newFromType(NavSatFix._TYPE);
-                    navSatFix.setLatitude(input.getY());
-                    navSatFix.setLongitude(input.getX());
-                    return navSatFix;
+                    LatLon position = config.getTopicMessageFactory().newFromType(LatLon._TYPE);
+                    position.setLatitude(input.getY());
+                    position.setLongitude(input.getX());
+                    return position;
                 }).collect(Collectors.toList())
         );
         request.setSteplength(1.0f);

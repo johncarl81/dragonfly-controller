@@ -44,7 +44,7 @@ def calculateRange(type, x1, y1, x2, y2, length):
     elif type == Span.RANGE:
         return [(x2, y2)]
 
-def buildGPSWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
+def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
     return createWaypoint(
         ((positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745)) + localx,
         (-(positionLat - waypointLat) * 111358) + localy,
@@ -179,7 +179,7 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
     waypoints = []
 
     for waypoint in boundary:
-        goalPos = buildGPSWaypoint(localposition.x, localposition.y, position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, altitude)
+        goalPos = buildRelativeWaypoint(localposition.x, localposition.y, position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, altitude)
 
         boundary_meters.append((goalPos.pose.position.x, goalPos.pose.position.y))
 
@@ -227,6 +227,9 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
 class DragonflyCommand:
 
     def __init__(self, id):
+        self.zeroing = False
+        self.canceled = False
+        self.sincezero = 0
         self.id = id
 
     def setmode(self, mode):
@@ -385,25 +388,26 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        print "Walking boundary"
+        if operation.walkBoundary:
+            print "Walking boundary"
 
-        wrappedGPSBoundary = operation.boundary
-        wrappedGPSBoundary.append(operation.boundary[0])
+            wrappedGPSBoundary = operation.boundary
+            wrappedGPSBoundary.append(operation.boundary[0])
 
-        wrappedBoundary = []
-        for waypoint in wrappedGPSBoundary:
-            wrappedBoundary.append(buildGPSWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z))
+            wrappedBoundary = []
+            for waypoint in wrappedGPSBoundary:
+                wrappedBoundary.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z))
 
-        for waypoint in wrappedBoundary:
-            self.local_setposition_publisher.publish(waypoint)
+            for waypoint in wrappedBoundary:
+                self.local_setposition_publisher.publish(waypoint)
 
-            print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
-            while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1):
-                rospy.rostime.wallsleep(1)
+                print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
+                while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1):
+                    rospy.rostime.wallsleep(1)
 
-            if self.canceled:
-                self.logPublisher.publish("Boundary walk canceled")
-                break
+                if self.canceled:
+                    self.logPublisher.publish("Boundary walk canceled")
+                    break
 
         waypoints = build3DLawnmowerWaypoints(Span.WALK, operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
 
@@ -469,9 +473,6 @@ class DragonflyCommand:
         rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
 
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
-        self.zeroing = False
-        self.sincezero = 0
-        self.canceled = False
 
         rospy.Service("/{}/command/arm".format(self.id), Empty, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)

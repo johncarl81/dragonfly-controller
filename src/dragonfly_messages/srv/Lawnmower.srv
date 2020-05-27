@@ -1,6 +1,6 @@
-sensor_msgs/NavSatFix[] boundary
+LatLon[] boundary
 float32 steplength
-float32 altitude
+bool walkBoundary
 ---
 int8 success
 string message
