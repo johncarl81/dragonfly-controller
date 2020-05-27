@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import rospy
-import led
+from led import LED
 import sched, time
 import argparse
 from datetime import datetime, timedelta
@@ -12,6 +12,7 @@ s = sched.scheduler(time.time, time.sleep)
 position = None
 positionReceived = None
 co2Received = None
+led = LED()
 
 def validUpdate(inputTime):
     return inputTime is not None and datetime.now() - inputTime < timedelta(seconds = 3)
@@ -27,7 +28,7 @@ def updateStatus(position = None, co2 = None):
 def updateLED(sc):
     validPosition = validUpdate(positionReceived)
     validCo2 = validUpdate(co2Received)
-    led.setColor([255 if validPosition and not validCo2 else 0,  
+    led.setColor([255 if validPosition and not validCo2 else 0,
         255 if validPosition and validCo2 else 0,
         255 if not validPosition and validCo2 else 0])
     s.enter(1, 1, updateLED, (sc,))
