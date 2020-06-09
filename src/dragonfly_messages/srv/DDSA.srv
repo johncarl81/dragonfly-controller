@@ -1,8 +1,8 @@
-LatLon[] boundary
+float32 radius
 float32 steplength
-bool walkBoundary
 int32 walk
 int32 stacks
+int32 loops
 float32 altitude
 float32 waittime
 ---

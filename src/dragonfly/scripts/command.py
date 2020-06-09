@@ -7,8 +7,7 @@ from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped
-from mavros_msgs.msg import CommandCode, GlobalPositionTarget
-from dragonfly_messages.srv import Lawnmower, LawnmowerResponse
+from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, DDSA, DDSAResponse
 
 class Span(Enum):
     WALK = 1
@@ -30,6 +29,7 @@ def createWaypoint(x, y, altitude):
     return waypoint
 
 def calculateRange(type, x1, y1, x2, y2, length):
+    print "TYPE: {} {} {}".format(type, Span.WALK, Span.RANGE)
     if type == Span.WALK:
         waypoints = []
         print "Calculating walk"
@@ -51,12 +51,12 @@ def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon,
         altitude
     )
 
-def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, index, loops, radius):
+def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, index, loops, radius, steplength):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        ddsaWaypoints = buildDDSAWaypoints(rangeType, centerx, centery, altitude + stack, size, index, loops, radius)
+        ddsaWaypoints = buildDDSAWaypoints(rangeType, centerx, centery, altitude + stack, size, index, loops, radius, steplength)
         if toggleReverse:
             ddsaWaypoints = ddsaWaypoints[::-1]
         waypoints = waypoints + ddsaWaypoints
@@ -69,7 +69,7 @@ def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, in
 def buildWaypoint(centerx, centery, xoffset, yoffset, altitude):
     return createWaypoint(centerx + xoffset, centery + yoffset, altitude)
 
-def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops, radius):
+def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops, radius, steplength):
 
     waypoints = []
     start = createWaypoint(centerx, centery, altitude)
@@ -92,9 +92,9 @@ def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops
                 if (corner == 2 or corner == 3):
                     yoffset = -yoffset
 
-            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset, radius)
+            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset)
 
-            for (x, y) in calculateRange(rangeType, previousxoffset, previousyoffset, xoffset, yoffset, radius):
+            for (x, y) in calculateRange(rangeType, previousxoffset, previousyoffset, xoffset, yoffset, steplength):
                 print "y {}. {}".format(x, y)
                 waypoints.append(buildWaypoint(centerx, centery, x * radius, y * radius, altitude))
 
@@ -159,12 +159,12 @@ def linearYRange(points, type):
 
     return y.value()
 
-def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, steplegnth):
+def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, steplength):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, steplegnth)
+        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, steplength)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
         waypoints = waypoints + lawnmowerWaypoints
@@ -355,7 +355,7 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        waypoints = build3DDDSAWaypoints(Span.WALK, self.localposition.x, self.localposition.y, self.localposition.z, 3, 1, 0, 5, 1.0)
+        waypoints = build3DDDSAWaypoints(Span(operation.walk), self.localposition.x, self.localposition.y, self.localposition.z, operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
 
         i = 0
         for waypoint in waypoints:
@@ -367,7 +367,7 @@ class DragonflyCommand:
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
-            rospy.rostime.wallsleep(3)
+            rospy.rostime.wallsleep(operation.waittime)
             i = i+1
 
             if self.canceled:
@@ -376,7 +376,7 @@ class DragonflyCommand:
 
         self.logPublisher.publish("DDSA Finished")
 
-        return EmptyResponse()
+        return DDSAResponse(success=True, message="Commanded {} to DDSA.".format(self.id))
 
 
     def lawnmower(self, operation):
@@ -409,7 +409,7 @@ class DragonflyCommand:
                     self.logPublisher.publish("Boundary walk canceled")
                     break
 
-        waypoints = build3DLawnmowerWaypoints(Span.WALK, operation.altitude, self.localposition, self.position, 3, operation.boundary, operation.steplength)
+        waypoints = build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength)
 
         i = 0
         for waypoint in waypoints:
@@ -420,7 +420,7 @@ class DragonflyCommand:
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
-            rospy.rostime.wallsleep(3)
+            rospy.rostime.wallsleep(operation.waittime)
             i = i+1
 
             if self.canceled:
@@ -479,7 +479,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/land".format(self.id), Empty, self.land)
         rospy.Service("/{}/command/rtl".format(self.id), Empty, self.rtl)
         rospy.Service("/{}/command/goto".format(self.id), Empty, self.goto)
-        rospy.Service("/{}/command/ddsa".format(self.id), Empty, self.ddsa)
+        rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)

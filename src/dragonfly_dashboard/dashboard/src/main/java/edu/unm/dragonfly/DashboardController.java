@@ -228,11 +228,13 @@ public class DashboardController {
             @Override
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
-                    try {
-                        drones.getSelectionModel().getSelectedItem().lawnmower(boundaryPoints);
-                    } catch (ServiceNotFoundException e) {
-                        e.printStackTrace();
-                    }
+                        LawnmowerDialogFactory.create((stepLength, altitude, stacks, walkBoundary, walk, waittime) -> {
+                            try {
+                                drones.getSelectionModel().getSelectedItem().lawnmower(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime);
+                            } catch (ServiceNotFoundException e) {
+                                e.printStackTrace();
+                            }
+                        });
                 }
                 drones.getSelectionModel().clearSelection();
             }
@@ -241,11 +243,13 @@ public class DashboardController {
         ddsa.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                try {
-                    drones.getSelectionModel().getSelectedItem().ddsa();
-                } catch (ServiceNotFoundException e) {
-                    e.printStackTrace();
-                }
+                DDSADialogFactory.create((radius, stepLength, altitude, loops, stacks, walk, waittime) -> {
+                    try {
+                        drones.getSelectionModel().getSelectedItem().ddsa(radius, stepLength, altitude, loops, stacks, walk.id, waittime);
+                    } catch (ServiceNotFoundException e) {
+                        e.printStackTrace();
+                    }
+                });
                 drones.getSelectionModel().clearSelection();
             }
         });
@@ -298,12 +302,7 @@ public class DashboardController {
     private void addDrone(String name) {
 
         Drone drone = new Drone(node, name);
-
-        try {
-            drone.init();
-        } catch (ServiceNotFoundException e) {
-            e.printStackTrace();
-        }
+        drone.init();
 
         drone.getLog()
                 .observeOn(JavaFxScheduler.platform())

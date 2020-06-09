@@ -1,10 +1,7 @@
 package edu.unm.dragonfly;
 
 import com.esri.arcgisruntime.geometry.Point;
-import dragonfly_messages.LatLon;
-import dragonfly_messages.Lawnmower;
-import dragonfly_messages.LawnmowerRequest;
-import dragonfly_messages.LawnmowerResponse;
+import dragonfly_messages.*;
 import geometry_msgs.PoseStamped;
 import io.reactivex.Observable;
 import io.reactivex.subjects.BehaviorSubject;
@@ -55,13 +52,12 @@ public class Drone {
         logSubscriber.addMessageListener(message -> logSubject.onNext(message.getData()));
     }
 
-    public void lawnmower(List<Point> points) throws ServiceNotFoundException {
+    public void lawnmower(List<Point> points, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime) throws ServiceNotFoundException {
         ServiceClient<LawnmowerRequest, LawnmowerResponse> client = node.newServiceClient(name + "/command/lawnmower", Lawnmower._TYPE);
         LawnmowerRequest request = client.newMessage();
 
         NodeConfiguration config = NodeConfiguration.newPrivate();
 
-        request.setAltitude(10);
         request.setBoundary(points.stream().map(input -> {
                     LatLon position = config.getTopicMessageFactory().newFromType(LatLon._TYPE);
                     position.setLatitude(input.getY());
@@ -69,7 +65,13 @@ public class Drone {
                     return position;
                 }).collect(Collectors.toList())
         );
-        request.setSteplength(1.0f);
+        request.setSteplength(stepLength);
+        request.setWalkBoundary(walkBoundary);
+        request.setStacks(stacks);
+        request.setAltitude(altitude);
+        request.setWalk(walk);
+        request.setWaittime(waittime);
+
         client.call(request, new ServiceResponseListener<LawnmowerResponse>() {
              @Override
              public void onSuccess(LawnmowerResponse lawnmowerResponse) {
@@ -84,12 +86,19 @@ public class Drone {
 
     }
 
-    public void ddsa() throws ServiceNotFoundException {
-        ServiceClient<Object, EmptyResponse> client = node.newServiceClient(name + "/command/ddsa", EmptyRequest._TYPE);
-        Object request = client.newMessage();
-        client.call(request, new ServiceResponseListener<EmptyResponse>() {
+    public void ddsa(float radius, float stepLength, float altitude, int loops, int stacks, int walk, float waittime) throws ServiceNotFoundException {
+        ServiceClient<DDSARequest, DDSAResponse> client = node.newServiceClient(name + "/command/ddsa", DDSA._TYPE);
+        DDSARequest request = client.newMessage();
+        request.setRadius(radius);
+        request.setSteplength(stepLength);
+        request.setStacks(stacks);
+        request.setAltitude(altitude);
+        request.setWalk(walk);
+        request.setWaittime(waittime);
+        request.setLoops(loops);
+        client.call(request, new ServiceResponseListener<DDSAResponse>() {
             @Override
-            public void onSuccess(EmptyResponse response) {
+            public void onSuccess(DDSAResponse response) {
                 System.out.println("Got: " + response.toString());
             }
 
