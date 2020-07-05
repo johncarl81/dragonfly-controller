@@ -6,7 +6,7 @@ from std_msgs.msg import String
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseStamped
+from geometry_msgs.msg import PoseStamped, Point
 from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, DDSA, DDSAResponse
 
 class Span(Enum):
@@ -14,11 +14,11 @@ class Span(Enum):
     RANGE = 2
 
 def distance(position1, position2):
-    x = position1.x - position2.x
-    y = position1.y - position2.y
-    z = position1.z - position2.z
+    deltax = position1.x - position2.x
+    deltay = position1.y - position2.y
+    deltaz = position1.z - position2.z
 
-    return math.sqrt((x * x) + (y * y) + (z * z))
+    return math.sqrt((deltax * deltax) + (deltay * deltay) + (deltaz * deltaz))
 
 def createWaypoint(x, y, altitude):
     waypoint = PoseStamped()
@@ -28,21 +28,22 @@ def createWaypoint(x, y, altitude):
 
     return waypoint
 
-def calculateRange(type, x1, y1, x2, y2, length):
+def calculateRange(type, start, end, length):
     print "TYPE: {} {} {}".format(type, Span.WALK, Span.RANGE)
     if type == Span.WALK:
         waypoints = []
         print "Calculating walk"
-        xdistance = x2 - x1
-        ydistance = y2 - y1
-        distance = math.sqrt((xdistance * xdistance) + (ydistance * ydistance))
-        xratio = xdistance / distance
-        yratio = ydistance / distance
+        deltax = end.x - start.x
+        deltay = end.y - start.y
+        deltaz = end.z - start.z
+        distance = math.sqrt((deltax * deltax) + (deltay * deltay) + (deltaz * deltaz))
         for i in range(1, int(distance / length) + 1):
-            waypoints.append((x1 + (i * length * xratio),y1 + (i * length * yratio)))
+            waypoints.append(Point(start.x + (i * length * deltax / distance),
+                                   start.y + (i * length * deltay / distance),
+                                   start.z + (i * length * deltaz / distance)))
         return waypoints
     elif type == Span.RANGE:
-        return [(x2, y2)]
+        return [end]
 
 def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
     return createWaypoint(
@@ -51,12 +52,12 @@ def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon,
         altitude
     )
 
-def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, index, loops, radius, steplength):
+def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, steplength):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        ddsaWaypoints = buildDDSAWaypoints(rangeType, centerx, centery, altitude + stack, size, index, loops, radius, steplength)
+        ddsaWaypoints = buildDDSAWaypoints(rangeType, stack, size, index, loops, radius, steplength)
         if toggleReverse:
             ddsaWaypoints = ddsaWaypoints[::-1]
         waypoints = waypoints + ddsaWaypoints
@@ -65,23 +66,17 @@ def build3DDDSAWaypoints(rangeType, centerx, centery, altitude, stacks, size, in
 
     return waypoints
 
-
-def buildWaypoint(centerx, centery, xoffset, yoffset, altitude):
-    return createWaypoint(centerx + xoffset, centery + yoffset, altitude)
-
-def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops, radius, steplength):
+def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, steplength):
 
     waypoints = []
-    start = createWaypoint(centerx, centery, altitude)
+    start = Point(0, 0, altitude)
     waypoints.append(start)
-    previousxoffset = 0
-    previousyoffset = 0
+    previous = start
     for loop in range(0, loops):
         for corner in range(0, 4):
 
             if (loop == 0 and corner == 0):
-                xoffset = 0
-                yoffset = index + 1
+                next = Point(0, index + 1, altitude)
             else:
                 xoffset = 1 + index + (loop * size)
                 yoffset = xoffset
@@ -92,14 +87,14 @@ def buildDDSAWaypoints(rangeType, centerx, centery, altitude, size, index, loops
                 if (corner == 2 or corner == 3):
                     yoffset = -yoffset
 
-            print "{}, {} -> {}, {}".format(previousxoffset, previousyoffset, xoffset, yoffset)
+                next = Point(xoffset, yoffset, altitude)
 
-            for (x, y) in calculateRange(rangeType, previousxoffset, previousyoffset, xoffset, yoffset, steplength):
-                print "y {}. {}".format(x, y)
-                waypoints.append(buildWaypoint(centerx, centery, x * radius, y * radius, altitude))
+            print "{}, {} -> {}, {}".format(previous.x, previous.y, next.x, next.y)
 
-            previousxoffset = xoffset
-            previousyoffset = yoffset
+            for waypoint in calculateRange(rangeType, previous, next, steplength):
+                waypoints.append(Point(waypoint.x * radius, waypoint.y * radius, waypoint.z))
+
+            previous = next
 
     return waypoints
 
@@ -196,31 +191,15 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        goalPos = PoseStamped()
-        goalPos.pose.position.x = minx
-        goalPos.pose.position.y = y
-        goalPos.pose.position.z = altitude
-        waypoints.append(goalPos)
+        waypoints.append(createWaypoint(minx, y, altitude))
         for (x, rangey) in calculateRange(rangeType, minx, y, maxx, y, steplegnth):
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = x
-            goalPos.pose.position.y = rangey
-            goalPos.pose.position.z = altitude
-            waypoints.append(goalPos)
+            waypoints.append(createWaypoint(x, rangey, altitude))
         minx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        goalPos = PoseStamped()
-        goalPos.pose.position.x = maxx
-        goalPos.pose.position.y = y + steplegnth
-        goalPos.pose.position.z = altitude
-        waypoints.append(goalPos)
+        waypoints.append(createWaypoint(maxx, y + steplegnth, altitude))
         for (x, rangey) in calculateRange(rangeType, maxx, y + steplegnth, minx, y + steplegnth, steplegnth):
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = x
-            goalPos.pose.position.y = rangey
-            goalPos.pose.position.z = altitude
-            waypoints.append(goalPos)
+            waypoints.append(createWaypoint(x, rangey, altitude))
 
     return waypoints
 
@@ -355,18 +334,19 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        waypoints = build3DDDSAWaypoints(Span(operation.walk), self.localposition.x, self.localposition.y, self.localposition.z, operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
+        waypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
 
         i = 0
-        for waypoint in waypoints:
-            print "going to: {}, {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z)
+        for localwaypoint in waypoints:
+            print "going to: {}, {}, {}".format(localwaypoint.x, localwaypoint.y, localwaypoint.z)
+            waypoint = buildWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, localwaypoint.z)
             self.local_setposition_publisher.publish(waypoint)
 
-            print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
-            while(not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing)) :
-                print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
+            print "Distance to point: ", distance(localwaypoint, self.localposition)
+            while(not self.canceled and (distance(localwaypoint, self.localposition) > 1 or self.zeroing)) :
+                print "Distance to point: ", distance(localwaypoint, self.localposition)
                 rospy.rostime.wallsleep(1)
-            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
+            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, localwaypoint.x, localwaypoint.y, localwaypoint.z))
             rospy.rostime.wallsleep(operation.waittime)
             i = i+1
 
