@@ -13,9 +13,8 @@ source /home/ubuntu/dev/dragonfly/devel/setup.bash
 #sudo route add -net 224.0.0.0 netmask 240.0.0.0 wlan0
 rosrun master_discovery_fkie master_discovery _mcast_group:=224.0.0.0 &
 P1=$!
-sleep 3
 rosrun master_sync_fkie master_sync &
-P2$!
+P2=$!
 /opt/ros/kinetic/bin/roslaunch /home/ubuntu/dev/dragonfly/config/apm.launch &
 P3=$!
 rosrun dragonfly co2publisher.py $1 &
