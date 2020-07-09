@@ -131,6 +131,10 @@ public class Drone {
         return name;
     }
 
+    public String getName() {
+        return name;
+    }
+
     public Observable<String> getLog() {
         return logSubject;
     }

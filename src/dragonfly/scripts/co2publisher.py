@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+
 import rospy
 import serial
 import argparse
@@ -8,7 +9,7 @@ def publishco2(id):
     rospy.loginfo("publishing co2 readings on {}/co2".format(id))
     pub = rospy.Publisher("{}/co2".format(id), String, queue_size=10)
     rospy.init_node('talker', anonymous=True)
-    rate = rospy.Rate(1) # 10hz
+    rate = rospy.Rate(1)
     while not rospy.is_shutdown():
         try:
             with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE) as port:

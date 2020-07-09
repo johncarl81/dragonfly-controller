@@ -12,6 +12,7 @@ import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.rxjavafx.schedulers.JavaFxScheduler;
+import io.reactivex.subjects.PublishSubject;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
 import javafx.collections.FXCollections;
@@ -27,6 +28,7 @@ import javafx.scene.control.TextInputDialog;
 import javafx.scene.input.MouseEvent;
 import org.ros.exception.ServiceNotFoundException;
 import org.ros.node.ConnectedNode;
+import org.ros.node.topic.Subscriber;
 
 import javax.inject.Inject;
 import java.text.DateFormat;
@@ -278,6 +280,14 @@ public class DashboardController {
             }
         });
 
+        Subscriber<std_msgs.String> nameBroadcastSubscriber = node.newSubscriber("/dragonfly/broadcast", std_msgs.String._TYPE);
+        PublishSubject<String> nameSubject = PublishSubject.create();
+        nameBroadcastSubscriber.addMessageListener(name -> nameSubject.onNext(name.getData()));
+
+        nameSubject
+                .observeOn(JavaFxScheduler.platform())
+                .subscribe(name -> addDrone(name));
+
         log("Dashboard Startup");
     }
 
@@ -301,59 +311,70 @@ public class DashboardController {
 
     private void addDrone(String name) {
 
-        Drone drone = new Drone(node, name);
-        drone.init();
+        if(!exists(name)) {
+            Drone drone = new Drone(node, name);
+            drone.init();
 
-        drone.getLog()
-                .observeOn(JavaFxScheduler.platform())
-                .subscribe(message -> log(name + ": " + message));
+            drone.getLog()
+                    .observeOn(JavaFxScheduler.platform())
+                    .subscribe(message -> log(name + ": " + message));
 
-        drone.getPositions()
-                .observeOn(JavaFxScheduler.platform())
-                .subscribe(new Observer<Drone.LatLonRelativeAltitude>() {
-                    private Graphic droneGraphic;
-                    private Graphic droneShadowGraphic;
-                    @Override
-                    public void onSubscribe(Disposable d) {}
+            drone.getPositions()
+                    .observeOn(JavaFxScheduler.platform())
+                    .subscribe(new Observer<Drone.LatLonRelativeAltitude>() {
+                        private Graphic droneGraphic;
+                        private Graphic droneShadowGraphic;
 
-                    @Override
-                    public void onNext(Drone.LatLonRelativeAltitude navSatFix) {
-                        Point point = new Point(navSatFix.getLongitude(), navSatFix.getLatitude(), navSatFix.getRelativeAltitude());
-                        if (droneGraphic == null) {
-                            SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
-                            TextSymbol nameText = new TextSymbol(10, name, 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
-                            nameText.setOffsetX(25);
-                            droneGraphic = new Graphic(point, new CompositeSymbol(Arrays.asList(symbol, nameText)));
-                            droneOverlay.getGraphics().add(droneGraphic);
-
-                            SimpleMarkerSymbol shadowSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, 0x99000000, 2.5f);
-                            droneShadowGraphic = new Graphic(point, shadowSymbol);
-                            droneShadowOverlay.getGraphics().add(droneShadowGraphic);
-                        } else {
-                            droneGraphic.setGeometry(point);
-                            droneShadowGraphic.setGeometry(point);
+                        @Override
+                        public void onSubscribe(Disposable d) {
                         }
-                    }
 
-                    @Override
-                    public void onError(Throwable e) {
+                        @Override
+                        public void onNext(Drone.LatLonRelativeAltitude navSatFix) {
+                            Point point = new Point(navSatFix.getLongitude(), navSatFix.getLatitude(), navSatFix.getRelativeAltitude());
+                            if (droneGraphic == null) {
+                                SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
+                                TextSymbol nameText = new TextSymbol(10, name, 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
+                                nameText.setOffsetX(25);
+                                droneGraphic = new Graphic(point, new CompositeSymbol(Arrays.asList(symbol, nameText)));
+                                droneOverlay.getGraphics().add(droneGraphic);
 
-                    }
-
-                    @Override
-                    public void onComplete() {
-                        if(droneGraphic != null) {
-                            droneOverlay.getGraphics().remove(droneGraphic);
-                            droneShadowOverlay.getGraphics().remove(droneShadowGraphic);
+                                SimpleMarkerSymbol shadowSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, 0x99000000, 2.5f);
+                                droneShadowGraphic = new Graphic(point, shadowSymbol);
+                                droneShadowOverlay.getGraphics().add(droneShadowGraphic);
+                            } else {
+                                droneGraphic.setGeometry(point);
+                                droneShadowGraphic.setGeometry(point);
+                            }
                         }
-                    }
-                });
 
-        droneList.add(drone);
+                        @Override
+                        public void onError(Throwable e) {
 
+                        }
 
+                        @Override
+                        public void onComplete() {
+                            if (droneGraphic != null) {
+                                droneOverlay.getGraphics().remove(droneGraphic);
+                                droneShadowOverlay.getGraphics().remove(droneShadowGraphic);
+                            }
+                        }
+                    });
 
-        log("Added " + name);
+            droneList.add(drone);
+
+            log("Added " + name);
+        }
+    }
+
+    private boolean exists(String name) {
+        for(Drone drone : droneList) {
+            if(name.equals(drone.getName())) {
+                return true;
+            }
+        }
+        return false;
     }
 
     private void log(String message) {
