@@ -280,10 +280,10 @@ public class DashboardController {
             }
         });
 
-        Subscriber<std_msgs.String> nameBroadcastSubscriber = node.newSubscriber("/dragonfly/broadcast", std_msgs.String._TYPE);
+        Subscriber<std_msgs.String> nameBroadcastSubscriber = node.newSubscriber("/dragonfly/announce", std_msgs.String._TYPE);
         PublishSubject<String> nameSubject = PublishSubject.create();
         nameBroadcastSubscriber.addMessageListener(name -> nameSubject.onNext(name.getData()));
-
+    
         nameSubject
                 .observeOn(JavaFxScheduler.platform())
                 .subscribe(name -> addDrone(name));
