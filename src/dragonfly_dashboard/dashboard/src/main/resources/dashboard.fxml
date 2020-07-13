@@ -36,6 +36,7 @@
                 <Button fx:id="center" text="Center"/>
                 <Button fx:id="lawnmower" text="Lawnmower"/>
                 <Button fx:id="ddsa" text="DDSA"/>
+                <Button fx:id="random" text="Random"/>
                 <Button fx:id="cancel" text="Cancel"/>
             </HBox>
             <TitledPane text="Log">

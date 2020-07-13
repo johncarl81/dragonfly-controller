@@ -8,10 +8,12 @@ import com.esri.arcgisruntime.mapping.Basemap;
 import com.esri.arcgisruntime.mapping.Surface;
 import com.esri.arcgisruntime.mapping.view.*;
 import com.esri.arcgisruntime.symbology.*;
+import io.reactivex.Observable;
 import io.reactivex.Observer;
 import io.reactivex.disposables.Disposable;
 import io.reactivex.functions.Consumer;
 import io.reactivex.rxjavafx.schedulers.JavaFxScheduler;
+import io.reactivex.schedulers.Schedulers;
 import io.reactivex.subjects.PublishSubject;
 import javafx.beans.value.ChangeListener;
 import javafx.beans.value.ObservableValue;
@@ -34,6 +36,7 @@ import javax.inject.Inject;
 import java.text.DateFormat;
 import java.text.SimpleDateFormat;
 import java.util.*;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
 
 public class DashboardController {
@@ -43,6 +46,7 @@ public class DashboardController {
             "https://elevation3d.arcgis.com/arcgis/rest/services/WorldElevation3D/Terrain3D/ImageServer";
     private static final int ALPHA_RED = 0x33FF0000;
     private static final int RED = 0xFFFF0000;
+    private static final Random RAND = new Random(System.currentTimeMillis());
 
     @FXML
     private SceneView sceneView;
@@ -65,6 +69,8 @@ public class DashboardController {
     @FXML
     private Button ddsa;
     @FXML
+    private Button random;
+    @FXML
     private Button cancel;
 
     private final ObservableList<Drone> droneList = FXCollections.observableArrayList();
@@ -72,6 +78,7 @@ public class DashboardController {
     private final GraphicsOverlay droneOverlay = new GraphicsOverlay();
     private final GraphicsOverlay droneShadowOverlay = new GraphicsOverlay();
     private final GraphicsOverlay boundaryOverlay = new GraphicsOverlay();
+    private final GraphicsOverlay pathOverlay = new GraphicsOverlay();
     private final List<Point> boundaryPoints = new ArrayList<Point>();
     private CoordianteSelectionMode mode = CoordianteSelectionMode.CLEAR;
 
@@ -103,6 +110,8 @@ public class DashboardController {
         droneShadowOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
         sceneView.getGraphicsOverlays().add(boundaryOverlay);
         boundaryOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
+        sceneView.getGraphicsOverlays().add(pathOverlay);
+        pathOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
 
         sceneView.setOnMouseMoved(new EventHandler<MouseEvent>() {
             @Override
@@ -171,6 +180,7 @@ public class DashboardController {
                 if(mode == CoordianteSelectionMode.SELECT) {
                     mode = CoordianteSelectionMode.FINISHED;
                     lawnmower.setDisable(!(!drones.getSelectionModel().isEmpty() && !boundaryPoints.isEmpty()));
+                    random.setDisable(!(!drones.getSelectionModel().isEmpty() && !boundaryPoints.isEmpty()));
                 } else if (mode == CoordianteSelectionMode.FINISHED) {
                     mode = CoordianteSelectionMode.CLEAR;
                     boundaryOverlay.getGraphics().clear();
@@ -194,6 +204,7 @@ public class DashboardController {
         center.setDisable(true);
         lawnmower.setDisable(true);
         ddsa.setDisable(true);
+        random.setDisable(true);
         cancel.setDisable(true);
 
         add.setOnAction(new EventHandler<ActionEvent>() {
@@ -256,6 +267,62 @@ public class DashboardController {
             }
         });
 
+        random.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                if(!boundaryPoints.isEmpty()) {
+                    drones.getSelectionModel().clearSelection();
+                    Observable.fromCallable(new Callable<GeneticTSP.Tour>() {
+                        @Override
+                        public GeneticTSP.Tour call() throws Exception {
+                            double xmax = -10000;
+                            double xmin = 10000;
+                            double ymax = -10000;
+                            double ymin = 10000;
+
+                            for (Point point : boundaryPoints) {
+                                if(xmax < point.getX()) {
+                                    xmax = point.getX();
+                                }
+                                if(xmin > point.getX()) {
+                                    xmin = point.getX();
+                                }
+                                if(ymax < point.getY()) {
+                                    ymax = point.getY();
+                                }
+                                if(ymin > point.getY()) {
+                                    ymin = point.getY();
+                                }
+                            }
+
+                            List<GeneticTSP.PointImpl> points = new ArrayList<>();
+                            for(int i = 0; i < 100; i++) {
+                                points.add(new GeneticTSP.PointImpl((RAND.nextDouble() * (xmax - xmin)) + xmin, (RAND.nextDouble() * (ymax - ymin) + ymin) ));
+                            }
+
+                            GeneticTSP.Population population = GeneticTSP.Population.generate(points, 500);
+
+                            for(int i = 0; i < 10000; i++) {
+                                long start = System.currentTimeMillis();
+                                population = GeneticTSP.evolve(population);
+
+                                System.out.println("Evolution " + i + " " +
+                                        "took: " + (System.currentTimeMillis() - start) + "ms, " +
+                                        "distance: " + population.getMostFit().getDistance());
+                            }
+
+                            return population.getMostFit();
+                        }
+                    })
+                            .subscribeOn(Schedulers.computation())
+                            .observeOn(JavaFxScheduler.platform())
+                            .subscribe(tour -> draw(tour));
+
+
+                }
+            }
+        });
+
         cancel.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
@@ -276,6 +343,7 @@ public class DashboardController {
                 center.setDisable(!selected);
                 lawnmower.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
                 ddsa.setDisable(!selected);
+                random.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
                 cancel.setDisable(!selected);
             }
         });
@@ -289,6 +357,20 @@ public class DashboardController {
                 .subscribe(name -> addDrone(name));
 
         log("Dashboard Startup");
+    }
+
+    private void draw(GeneticTSP.Tour tour) {
+        pathOverlay.getGraphics().clear();
+
+        PolylineBuilder lineBuilder = new PolylineBuilder(SpatialReferences.getWgs84());
+
+        for(GeneticTSP.PointImpl point : tour.getPoints()) {
+            lineBuilder.addPoint(point.getX(), point.getY());
+        }
+
+        SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.DASH, 0xFF800080, 2);
+        Graphic graphic = new Graphic(lineBuilder.toGeometry(), lineSymbol);
+        pathOverlay.getGraphics().add(graphic);
     }
 
     private void centerDrone(Drone drone) {
@@ -365,6 +447,10 @@ public class DashboardController {
             droneList.add(drone);
 
             log("Added " + name);
+
+            if(droneList.size() == 1) {
+                centerDrone(drone);
+            }
         }
     }
 
