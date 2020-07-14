@@ -2,6 +2,7 @@ package edu.unm.dragonfly;
 
 import com.esri.arcgisruntime.concurrent.ListenableFuture;
 import com.esri.arcgisruntime.geometry.*;
+import com.esri.arcgisruntime.internal.jni.CoreGeoprocessingLinearUnits;
 import com.esri.arcgisruntime.mapping.ArcGISScene;
 import com.esri.arcgisruntime.mapping.ArcGISTiledElevationSource;
 import com.esri.arcgisruntime.mapping.Basemap;
@@ -105,13 +106,13 @@ public class DashboardController {
         sceneView.setArcGISScene(scene);
 
         sceneView.getGraphicsOverlays().add(droneOverlay);
-        droneOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE_TO_SCENE);
+        droneOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE);
         sceneView.getGraphicsOverlays().add(droneShadowOverlay);
         droneShadowOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
         sceneView.getGraphicsOverlays().add(boundaryOverlay);
         boundaryOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
         sceneView.getGraphicsOverlays().add(pathOverlay);
-        pathOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
+        pathOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE);
 
         sceneView.setOnMouseMoved(new EventHandler<MouseEvent>() {
             @Override
@@ -156,7 +157,7 @@ public class DashboardController {
                                 PolylineBuilder lineBuilder = new PolylineBuilder(SpatialReferences.getWgs84());
                                 lineBuilder.addPoint(boundaryPoints.get(0).getX(), boundaryPoints.get(0).getY());
                                 lineBuilder.addPoint(boundaryPoints.get(1).getX(), boundaryPoints.get(1).getY());
-                                SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, RED, 2);
+                                SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.SOLID, RED, 1);
                                 boudaryGraphic = new Graphic(lineBuilder.toGeometry(), lineSymbol);
                             } else {
                                 PointCollection polygonPoints = new PointCollection(boundaryPoints);
@@ -271,54 +272,73 @@ public class DashboardController {
             @Override
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
+                    RandomPathDialogFactory.create((minAltitude, maxAltitude, size, iterations, population, waittime) -> {
+                        Observable.fromCallable(new Callable<GeneticTSP.Tour<ProjectedPoint>>() {
+                            @Override
+                            public GeneticTSP.Tour<ProjectedPoint> call() {
+                                double xmax = -10000;
+                                double xmin = 10000;
+                                double ymax = -10000;
+                                double ymin = 10000;
+
+                                for (Point point : boundaryPoints) {
+                                    if(xmax < point.getX()) {
+                                        xmax = point.getX();
+                                    }
+                                    if(xmin > point.getX()) {
+                                        xmin = point.getX();
+                                    }
+                                    if(ymax < point.getY()) {
+                                        ymax = point.getY();
+                                    }
+                                    if(ymin > point.getY()) {
+                                        ymin = point.getY();
+                                    }
+                                }
+
+                                List<ProjectedPoint> points = new ArrayList<>();
+                                for(int i = 0; i < size;) {
+                                    Point randomPoint = new Point((RAND.nextDouble() * (xmax - xmin)) + xmin,
+                                            (RAND.nextDouble() * (ymax - ymin)) + ymin,
+                                            (RAND.nextDouble() * (maxAltitude - minAltitude)) + minAltitude);
+                                    if(inside(randomPoint, boundaryPoints)) {
+                                        points.add(new ProjectedPoint(randomPoint));
+                                        i++;
+                                    }
+                                }
+
+                                GeneticTSP.Population<ProjectedPoint> chromosomes = GeneticTSP.Population.generate(points, new GeneticTSP.DistanceMetric<ProjectedPoint>() {
+                                    @Override
+                                    public double distance(List<ProjectedPoint> points) {
+                                        double distance = 0;
+                                        for(int i = 0; i < points.size() - 1; i++) {
+                                            double deltax = points.get(i).getX() - points.get(i + 1).getX();
+                                            double deltay = points.get(i).getY() - points.get(i + 1).getY();
+                                            double deltaz = points.get(i).getZ() - points.get(i + 1).getZ();
+                                            distance += Math.sqrt((deltax * deltax) + (deltay * deltay) + (deltaz * deltaz));
+                                        }
+                                        return distance;
+                                    }
+                                }, population);
+
+                                for(int i = 0; i < iterations; i++) {
+                                    long start = System.currentTimeMillis();
+                                    chromosomes = GeneticTSP.evolve(chromosomes);
+
+                                    System.out.println("Evolution " + i + " " +
+                                            "took: " + (System.currentTimeMillis() - start) + "ms, " +
+                                            "distance: " + chromosomes.getMostFit().getDistance());
+                                }
+
+                                return chromosomes.getMostFit();
+                            }
+                        })
+                                .subscribeOn(Schedulers.computation())
+                                .observeOn(JavaFxScheduler.platform())
+                                .subscribe(tour -> draw(tour),
+                                        throwable -> throwable.printStackTrace());
+                    });
                     drones.getSelectionModel().clearSelection();
-                    Observable.fromCallable(new Callable<GeneticTSP.Tour>() {
-                        @Override
-                        public GeneticTSP.Tour call() throws Exception {
-                            double xmax = -10000;
-                            double xmin = 10000;
-                            double ymax = -10000;
-                            double ymin = 10000;
-
-                            for (Point point : boundaryPoints) {
-                                if(xmax < point.getX()) {
-                                    xmax = point.getX();
-                                }
-                                if(xmin > point.getX()) {
-                                    xmin = point.getX();
-                                }
-                                if(ymax < point.getY()) {
-                                    ymax = point.getY();
-                                }
-                                if(ymin > point.getY()) {
-                                    ymin = point.getY();
-                                }
-                            }
-
-                            List<GeneticTSP.PointImpl> points = new ArrayList<>();
-                            for(int i = 0; i < 100; i++) {
-                                points.add(new GeneticTSP.PointImpl((RAND.nextDouble() * (xmax - xmin)) + xmin, (RAND.nextDouble() * (ymax - ymin) + ymin) ));
-                            }
-
-                            GeneticTSP.Population population = GeneticTSP.Population.generate(points, 500);
-
-                            for(int i = 0; i < 10000; i++) {
-                                long start = System.currentTimeMillis();
-                                population = GeneticTSP.evolve(population);
-
-                                System.out.println("Evolution " + i + " " +
-                                        "took: " + (System.currentTimeMillis() - start) + "ms, " +
-                                        "distance: " + population.getMostFit().getDistance());
-                            }
-
-                            return population.getMostFit();
-                        }
-                    })
-                            .subscribeOn(Schedulers.computation())
-                            .observeOn(JavaFxScheduler.platform())
-                            .subscribe(tour -> draw(tour));
-
-
                 }
             }
         });
@@ -359,16 +379,31 @@ public class DashboardController {
         log("Dashboard Startup");
     }
 
-    private void draw(GeneticTSP.Tour tour) {
+    private boolean inside(Point randomPoint, List<Point> boundaryPoints) {
+        for(int i = 0; i < boundaryPoints.size() - 1; i++){
+            Point a = boundaryPoints.get(i);
+            Point b = boundaryPoints.get(i+1);
+            if(!isLeft(a, b, randomPoint)) {
+                return false;
+            }
+        }
+        return isLeft(boundaryPoints.get(boundaryPoints.size() - 1), boundaryPoints.get(0), randomPoint);
+    }
+
+    private boolean isLeft(Point a, Point b, Point c) {
+        return ((b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX())) > 0;
+    }
+
+    private void draw(GeneticTSP.Tour<ProjectedPoint> tour) {
+        System.out.println("Drawing...");
         pathOverlay.getGraphics().clear();
 
         PolylineBuilder lineBuilder = new PolylineBuilder(SpatialReferences.getWgs84());
-
-        for(GeneticTSP.PointImpl point : tour.getPoints()) {
-            lineBuilder.addPoint(point.getX(), point.getY());
+        for(ProjectedPoint point : tour.getPoints()) {
+            lineBuilder.addPoint(point.getOriginal());
         }
 
-        SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.DASH, 0xFF800080, 2);
+        SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.DASH, 0xFF800080, 1);
         Graphic graphic = new Graphic(lineBuilder.toGeometry(), lineSymbol);
         pathOverlay.getGraphics().add(graphic);
     }

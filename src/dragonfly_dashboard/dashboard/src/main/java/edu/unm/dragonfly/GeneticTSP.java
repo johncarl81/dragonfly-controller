@@ -6,7 +6,6 @@ public class GeneticTSP {
 
     private static final int ELETISM_COUNT = 1;
     private static final int TOURNAMENT_SIZE = 5;
-    private static final int CROSSOVERS = 2;
     private static final double MUTATION_RATE = 0.015;
 
     private static final Random RAND = new Random(System.currentTimeMillis());
@@ -19,7 +18,7 @@ public class GeneticTSP {
     public static class Tour<P> {
 
         private final List<P> points;
-        private double distance;
+        private final double distance;
 
         public Tour(List<P> points, DistanceMetric<P> distance) {
             this.points = points;
@@ -49,14 +48,42 @@ public class GeneticTSP {
         }
     }
 
+    private static class ArrayPool<P> {
+        private final int arraySize;
+        private final List<List<P>> available = new ArrayList<>();
+
+        public ArrayPool(int arraySize) {
+            this.arraySize = arraySize;
+        }
+
+        public List<P> checkout() {
+            if(!available.isEmpty()) {
+                return available.remove(0);
+            } else {
+                List<P> creation = new ArrayList<>(arraySize);
+                for(int i = 0; i < arraySize; i++) {
+                    creation.add(null);
+                }
+
+                return creation;
+            }
+        }
+
+        public void checkin(List<P> obsoleted) {
+            available.add(obsoleted);
+        }
+    }
+
     public static class Population<P>{
 
         private final List<Tour<P>> individuals;
+        private final ArrayPool<P> pool;
         private final DistanceMetric<P> distanceMetric;
-        private final Tour mostFit;
+        private final Tour<P> mostFit;
 
-        private Population(List<Tour<P>> individuals, DistanceMetric<P> distanceMetric) {
+        private Population(List<Tour<P>> individuals, ArrayPool<P> pool, DistanceMetric<P> distanceMetric) {
             this.individuals = individuals;
+            this.pool = pool;
             this.distanceMetric = distanceMetric;
             this.mostFit = individuals.stream().max(Comparator.comparingDouble(Tour::getFitness)).get();
         }
@@ -64,16 +91,18 @@ public class GeneticTSP {
 
         public static <P> Population<P> generate(List<P> points, DistanceMetric<P> metric, int size) {
 
+            ArrayPool<P> pool = new ArrayPool<>(points.size());
+
             List<Tour<P>> individuals = new ArrayList<>();
 
             for(int i = 0; i < size; i++) {
                 individuals.add(Tour.generate(points, metric));
             }
 
-            return new Population(individuals, metric);
+            return new Population<P>(individuals, pool, metric);
         }
 
-        public Tour getMostFit() {
+        public Tour<P> getMostFit() {
             return mostFit;
         }
 
@@ -84,85 +113,77 @@ public class GeneticTSP {
         public DistanceMetric<P> getMetric() {
             return distanceMetric;
         }
-    }
 
-    private static double distance(List<PointImpl> points) {
-        double distance = 0;
-        for(int i = 0; i < points.size() - 1; i++) {
-            distance += distance(points.get(i), points.get(i + 1));
+        public ArrayPool<P> getPool() {
+            return pool;
         }
-        return distance;
-    }
-
-    private static double distance(PointImpl start, PointImpl end) {
-        double deltax = start.getX() - end.getX();
-        double deltay = start.getY() - end.getY();
-        return Math.sqrt((deltax * deltax) + (deltay * deltay));
     }
 
     public static <P> Population<P> evolve(Population<P> population) {
         List<Tour<P>> nextEvolution = new ArrayList<>();
 
         // Elitism
-        List<Tour<P>> sortedTours = new ArrayList<>(population.getIndividuals());
-        Collections.sort(sortedTours, Comparator.comparingDouble(Tour::getDistance));
+        Collections.sort(population.getIndividuals(), Comparator.comparingDouble(Tour::getDistance));
         for(int i = 0; i < ELETISM_COUNT; i++) {
-            nextEvolution.add(sortedTours.get(i));
+            nextEvolution.add(population.getIndividuals().get(i));
         }
 
         // Tournament Selection, Crossover, and Mutation
         for(int i = ELETISM_COUNT-1; i < population.getIndividuals().size(); i++) {
             Tour<P> parent1 = tournament(population.getIndividuals());
             Tour<P> parent2 = tournament(population.getIndividuals());
-            Tour<P> child = new Tour<P>(mutate(crossover(parent1, parent2)), population.getMetric());
+            Tour<P> child = new Tour<P>(mutate(crossover(parent1, parent2, population.getPool())), population.getMetric());
             nextEvolution.add(child);
         }
+        
+        for(int i = ELETISM_COUNT; i < population.getIndividuals().size(); i++) {
+            population.getPool().checkin(population.getIndividuals().get(i).getPoints());
+        }
 
-        return new Population<P>(nextEvolution, population.getMetric());
+        return new Population<P>(nextEvolution, population.getPool(), population.getMetric());
     }
 
     private static <P> List<P> mutate(List<P> individual) {
-        List<P> mutatedIndividual = new ArrayList<>(individual);
         for(int i = 0; i < individual.size(); i++) {
             if(RAND.nextDouble() < MUTATION_RATE) {
                 int j = RAND.nextInt(individual.size());
-                Collections.swap(mutatedIndividual, i, j);
+                Collections.swap(individual, i, j);
             }
         }
-        return mutatedIndividual;
+        return individual;
     }
 
-    private static <P> List<P> crossover(Tour<P> parent1, Tour<P> parent2) {
-        P[] points = (P[]) new Object[parent1.size()];
+    private static <P> List<P> crossover(Tour<P> parent1, Tour<P> parent2, ArrayPool<P> pool) {
+        List<P> points = pool.checkout();
 
         boolean parentOne = false;
-        List<Integer> crossovers = new ArrayList<>(parent1.size());
-        for(int i = 0; i < CROSSOVERS; i++) {
-            crossovers.add(RAND.nextInt(parent1.size()));
-        }
+        int crossoverOne = RAND.nextInt(parent1.size());
+        int crossoverTwo = RAND.nextInt(parent1.size());
 
         for(int i = 0; i < parent1.size(); i++) {
-            if(crossovers.contains(i)) {
+            if(i == crossoverOne || i == crossoverTwo) {
                 parentOne = !parentOne;
             }
             if(parentOne) {
-                points[i] = parent1.getPoints().get(i);
+                points.set(i, parent1.getPoints().get(i));
+            } else {
+                points.set(i, null);
             }
         }
 
         for(int i = 0; i < parent2.size(); i++) {
             P parentTwoPoint = parent2.getPoints().get(i);
-            if(!Arrays.asList(points).contains(parentTwoPoint)) {
-                for(int j = 0; j < points.length; j++) {
-                    if(points[j] == null) {
-                        points[j] = parentTwoPoint;
+            if(!points.contains(parentTwoPoint)) {
+                for(int j = 0; j < points.size(); j++) {
+                    if(points.get(j) == null) {
+                        points.set(j, parentTwoPoint);
                         break;
                     }
                 }
             }
         }
 
-        return Arrays.asList(points);
+        return points;
     }
 
     private static <P> Tour<P> tournament(List<Tour<P>> individuals) {
@@ -200,9 +221,6 @@ public class GeneticTSP {
         for(int i = 0; i < 200; i++) {
             points.add(new PointImpl(RAND.nextDouble() * 100, RAND.nextDouble() * 100));
         }
-
-        double length = GeneticTSP.distance(points);
-        System.out.println("Distance: " + length);
 
         Population<PointImpl> population = Population.generate(points, new DistanceMetric<PointImpl>() {
             @Override
