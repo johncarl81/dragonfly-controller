@@ -1,0 +1,5 @@
+LatLon[] waypoints
+float32 waittime
+---
+int8 success
+string message

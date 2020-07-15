@@ -60,6 +60,7 @@ add_service_files(
    FILES
    Lawnmower.srv
    DDSA.srv
+   Navigation.srv
 )
 
 ## Generate actions in the 'action' folder

@@ -18,6 +18,7 @@ import std_srvs.EmptyRequest;
 import std_srvs.EmptyResponse;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 public class Drone {
@@ -58,12 +59,7 @@ public class Drone {
 
         NodeConfiguration config = NodeConfiguration.newPrivate();
 
-        request.setBoundary(points.stream().map(input -> {
-                    LatLon position = config.getTopicMessageFactory().newFromType(LatLon._TYPE);
-                    position.setLatitude(input.getY());
-                    position.setLongitude(input.getX());
-                    return position;
-                }).collect(Collectors.toList())
+        request.setBoundary(points.stream().map(mapToLatLon(config)).collect(Collectors.toList())
         );
         request.setSteplength(stepLength);
         request.setWalkBoundary(walkBoundary);
@@ -84,6 +80,16 @@ public class Drone {
              }
          });
 
+    }
+
+    private Function<Point, LatLon> mapToLatLon(NodeConfiguration config) {
+        return input -> {
+            LatLon position = config.getTopicMessageFactory().newFromType(LatLon._TYPE);
+            position.setLatitude(input.getY());
+            position.setLongitude(input.getX());
+            position.setRelativeAltitude(input.getZ());
+            return position;
+        };
     }
 
     public void ddsa(float radius, float stepLength, float altitude, int loops, int stacks, int walk, float waittime) throws ServiceNotFoundException {
@@ -108,6 +114,28 @@ public class Drone {
             }
         });
 
+    }
+
+    public void navigate(List<Point> waypoints) throws ServiceNotFoundException {
+        ServiceClient<NavigationRequest, NavigationResponse> client = node.newServiceClient(name + "/command/navigate", Navigation._TYPE);
+        NavigationRequest request = client.newMessage();
+
+        NodeConfiguration config = NodeConfiguration.newPrivate();
+
+        request.setWaypoints(waypoints.stream().map(mapToLatLon(config)).collect(Collectors.toList()));
+        request.setWaittime(0);
+
+        client.call(request, new ServiceResponseListener<NavigationResponse>() {
+            @Override
+            public void onSuccess(NavigationResponse response) {
+                System.out.println("Got: " + response.toString());
+            }
+
+            @Override
+            public void onFailure(RemoteException e) {
+
+            }
+        });
     }
 
     public void cancel() throws ServiceNotFoundException {

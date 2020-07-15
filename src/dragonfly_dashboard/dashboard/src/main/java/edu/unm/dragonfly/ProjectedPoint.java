@@ -4,6 +4,8 @@ import com.esri.arcgisruntime.geometry.Point;
 
 public class ProjectedPoint {
 
+    private static final double EARTH_CIRCUMFERENCE_METERS = 40008000;
+
     private final Point original;
     private final double x;
     private final double y;
@@ -11,8 +13,9 @@ public class ProjectedPoint {
 
     public ProjectedPoint(Point point) {
         this.original = point;
-        this.x = point.getX() * 111358 * Math.cos(point.getX() * 0.01745);
-        this.y = point.getY() * 111358;
+        double latitudeCircumfrence = EARTH_CIRCUMFERENCE_METERS * Math.cos(point.getY() * Math.PI / 180);
+        this.x = point.getX() * latitudeCircumfrence / 360;
+        this.y = point.getY() * EARTH_CIRCUMFERENCE_METERS / 360;
         this.z = point.getZ();
     }
 

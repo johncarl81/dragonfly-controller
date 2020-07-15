@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.stream.Collectors;
 
 public class DashboardController {
 
@@ -272,6 +273,7 @@ public class DashboardController {
             @Override
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
+                    Drone selectedDrone = drones.getSelectionModel().getSelectedItem();
                     RandomPathDialogFactory.create((minAltitude, maxAltitude, size, iterations, population, waittime) -> {
                         Observable.fromCallable(new Callable<GeneticTSP.Tour<ProjectedPoint>>() {
                             @Override
@@ -335,7 +337,18 @@ public class DashboardController {
                         })
                                 .subscribeOn(Schedulers.computation())
                                 .observeOn(JavaFxScheduler.platform())
-                                .subscribe(tour -> draw(tour),
+                                .subscribe(new Consumer<GeneticTSP.Tour<ProjectedPoint>>() {
+                                               @Override
+                                               public void accept(GeneticTSP.Tour<ProjectedPoint> tour) throws Exception {
+                                                   draw(tour);
+
+                                                   try {
+                                                       selectedDrone.navigate(tour.getPoints().stream().map(ProjectedPoint::getOriginal).collect(Collectors.toList()));
+                                                   } catch (ServiceNotFoundException e) {
+                                                       e.printStackTrace();
+                                                   }
+                                               }
+                                           },
                                         throwable -> throwable.printStackTrace());
                     });
                     drones.getSelectionModel().clearSelection();

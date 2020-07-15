@@ -7,7 +7,7 @@ from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped, Point
-from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, DDSA, DDSAResponse
+from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, DDSA, DDSAResponse, Navigation, NavigationResponse
 
 class Span(Enum):
     WALK = 1
@@ -46,9 +46,10 @@ def calculateRange(type, start, end, length):
         return [end]
 
 def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
+    earthCircumference = 40008000
     return createWaypoint(
-        ((positionLon - waypointLon) * 111358 * math.cos(positionLon * 0.01745)) + localx,
-        (-(positionLat - waypointLat) * 111358) + localy,
+        localx - ((positionLon - waypointLon) * earthCircumference / 360 * math.cos(positionLat * 0.01745)),
+        localy - ((positionLat - waypointLat) * earthCircumference / 360) ,
         altitude
     )
 
@@ -192,14 +193,14 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
         waypoints.append(createWaypoint(minx, y, altitude))
-        for (x, rangey) in calculateRange(rangeType, minx, y, maxx, y, steplegnth):
-            waypoints.append(createWaypoint(x, rangey, altitude))
+        for point in calculateRange(rangeType, Point(minx, y, altitude), Point(maxx, y, altitude), steplegnth):
+            waypoints.append(createWaypoint(point.x, point.y, point.z))
         minx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y + steplegnth, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
         waypoints.append(createWaypoint(maxx, y + steplegnth, altitude))
-        for (x, rangey) in calculateRange(rangeType, maxx, y + steplegnth, minx, y + steplegnth, steplegnth):
-            waypoints.append(createWaypoint(x, rangey, altitude))
+        for point in calculateRange(rangeType, Point(maxx, y + steplegnth, altitude), Point(minx, y + steplegnth, altitude), steplegnth):
+            waypoints.append(createWaypoint(point.x, point.y, point.z))
 
     return waypoints
 
@@ -332,27 +333,13 @@ class DragonflyCommand:
         self.canceled = False
         self.setmode('GUIDED')
 
-        print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
+        ddsaWaypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
 
-        waypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
+        waypoints = []
+        for localwaypoint in ddsaWaypoints:
+            waypoints.append(createWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, operation.altitude + localwaypoint.z))
 
-        i = 0
-        for localwaypoint in waypoints:
-            print "going to: {}, {}, {}".format(localwaypoint.x, localwaypoint.y, localwaypoint.z)
-            waypoint = buildWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, localwaypoint.z)
-            self.local_setposition_publisher.publish(waypoint)
-
-            print "Distance to point: ", distance(localwaypoint, self.localposition)
-            while(not self.canceled and (distance(localwaypoint, self.localposition) > 1 or self.zeroing)) :
-                print "Distance to point: ", distance(localwaypoint, self.localposition)
-                rospy.rostime.wallsleep(1)
-            self.logPublisher.publish("DDSA at {}, {}, {}, {}".format(i, localwaypoint.x, localwaypoint.y, localwaypoint.z))
-            rospy.rostime.wallsleep(operation.waittime)
-            i = i+1
-
-            if self.canceled:
-                self.logPublisher.publish("DDSA canceled")
-                break
+        self.runWaypoints(waypoints, operation.waittime)
 
         self.logPublisher.publish("DDSA Finished")
 
@@ -368,28 +355,46 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
+        waypoints = []
+
         if operation.walkBoundary:
             print "Walking boundary"
 
             wrappedGPSBoundary = operation.boundary
             wrappedGPSBoundary.append(operation.boundary[0])
 
-            wrappedBoundary = []
             for waypoint in wrappedGPSBoundary:
-                wrappedBoundary.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, self.localposition.z))
+                waypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, operation.altitude))
 
-            for waypoint in wrappedBoundary:
-                self.local_setposition_publisher.publish(waypoint)
+        waypoints.extend(build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength))
 
-                print "going to: {}, {}".format(waypoint.pose.position.x, waypoint.pose.position.y)
-                while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1):
-                    rospy.rostime.wallsleep(1)
+        self.runWaypoints(waypoints, operation.waittime)
 
-                if self.canceled:
-                    self.logPublisher.publish("Boundary walk canceled")
-                    break
+        self.logPublisher.publish("Lawnmower Finished")
 
-        waypoints = build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength)
+        return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
+
+    def navigate(self, operation):
+        print "Commanded to navigate"
+        self.logPublisher.publish("Navigation started")
+
+        self.canceled = False
+        self.setmode('GUIDED')
+
+        print "{} {}".format(self.localposition.z, self.position.altitude)
+
+        localWaypoints = []
+        for waypoint in operation.waypoints:
+            print "{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relativeAltitude)
+            localWaypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, waypoint.relativeAltitude))
+
+        self.runWaypoints(localWaypoints, operation.waittime)
+
+        self.logPublisher.publish("Navigation Finished")
+
+        return NavigationResponse(success=True, message="Commanded {} to navigate.".format(self.id))
+
+    def runWaypoints(self, waypoints, waittime):
 
         i = 0
         for waypoint in waypoints:
@@ -399,17 +404,16 @@ class DragonflyCommand:
             while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
-            self.logPublisher.publish("Lawnmower at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
-            rospy.rostime.wallsleep(operation.waittime)
+            self.logPublisher.publish("Navigation at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
+            rospy.rostime.wallsleep(waittime)
             i = i+1
 
             if self.canceled:
-                self.logPublisher.publish("Lawnmower canceled")
+                self.logPublisher.publish("Navigation canceled")
                 break
 
-        self.logPublisher.publish("Lawnmower Finished")
-
-        return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
+        self.logPublisher.publish("Navigation Finished")
+        return EmptyResponse()
 
     def position(self, data):
         # print data
@@ -461,8 +465,12 @@ class DragonflyCommand:
         rospy.Service("/{}/command/goto".format(self.id), Empty, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
+        rospy.Service("/{}/command/navigate".format(self.id), Navigation, self.navigate)
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
+
+        # rospy.Service("/{}/build/ddsa".format(self.id), DDSA, self.build_ddsa)
+        # rospy.Service("/{}/build/lawnmower".format(self.id), Lawnmower, self.build_lawnmower)
 
         print "Setup complete"
 
