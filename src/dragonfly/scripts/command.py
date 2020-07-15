@@ -7,7 +7,8 @@ from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped, Point
-from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, DDSA, DDSAResponse, Navigation, NavigationResponse
+from dragonfly_messages.msg import LatLon
+from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, LawnmowerWaypoints, LawnmowerWaypointsResponse, DDSA, DDSAResponse, DDSAWaypoints, DDSAWaypointsResponse, Navigation, NavigationResponse
 
 class Span(Enum):
     WALK = 1
@@ -48,10 +49,17 @@ def calculateRange(type, start, end, length):
 def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
     earthCircumference = 40008000
     return createWaypoint(
-        localx - ((positionLon - waypointLon) * earthCircumference / 360 * math.cos(positionLat * 0.01745)),
-        localy - ((positionLat - waypointLat) * earthCircumference / 360) ,
+        localx - ((positionLon - waypointLon) * (earthCircumference / 360) * math.cos(positionLat * 0.01745)),
+        localy - ((positionLat - waypointLat) * (earthCircumference / 360)) ,
         altitude
     )
+
+def createLatLon(localwaypoint, localposition, position):
+    earthCircumference = 40008000
+    latitude = position.latitude - (localposition.y - localwaypoint.y) * 360 / earthCircumference
+    longitude= position.longitude - (localposition.x - localwaypoint.x) * 360 / (earthCircumference * math.cos(latitude * 0.01745))
+
+    return LatLon(latitude = latitude, longitude = longitude, relativeAltitude = localwaypoint.z)
 
 def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, steplength):
     waypoints = []
@@ -326,6 +334,19 @@ class DragonflyCommand:
 
         return EmptyResponse()
 
+    def build_ddsa(self, operation):
+        ddsaWaypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
+
+        localWaypoints = []
+        for localwaypoint in ddsaWaypoints:
+            localWaypoints.append(createWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, operation.altitude + localwaypoint.z))
+
+        waypoints = []
+        for localwaypoint in localWaypoints:
+            waypoints.append(createLatLon(localwaypoint.pose.position, self.localposition, self.position))
+
+        return DDSAWaypointsResponse(waypoints=waypoints)
+
     def ddsa(self, operation):
         print "Commanded to ddsa"
         self.logPublisher.publish("DDSA started")
@@ -345,6 +366,25 @@ class DragonflyCommand:
 
         return DDSAResponse(success=True, message="Commanded {} to DDSA.".format(self.id))
 
+    def build_lawnmower(self, operation):
+
+        lawnmowerLocalWaypoints = []
+
+        if operation.walkBoundary:
+            wrappedGPSBoundary = []
+            wrappedGPSBoundary.extend(operation.boundary)
+            wrappedGPSBoundary.append(operation.boundary[0])
+
+            for waypoint in wrappedGPSBoundary:
+                lawnmowerLocalWaypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, operation.altitude))
+
+        lawnmowerLocalWaypoints.extend(build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength))
+
+        waypoints = []
+        for lawnmowerLocalWaypoint in lawnmowerLocalWaypoints:
+            waypoints.append(createLatLon(lawnmowerLocalWaypoint.pose.position, self.localposition, self.position))
+
+        return LawnmowerWaypointsResponse(waypoints=waypoints)
 
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
@@ -469,8 +509,8 @@ class DragonflyCommand:
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
 
-        # rospy.Service("/{}/build/ddsa".format(self.id), DDSA, self.build_ddsa)
-        # rospy.Service("/{}/build/lawnmower".format(self.id), Lawnmower, self.build_lawnmower)
+        rospy.Service("/{}/build/ddsa".format(self.id), DDSAWaypoints, self.build_ddsa)
+        rospy.Service("/{}/build/lawnmower".format(self.id), LawnmowerWaypoints, self.build_lawnmower)
 
         print "Setup complete"
 

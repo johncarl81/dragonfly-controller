@@ -59,7 +59,9 @@ add_message_files(
 add_service_files(
    FILES
    Lawnmower.srv
+   LawnmowerWaypoints.srv
    DDSA.srv
+   DDSAWaypoints.srv
    Navigation.srv
 )
 

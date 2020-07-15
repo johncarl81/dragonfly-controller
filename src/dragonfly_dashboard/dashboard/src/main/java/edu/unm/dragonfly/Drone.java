@@ -4,8 +4,10 @@ import com.esri.arcgisruntime.geometry.Point;
 import dragonfly_messages.*;
 import geometry_msgs.PoseStamped;
 import io.reactivex.Observable;
+import io.reactivex.Single;
 import io.reactivex.subjects.BehaviorSubject;
 import io.reactivex.subjects.PublishSubject;
+import io.reactivex.subjects.SingleSubject;
 import org.ros.exception.RemoteException;
 import org.ros.exception.ServiceNotFoundException;
 import org.ros.node.ConnectedNode;
@@ -53,14 +55,13 @@ public class Drone {
         logSubscriber.addMessageListener(message -> logSubject.onNext(message.getData()));
     }
 
-    public void lawnmower(List<Point> points, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime) throws ServiceNotFoundException {
+    public void lawnmower(List<Point> boundaryPoints, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime) throws ServiceNotFoundException {
         ServiceClient<LawnmowerRequest, LawnmowerResponse> client = node.newServiceClient(name + "/command/lawnmower", Lawnmower._TYPE);
         LawnmowerRequest request = client.newMessage();
 
         NodeConfiguration config = NodeConfiguration.newPrivate();
 
-        request.setBoundary(points.stream().map(mapToLatLon(config)).collect(Collectors.toList())
-        );
+        request.setBoundary(boundaryPoints.stream().map(mapToLatLon(config)).collect(Collectors.toList()));
         request.setSteplength(stepLength);
         request.setWalkBoundary(walkBoundary);
         request.setStacks(stacks);
@@ -79,7 +80,38 @@ public class Drone {
 
              }
          });
+    }
 
+    public Single<List<Point>> getLawnmowerWaypoints(List<Point> boundaryPoints, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime) throws ServiceNotFoundException {
+        ServiceClient<LawnmowerWaypointsRequest, LawnmowerWaypointsResponse> client = node.newServiceClient(name + "/build/lawnmower", LawnmowerWaypoints._TYPE);
+        LawnmowerWaypointsRequest request = client.newMessage();
+
+        NodeConfiguration config = NodeConfiguration.newPrivate();
+
+        request.setBoundary(boundaryPoints.stream().map(mapToLatLon(config)).collect(Collectors.toList())
+        );
+        request.setSteplength(stepLength);
+        request.setWalkBoundary(walkBoundary);
+        request.setStacks(stacks);
+        request.setAltitude(altitude);
+        request.setWalk(walk);
+        request.setWaittime(waittime);
+
+        SingleSubject<List<Point>> result = SingleSubject.create();
+
+        client.call(request, new ServiceResponseListener<LawnmowerWaypointsResponse>() {
+            @Override
+            public void onSuccess(LawnmowerWaypointsResponse response) {
+                result.onSuccess(response.getWaypoints().stream().map(mapToPoint()).collect(Collectors.toList()));
+            }
+
+            @Override
+            public void onFailure(RemoteException e) {
+
+            }
+        });
+
+        return result;
     }
 
     private Function<Point, LatLon> mapToLatLon(NodeConfiguration config) {
@@ -89,6 +121,13 @@ public class Drone {
             position.setLongitude(input.getX());
             position.setRelativeAltitude(input.getZ());
             return position;
+        };
+    }
+
+    private Function<LatLon, Point> mapToPoint() {
+        return input -> {
+            System.out.println(new Point(input.getLongitude(), input.getLatitude(), input.getRelativeAltitude()));
+            return new Point(input.getLongitude(), input.getLatitude(), input.getRelativeAltitude());
         };
     }
 
@@ -114,6 +153,34 @@ public class Drone {
             }
         });
 
+    }
+
+    public Single<List<Point>> getDDSAWaypoints(float radius, float stepLength, float altitude, int loops, int stacks, int walk, float waittime) throws ServiceNotFoundException {
+        ServiceClient<DDSAWaypointsRequest, DDSAWaypointsResponse> client = node.newServiceClient(name + "/build/ddsa", DDSAWaypoints._TYPE);
+        DDSAWaypointsRequest request = client.newMessage();
+        request.setRadius(radius);
+        request.setSteplength(stepLength);
+        request.setStacks(stacks);
+        request.setAltitude(altitude);
+        request.setWalk(walk);
+        request.setWaittime(waittime);
+        request.setLoops(loops);
+        
+        SingleSubject<List<Point>> result = SingleSubject.create();
+
+        client.call(request, new ServiceResponseListener<DDSAWaypointsResponse>() {
+            @Override
+            public void onSuccess(DDSAWaypointsResponse response) {
+                result.onSuccess(response.getWaypoints().stream().map(mapToPoint()).collect(Collectors.toList()));
+            }
+
+            @Override
+            public void onFailure(RemoteException e) {
+
+            }
+        });
+        
+        return result;
     }
 
     public void navigate(List<Point> waypoints) throws ServiceNotFoundException {

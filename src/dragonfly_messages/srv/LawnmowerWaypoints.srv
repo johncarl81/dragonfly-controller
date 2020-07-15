@@ -1,0 +1,9 @@
+LatLon[] boundary
+float32 steplength
+bool walkBoundary
+int32 walk
+int32 stacks
+float32 altitude
+float32 waittime
+---
+LatLon[] waypoints

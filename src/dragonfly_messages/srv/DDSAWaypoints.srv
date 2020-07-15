@@ -1,0 +1,9 @@
+float32 radius
+float32 steplength
+int32 walk
+int32 stacks
+int32 loops
+float32 altitude
+float32 waittime
+---
+LatLon[] waypoints

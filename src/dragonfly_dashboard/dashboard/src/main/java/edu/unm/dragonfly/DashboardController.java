@@ -245,7 +245,11 @@ public class DashboardController {
                 if(!boundaryPoints.isEmpty()) {
                         LawnmowerDialogFactory.create((stepLength, altitude, stacks, walkBoundary, walk, waittime) -> {
                             try {
-                                drones.getSelectionModel().getSelectedItem().lawnmower(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime);
+                                Drone selected = drones.getSelectionModel().getSelectedItem();
+                                selected.getLawnmowerWaypoints(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime)
+                                        .observeOn(JavaFxScheduler.platform())
+                                        .subscribe(waypoints -> draw(waypoints));
+                                selected.lawnmower(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime);
                             } catch (ServiceNotFoundException e) {
                                 e.printStackTrace();
                             }
@@ -260,7 +264,11 @@ public class DashboardController {
             public void handle(ActionEvent event) {
                 DDSADialogFactory.create((radius, stepLength, altitude, loops, stacks, walk, waittime) -> {
                     try {
-                        drones.getSelectionModel().getSelectedItem().ddsa(radius, stepLength, altitude, loops, stacks, walk.id, waittime);
+                        Drone selected = drones.getSelectionModel().getSelectedItem();
+                        selected.getDDSAWaypoints(radius, stepLength, altitude, loops, stacks, walk.id, waittime)
+                                .observeOn(JavaFxScheduler.platform())
+                                .subscribe(waypoints -> draw(waypoints));
+                        selected.ddsa(radius, stepLength, altitude, loops, stacks, walk.id, waittime);
                     } catch (ServiceNotFoundException e) {
                         e.printStackTrace();
                     }
@@ -340,10 +348,11 @@ public class DashboardController {
                                 .subscribe(new Consumer<GeneticTSP.Tour<ProjectedPoint>>() {
                                                @Override
                                                public void accept(GeneticTSP.Tour<ProjectedPoint> tour) throws Exception {
-                                                   draw(tour);
+                                                   List<Point> points = tour.getPoints().stream().map(ProjectedPoint::getOriginal).collect(Collectors.toList());
+                                                   draw(points);
 
                                                    try {
-                                                       selectedDrone.navigate(tour.getPoints().stream().map(ProjectedPoint::getOriginal).collect(Collectors.toList()));
+                                                       selectedDrone.navigate(points);
                                                    } catch (ServiceNotFoundException e) {
                                                        e.printStackTrace();
                                                    }
@@ -407,13 +416,13 @@ public class DashboardController {
         return ((b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX())) > 0;
     }
 
-    private void draw(GeneticTSP.Tour<ProjectedPoint> tour) {
+    private void draw(List<Point> path) {
         System.out.println("Drawing...");
         pathOverlay.getGraphics().clear();
 
         PolylineBuilder lineBuilder = new PolylineBuilder(SpatialReferences.getWgs84());
-        for(ProjectedPoint point : tour.getPoints()) {
-            lineBuilder.addPoint(point.getOriginal());
+        for(Point point : path) {
+            lineBuilder.addPoint(point);
         }
 
         SimpleLineSymbol lineSymbol = new SimpleLineSymbol(SimpleLineSymbol.Style.DASH, 0xFF800080, 1);
