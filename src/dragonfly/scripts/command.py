@@ -46,11 +46,11 @@ def calculateRange(type, start, end, length):
     elif type == Span.RANGE:
         return [end]
 
-def buildRelativeWaypoint(localx, localy, positionLon, positionLat, waypointLon, waypointLat, altitude):
+def buildRelativeWaypoint(localposition, position, waypoint, altitude):
     earthCircumference = 40008000
     return createWaypoint(
-        localx - ((positionLon - waypointLon) * (earthCircumference / 360) * math.cos(positionLat * 0.01745)),
-        localy - ((positionLat - waypointLat) * (earthCircumference / 360)) ,
+        localposition.x - ((position.longitude - waypoint.longitude) * (earthCircumference / 360) * math.cos(position.latitude * 0.01745)),
+        localposition.y - ((position.latitude - waypoint.latitude) * (earthCircumference / 360)) ,
         altitude
     )
 
@@ -183,7 +183,7 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
     waypoints = []
 
     for waypoint in boundary:
-        goalPos = buildRelativeWaypoint(localposition.x, localposition.y, position.longitude, position.latitude, waypoint.longitude, waypoint.latitude, altitude)
+        goalPos = buildRelativeWaypoint(localposition, position, waypoint, altitude)
 
         boundary_meters.append((goalPos.pose.position.x, goalPos.pose.position.y))
 
@@ -334,15 +334,21 @@ class DragonflyCommand:
 
         return EmptyResponse()
 
-    def build_ddsa(self, operation):
-        ddsaWaypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
+    def build_ddsa_waypoints(self, walk, stacks, loops, radius, steplength, altitude):
+        ddsaWaypoints = build3DDDSAWaypoints(Span(walk), stacks, 1, 0, loops, radius, steplength)
 
         localWaypoints = []
         for localwaypoint in ddsaWaypoints:
-            localWaypoints.append(createWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, operation.altitude + localwaypoint.z))
+            localWaypoints.append(createWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, altitude + localwaypoint.z))
+
+        return localWaypoints
+
+
+    def build_ddsa(self, operation):
+        ddsaWaypoints = self.build_ddsa_waypoints(operation.walk, operation.stacks, operation.loops, operation.radius, operation.steplength, operation.altitude)
 
         waypoints = []
-        for localwaypoint in localWaypoints:
+        for localwaypoint in ddsaWaypoints:
             waypoints.append(createLatLon(localwaypoint.pose.position, self.localposition, self.position))
 
         return DDSAWaypointsResponse(waypoints=waypoints)
@@ -354,11 +360,7 @@ class DragonflyCommand:
         self.canceled = False
         self.setmode('GUIDED')
 
-        ddsaWaypoints = build3DDDSAWaypoints(Span(operation.walk),operation.stacks, 1, 0, operation.loops, operation.radius, operation.steplength)
-
-        waypoints = []
-        for localwaypoint in ddsaWaypoints:
-            waypoints.append(createWaypoint(self.localposition.x + localwaypoint.x, self.localposition.y + localwaypoint.y, operation.altitude + localwaypoint.z))
+        waypoints = self.build_ddsa_waypoints(operation.walk, operation.stacks, operation.loops, operation.radius, operation.steplength, operation.altitude)
 
         self.runWaypoints(waypoints, operation.waittime)
 
@@ -366,22 +368,25 @@ class DragonflyCommand:
 
         return DDSAResponse(success=True, message="Commanded {} to DDSA.".format(self.id))
 
-    def build_lawnmower(self, operation):
-
+    def build_lawnmower_waypoints(self, walkBoundary, boundary, walk, altitude, stacks, steplength):
         lawnmowerLocalWaypoints = []
 
-        if operation.walkBoundary:
+        if walkBoundary:
             wrappedGPSBoundary = []
-            wrappedGPSBoundary.extend(operation.boundary)
-            wrappedGPSBoundary.append(operation.boundary[0])
+            wrappedGPSBoundary.extend(boundary)
+            wrappedGPSBoundary.append(boundary[0])
 
             for waypoint in wrappedGPSBoundary:
-                lawnmowerLocalWaypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, operation.altitude))
+                lawnmowerLocalWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, altitude))
 
-        lawnmowerLocalWaypoints.extend(build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength))
+        lawnmowerLocalWaypoints.extend(build3DLawnmowerWaypoints(Span(walk), altitude, self.localposition, self.position, stacks, boundary, steplength))
+
+        return lawnmowerLocalWaypoints
+
+    def build_lawnmower(self, operation):
 
         waypoints = []
-        for lawnmowerLocalWaypoint in lawnmowerLocalWaypoints:
+        for lawnmowerLocalWaypoint in self.build_lawnmower_waypoints(operation.walkBoundary, operation.boundary, operation.walk, operation.altitude, operation.stacks, operation.steplength):
             waypoints.append(createLatLon(lawnmowerLocalWaypoint.pose.position, self.localposition, self.position))
 
         return LawnmowerWaypointsResponse(waypoints=waypoints)
@@ -395,18 +400,7 @@ class DragonflyCommand:
 
         print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
 
-        waypoints = []
-
-        if operation.walkBoundary:
-            print "Walking boundary"
-
-            wrappedGPSBoundary = operation.boundary
-            wrappedGPSBoundary.append(operation.boundary[0])
-
-            for waypoint in wrappedGPSBoundary:
-                waypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, operation.altitude))
-
-        waypoints.extend(build3DLawnmowerWaypoints(Span(operation.walk), operation.altitude, self.localposition, self.position, operation.stacks, operation.boundary, operation.steplength))
+        waypoints = self.build_lawnmower_waypoints(operation.walkBoundary, operation.boundary, operation.walk, operation.altitude, operation.stacks, operation.steplength)
 
         self.runWaypoints(waypoints, operation.waittime)
 
@@ -426,7 +420,8 @@ class DragonflyCommand:
         localWaypoints = []
         for waypoint in operation.waypoints:
             print "{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relativeAltitude)
-            localWaypoints.append(buildRelativeWaypoint(self.localposition.x, self.localposition.y, self.position.longitude, self.position.latitude, waypoint.longitude, waypoint.latitude, waypoint.relativeAltitude))
+            localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
+
 
         self.runWaypoints(localWaypoints, operation.waittime)
 
