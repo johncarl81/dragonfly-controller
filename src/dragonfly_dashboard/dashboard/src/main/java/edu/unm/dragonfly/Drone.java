@@ -55,7 +55,7 @@ public class Drone {
         logSubscriber.addMessageListener(message -> logSubject.onNext(message.getData()));
     }
 
-    public void lawnmower(List<Point> boundaryPoints, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime) throws ServiceNotFoundException {
+    public void lawnmower(List<Point> boundaryPoints, float stepLength, float altitude, int stacks, boolean walkBoundary, int walk, float waittime, float distanceThreshold) throws ServiceNotFoundException {
         ServiceClient<LawnmowerRequest, LawnmowerResponse> client = node.newServiceClient(name + "/command/lawnmower", Lawnmower._TYPE);
         LawnmowerRequest request = client.newMessage();
 
@@ -68,6 +68,7 @@ public class Drone {
         request.setAltitude(altitude);
         request.setWalk(walk);
         request.setWaittime(waittime);
+        request.setDistanceThreshold(distanceThreshold);
 
         client.call(request, new ServiceResponseListener<LawnmowerResponse>() {
              @Override
@@ -131,7 +132,7 @@ public class Drone {
         };
     }
 
-    public void ddsa(float radius, float stepLength, float altitude, int loops, int stacks, int walk, float waittime) throws ServiceNotFoundException {
+    public void ddsa(float radius, float stepLength, float altitude, int loops, int stacks, int walk, float waittime, float distanceThreshold) throws ServiceNotFoundException {
         ServiceClient<DDSARequest, DDSAResponse> client = node.newServiceClient(name + "/command/ddsa", DDSA._TYPE);
         DDSARequest request = client.newMessage();
         request.setRadius(radius);
@@ -141,6 +142,8 @@ public class Drone {
         request.setWalk(walk);
         request.setWaittime(waittime);
         request.setLoops(loops);
+        request.setDistanceThreshold(distanceThreshold);
+
         client.call(request, new ServiceResponseListener<DDSAResponse>() {
             @Override
             public void onSuccess(DDSAResponse response) {
@@ -183,7 +186,7 @@ public class Drone {
         return result;
     }
 
-    public void navigate(List<Point> waypoints) throws ServiceNotFoundException {
+    public void navigate(List<Point> waypoints, float distanceThreshold) throws ServiceNotFoundException {
         ServiceClient<NavigationRequest, NavigationResponse> client = node.newServiceClient(name + "/command/navigate", Navigation._TYPE);
         NavigationRequest request = client.newMessage();
 
@@ -191,6 +194,7 @@ public class Drone {
 
         request.setWaypoints(waypoints.stream().map(mapToLatLon(config)).collect(Collectors.toList()));
         request.setWaittime(0);
+        request.setDistanceThreshold(distanceThreshold);
 
         client.call(request, new ServiceResponseListener<NavigationResponse>() {
             @Override

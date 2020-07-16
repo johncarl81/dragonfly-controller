@@ -8,7 +8,7 @@ import java.util.Optional;
 public class DDSADialogFactory {
 
     public interface DialogCallback {
-        void call(float radius, float stepLength, float altitude, int loops, int stacks, Walk walk, float waittime);
+        void call(float radius, float stepLength, float altitude, int loops, int stacks, Walk walk, float waittime, float distanceThreshold);
     }
 
     public static void create(DialogCallback callback) {
@@ -26,6 +26,7 @@ public class DDSADialogFactory {
         ComboBox<Walk> walkComboBox = new ComboBox<>();
         walkComboBox.getItems().addAll(Walk.values());
         TextField waitTimeField = new TextField();
+        TextField distanceThreshold = new TextField();
 
         // Set Defaults
         radiusField.setText("1");
@@ -35,6 +36,7 @@ public class DDSADialogFactory {
         altitudeField.setText("10");
         walkComboBox.getSelectionModel().select(Walk.WALK);
         waitTimeField.setText("3");
+        distanceThreshold.setText("1");
 
         grid.add(new Label("Radius: "), 1, 1);
         grid.add(radiusField, 2, 1);
@@ -50,6 +52,8 @@ public class DDSADialogFactory {
         grid.add(walkComboBox, 2, 6);
         grid.add(new Label("Wait Time: "), 1, 7);
         grid.add(waitTimeField, 2, 7);
+        grid.add(new Label("Distance Threshold: "), 1, 8);
+        grid.add(distanceThreshold, 2, 8);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -65,7 +69,8 @@ public class DDSADialogFactory {
                     Integer.parseInt(loopsField.getText()),
                     Integer.parseInt(stacksField.getText()),
                     walkComboBox.getSelectionModel().getSelectedItem(),
-                    Float.parseFloat(waitTimeField.getText()));
+                    Float.parseFloat(waitTimeField.getText()),
+                    Float.parseFloat(distanceThreshold.getText()));
         }
     }
 }

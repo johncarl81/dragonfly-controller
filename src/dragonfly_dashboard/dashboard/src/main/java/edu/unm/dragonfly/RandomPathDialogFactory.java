@@ -8,7 +8,7 @@ import java.util.Optional;
 public class RandomPathDialogFactory {
 
     public interface DialogCallback {
-        void call(float minAltitude, float maxAltitude, int size, int iterations, int population, float waittime);
+        void call(float minAltitude, float maxAltitude, int size, int iterations, int population, float waittime, float distanceThreshold);
     }
 
     public static void create(DialogCallback callback) {
@@ -24,6 +24,7 @@ public class RandomPathDialogFactory {
         TextField iterations = new TextField();
         TextField population = new TextField();
         TextField waitTimeField = new TextField();
+        TextField distanceThreshold = new TextField();
         ProgressBar progressBar = new ProgressBar(0);
 
         // Set Defaults
@@ -33,6 +34,7 @@ public class RandomPathDialogFactory {
         iterations.setText("100");
         population.setText("100");
         waitTimeField.setText("3");
+        distanceThreshold.setText("1");
 
         grid.add(new Label("Min Altitude: "), 1, 1);
         grid.add(minAltitude, 2, 1);
@@ -46,7 +48,9 @@ public class RandomPathDialogFactory {
         grid.add(population, 2, 5);
         grid.add(new Label("Wait Time: "), 1, 6);
         grid.add(waitTimeField, 2, 6);
-        grid.add(progressBar, 1, 7, 2, 7);
+        grid.add(new Label("Distance Threshold: "), 1, 7);
+        grid.add(distanceThreshold, 2, 7);
+        grid.add(progressBar, 1, 8, 2, 8);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -61,7 +65,8 @@ public class RandomPathDialogFactory {
                     Integer.parseInt(size.getText()),
                     Integer.parseInt(iterations.getText()),
                     Integer.parseInt(population.getText()),
-                    Float.parseFloat(waitTimeField.getText()));
+                    Float.parseFloat(waitTimeField.getText()),
+                    Float.parseFloat(distanceThreshold.getText()));
         }
     }
 }

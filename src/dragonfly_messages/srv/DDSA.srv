@@ -5,6 +5,7 @@ int32 stacks
 int32 loops
 float32 altitude
 float32 waittime
+float32 distanceThreshold
 ---
 int8 success
 string message

@@ -243,13 +243,13 @@ public class DashboardController {
             @Override
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
-                        LawnmowerDialogFactory.create((stepLength, altitude, stacks, walkBoundary, walk, waittime) -> {
+                        LawnmowerDialogFactory.create((stepLength, altitude, stacks, walkBoundary, walk, waittime, distanceThreshold) -> {
                             try {
                                 Drone selected = drones.getSelectionModel().getSelectedItem();
                                 selected.getLawnmowerWaypoints(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime)
                                         .observeOn(JavaFxScheduler.platform())
                                         .subscribe(waypoints -> draw(waypoints));
-                                selected.lawnmower(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime);
+                                selected.lawnmower(boundaryPoints, stepLength, altitude, stacks, walkBoundary, walk.id, waittime, distanceThreshold);
                             } catch (ServiceNotFoundException e) {
                                 e.printStackTrace();
                             }
@@ -262,13 +262,13 @@ public class DashboardController {
         ddsa.setOnAction(new EventHandler<ActionEvent>() {
             @Override
             public void handle(ActionEvent event) {
-                DDSADialogFactory.create((radius, stepLength, altitude, loops, stacks, walk, waittime) -> {
+                DDSADialogFactory.create((radius, stepLength, altitude, loops, stacks, walk, waittime, distanceThreshold) -> {
                     try {
                         Drone selected = drones.getSelectionModel().getSelectedItem();
                         selected.getDDSAWaypoints(radius, stepLength, altitude, loops, stacks, walk.id, waittime)
                                 .observeOn(JavaFxScheduler.platform())
                                 .subscribe(waypoints -> draw(waypoints));
-                        selected.ddsa(radius, stepLength, altitude, loops, stacks, walk.id, waittime);
+                        selected.ddsa(radius, stepLength, altitude, loops, stacks, walk.id, waittime, distanceThreshold);
                     } catch (ServiceNotFoundException e) {
                         e.printStackTrace();
                     }
@@ -282,14 +282,14 @@ public class DashboardController {
             public void handle(ActionEvent event) {
                 if(!boundaryPoints.isEmpty()) {
                     Drone selectedDrone = drones.getSelectionModel().getSelectedItem();
-                    RandomPathDialogFactory.create((minAltitude, maxAltitude, size, iterations, population, waittime) -> {
+                    RandomPathDialogFactory.create((minAltitude, maxAltitude, size, iterations, population, waittime, distanceThreshold) -> {
                         Observable.fromCallable(new Callable<GeneticTSP.Tour<ProjectedPoint>>() {
                             @Override
                             public GeneticTSP.Tour<ProjectedPoint> call() {
-                                double xmax = -10000;
-                                double xmin = 10000;
-                                double ymax = -10000;
-                                double ymin = 10000;
+                                double xmax = Double.NEGATIVE_INFINITY;
+                                double xmin = Double.POSITIVE_INFINITY;;
+                                double ymax = Double.NEGATIVE_INFINITY;
+                                double ymin = Double.POSITIVE_INFINITY;;
 
                                 for (Point point : boundaryPoints) {
                                     if(xmax < point.getX()) {
@@ -345,19 +345,16 @@ public class DashboardController {
                         })
                                 .subscribeOn(Schedulers.computation())
                                 .observeOn(JavaFxScheduler.platform())
-                                .subscribe(new Consumer<GeneticTSP.Tour<ProjectedPoint>>() {
-                                               @Override
-                                               public void accept(GeneticTSP.Tour<ProjectedPoint> tour) throws Exception {
-                                                   List<Point> points = tour.getPoints().stream().map(ProjectedPoint::getOriginal).collect(Collectors.toList());
-                                                   draw(points);
+                                .subscribe(tour -> {
+                                    List<Point> points = tour.getPoints().stream().map(ProjectedPoint::getOriginal).collect(Collectors.toList());
+                                    draw(points);
 
-                                                   try {
-                                                       selectedDrone.navigate(points);
-                                                   } catch (ServiceNotFoundException e) {
-                                                       e.printStackTrace();
-                                                   }
-                                               }
-                                           },
+                                    try {
+                                        selectedDrone.navigate(points, distanceThreshold);
+                                    } catch (ServiceNotFoundException e) {
+                                        e.printStackTrace();
+                                    }
+                                },
                                         throwable -> throwable.printStackTrace());
                     });
                     drones.getSelectionModel().clearSelection();

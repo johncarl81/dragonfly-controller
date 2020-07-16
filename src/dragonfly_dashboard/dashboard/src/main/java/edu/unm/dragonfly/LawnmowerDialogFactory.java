@@ -20,7 +20,7 @@ public class LawnmowerDialogFactory {
     }
 
     public interface DialogCallback {
-        void call(float stepLength, float altitude, int stacks, boolean walkBoundary, Walk selectedItem, float waittime);
+        void call(float stepLength, float altitude, int stacks, boolean walkBoundary, Walk selectedItem, float waittime, float distanceThreshold);
     }
 
     public static void create(DialogCallback callback) {
@@ -37,6 +37,7 @@ public class LawnmowerDialogFactory {
         ComboBox<Walk> walkComboBox = new ComboBox<>();
         walkComboBox.getItems().addAll(Walk.values());
         TextField waitTimeField = new TextField();
+        TextField distanceThreshold = new TextField();
 
         // Set Defaults
         stepLengthField.setText("1");
@@ -45,6 +46,7 @@ public class LawnmowerDialogFactory {
         walkBoundaryField.setSelected(true);
         walkComboBox.getSelectionModel().select(Walk.WALK);
         waitTimeField.setText("3");
+        distanceThreshold.setText("1");
 
         grid.add(new Label("Step Length: "), 1, 1);
         grid.add(stepLengthField, 2, 1);
@@ -58,6 +60,8 @@ public class LawnmowerDialogFactory {
         grid.add(walkComboBox, 2, 5);
         grid.add(new Label("Wait Time: "), 1, 6);
         grid.add(waitTimeField, 2, 6);
+        grid.add(new Label("Distance Threshold: "), 1, 7);
+        grid.add(distanceThreshold, 2, 7);
 
         dialog.getDialogPane().setContent(grid);
 
@@ -72,7 +76,8 @@ public class LawnmowerDialogFactory {
                     Integer.parseInt(stacksField.getText()),
                     walkBoundaryField.isSelected(),
                     walkComboBox.getSelectionModel().getSelectedItem(),
-                    Float.parseFloat(waitTimeField.getText()));
+                    Float.parseFloat(waitTimeField.getText()),
+                    Float.parseFloat(distanceThreshold.getText()));
         }
     }
 }

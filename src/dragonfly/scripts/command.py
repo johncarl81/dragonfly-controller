@@ -362,7 +362,7 @@ class DragonflyCommand:
 
         waypoints = self.build_ddsa_waypoints(operation.walk, operation.stacks, operation.loops, operation.radius, operation.steplength, operation.altitude)
 
-        self.runWaypoints(waypoints, operation.waittime)
+        self.runWaypoints(waypoints, operation.waittime, operation.distanceThreshold)
 
         self.logPublisher.publish("DDSA Finished")
 
@@ -402,7 +402,7 @@ class DragonflyCommand:
 
         waypoints = self.build_lawnmower_waypoints(operation.walkBoundary, operation.boundary, operation.walk, operation.altitude, operation.stacks, operation.steplength)
 
-        self.runWaypoints(waypoints, operation.waittime)
+        self.runWaypoints(waypoints, operation.waittime, operation.distanceThreshold)
 
         self.logPublisher.publish("Lawnmower Finished")
 
@@ -423,20 +423,20 @@ class DragonflyCommand:
             localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
 
 
-        self.runWaypoints(localWaypoints, operation.waittime)
+        self.runWaypoints(localWaypoints, operation.waittime, operation.distanceThreshold)
 
         self.logPublisher.publish("Navigation Finished")
 
         return NavigationResponse(success=True, message="Commanded {} to navigate.".format(self.id))
 
-    def runWaypoints(self, waypoints, waittime):
+    def runWaypoints(self, waypoints, waittime, distanceThreshold):
 
         i = 0
         for waypoint in waypoints:
             self.local_setposition_publisher.publish(waypoint)
 
             print "Distance to point:{} {} {}".format(waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z), distance(waypoint.pose.position, self.localposition)
-            while not self.canceled and (distance(waypoint.pose.position, self.localposition) > 1 or self.zeroing) :
+            while not self.canceled and (distance(waypoint.pose.position, self.localposition) > distanceThreshold or self.zeroing) :
                 print "Distance to point: ", distance(waypoint.pose.position, self.localposition)
                 rospy.rostime.wallsleep(1)
             self.logPublisher.publish("Navigation at {}, {}, {}, {}".format(i, waypoint.pose.position.x, waypoint.pose.position.y, waypoint.pose.position.z))
