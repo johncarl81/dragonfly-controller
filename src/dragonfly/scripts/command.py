@@ -265,7 +265,7 @@ class DragonflyCommand:
                 self.setmode("GUIDED")
 
                 print "Take off"
-                print self.takeoff_service(altitude = 10)
+                print self.takeoff_service(altitude = 3)
             else:
                 print "Takeoff aborted, {} is armed".format(self.id)
 
