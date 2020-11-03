@@ -9,7 +9,7 @@ def publishco2(id):
     pub = rospy.Publisher("/dragonfly/announce", String,  queue_size=10)
     rospy.init_node('name_announcement', anonymous=True)
     rate = rospy.Rate(.1)
-    while True:
+    while not rospy.is_shutdown():
         pub.publish(id)
         rate.sleep()
 
