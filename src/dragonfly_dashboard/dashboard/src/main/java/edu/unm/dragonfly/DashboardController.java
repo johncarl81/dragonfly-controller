@@ -393,7 +393,7 @@ public class DashboardController {
     
         nameSubject
                 .observeOn(JavaFxScheduler.platform())
-                .subscribe(name -> addDrone(name));
+                .subscribe(name -> addDrone(name), error -> System.out.println("error while consuming announce: " + error.getMessage()));
 
         log("Dashboard Startup");
     }

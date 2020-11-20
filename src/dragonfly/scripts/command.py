@@ -9,6 +9,14 @@ from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped, Point
 from dragonfly_messages.msg import LatLon
 from dragonfly_messages.srv import Lawnmower, LawnmowerResponse, LawnmowerWaypoints, LawnmowerWaypointsResponse, DDSA, DDSAResponse, DDSAWaypoints, DDSAWaypointsResponse, Navigation, NavigationResponse
+from actions.DisarmAction import DisarmAction
+from actions.ArmAction import ArmAction
+from actions.ActionQueue import ActionQueue
+from actions.ModeAction import ModeAction
+from actions.SleepAction import SleepAction
+from actions.TakeoffAction import TakeoffAction
+from actions.PrintAction import PrintAction
+from actions.ArmedStateAction import ArmedStateAction
 
 class Span(Enum):
     WALK = 1
@@ -219,6 +227,7 @@ class DragonflyCommand:
         self.canceled = False
         self.sincezero = 0
         self.id = id
+        self.actionqueue = ActionQueue()
 
     def setmode(self, mode):
         print "Set Mode ", mode
@@ -242,36 +251,28 @@ class DragonflyCommand:
     def armcommand(self, operation):
         print "Commanded to arm"
 
-        self.setmode("STABILIZE")
-
-        self.arm()
-
-        self.disarm()
+        self.actionqueue.push(ModeAction(self.setmode_service, "STABILIZE"))
+        self.actionqueue.push(ArmAction(self.arm_service))
+        self.actionqueue.push(SleepAction(5))
+        self.actionqueue.push(DisarmAction(self.arm_service))
 
         return EmptyResponse()
 
     def takeoff(self, operation):
 
-        print "Verifying disarmed..."
-        def updateState(state):
+        armedStateAction = ArmedStateAction(self.id)
 
-            if not state.armed:
-                print "Commanded to takeoff"
+        armedStateAction.armed()\
+            .push(ModeAction(self.setmode_service, "STABILIZE"))\
+            .push(ArmAction(self.arm_service))\
+            .push(SleepAction(5))\
+            .push(ModeAction(self.setmode_service, "GUIDED"))\
+            .push(TakeoffAction(self.takeoff_service, 3))
 
-                self.setmode("STABILIZE")
+        armedStateAction.notarmed()\
+            .push(PrintAction("Takeoff aborted, {} is armed".format(self.id)))
 
-                self.arm()
-
-                self.setmode("GUIDED")
-
-                print "Take off"
-                print self.takeoff_service(altitude = 3)
-            else:
-                print "Takeoff aborted, {} is armed".format(self.id)
-
-            disabled_update.unregister()
-
-        disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+        self.actionqueue.push(armedStateAction)
 
         return EmptyResponse()
 
@@ -471,8 +472,14 @@ class DragonflyCommand:
     def cancel(self, data):
         self.canceled = True
 
+    def loop(self):
+        rate = rospy.Rate(0.1)
+        while not rospy.is_shutdown():
+            self.actionqueue.step()
+            # rospy.sleep(1)
+
     def setup(self):
-        rospy.init_node("{}_remote_service".format(self.id))
+        rospy.init_node("{}_remote_service".format(self.id), anonymous=True)
 
         rospy.wait_for_service("{}/mavros/set_mode".format(self.id))
         rospy.wait_for_service("{}/mavros/cmd/arming".format(self.id))
@@ -509,8 +516,6 @@ class DragonflyCommand:
 
         print "Setup complete"
 
-        rospy.spin()
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description = 'Drone command service.')
     parser.add_argument('id', type=str, help='Name of the drone.')
@@ -522,4 +527,8 @@ if __name__ == '__main__':
     command = DragonflyCommand(args.id)
 
     command.setup()
+
+    command.loop()
+
+    print "Shutdown"
 
