@@ -1,7 +1,8 @@
 #!/usr/bin/env python
+from ActionState import ActionState
 
 class EmptyAction:
 
     def step(self):
         print "Empty Step"
-        pass;
+        return ActionState.SUCCESS

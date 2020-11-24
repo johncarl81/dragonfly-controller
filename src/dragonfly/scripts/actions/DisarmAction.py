@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class DisarmAction:
 
@@ -7,6 +8,8 @@ class DisarmAction:
 
     def step(self):
         print "Disarming"
-        print self.arm_service(False)
+        result = self.arm_service(False)
 
-        return True
+        print "Disarming result", result
+
+        return ActionState.mapSuccess(result.success)

@@ -15,10 +15,11 @@ from actions.ActionQueue import ActionQueue
 from actions.ModeAction import ModeAction
 from actions.SleepAction import SleepAction
 from actions.TakeoffAction import TakeoffAction
-from actions.PrintAction import PrintAction
 from actions.ArmedStateAction import ArmedStateAction
 from actions.WaypointAction import WaypointAction
 from actions.LogAction import LogAction
+from actions.StopInPlaceAction import StopInPlaceAction
+from actions.WaitForZeroAction import WaitForZeroAction
 
 class DragonflyCommand:
 
@@ -60,19 +61,12 @@ class DragonflyCommand:
 
     def takeoff(self, operation):
 
-        armedStateAction = ArmedStateAction(self.id)
-
-        armedStateAction.armed()\
-            .push(ModeAction(self.setmode_service, "STABILIZE"))\
-            .push(ArmAction(self.arm_service))\
-            .push(SleepAction(5))\
-            .push(ModeAction(self.setmode_service, "GUIDED"))\
+        self.actionqueue.push(ArmedStateAction(self.id)) \
+            .push(ModeAction(self.setmode_service, "STABILIZE")) \
+            .push(ArmAction(self.arm_service)) \
+            .push(SleepAction(5)) \
+            .push(ModeAction(self.setmode_service, "GUIDED")) \
             .push(TakeoffAction(self.takeoff_service, 3))
-
-        armedStateAction.notarmed()\
-            .push(PrintAction("Takeoff aborted, {} is armed".format(self.id)))
-
-        self.actionqueue.push(armedStateAction)
 
         return EmptyResponse()
 
@@ -231,9 +225,10 @@ class DragonflyCommand:
 
     def runWaypoints(self, waypoints, waittime, distanceThreshold):
 
-        i = 0
         for waypoint in waypoints:
-            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, waittime, distanceThreshold))
+            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+            self.actionqueue.push(SleepAction(waittime))
+            self.actionqueue.push(WaitForZeroAction(self))
 
         return EmptyResponse()
 
@@ -257,6 +252,8 @@ class DragonflyCommand:
 
     def cancel(self, data):
         self.canceled = True
+        self.actionqueue.clear()
+        self.actionqueue.push(StopInPlaceAction(self.id, self.local_setposition_publisher))
 
     def loop(self):
         rate = rospy.Rate(0.1)
@@ -270,6 +267,7 @@ class DragonflyCommand:
         rospy.wait_for_service("{}/mavros/set_mode".format(self.id))
         rospy.wait_for_service("{}/mavros/cmd/arming".format(self.id))
         rospy.wait_for_service("{}/mavros/cmd/takeoff".format(self.id))
+        rospy.wait_for_service("{}/mavros/cmd/land".format(self.id))
 
 
         self.setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(self.id), SetMode)

@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class ArmAction:
 
@@ -7,6 +8,8 @@ class ArmAction:
 
     def step(self):
         print "Arming"
-        print self.arm_service(True)
+        result = self.arm_service(True)
 
-        return True
+        print "Arming result", result
+
+        return ActionState.mapSuccess(result.success)

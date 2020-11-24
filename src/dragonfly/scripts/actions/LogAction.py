@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class LogAction:
 
@@ -9,4 +10,4 @@ class LogAction:
     def step(self):
         self.logPublisher.publish(self.message)
 
-        return True
+        return ActionState.SUCCESS

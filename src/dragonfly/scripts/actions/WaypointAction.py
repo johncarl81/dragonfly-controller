@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import math, rospy
 from geometry_msgs.msg import PoseStamped
+from ActionState import ActionState
 
 
 def distance(position1, position2):
@@ -12,25 +13,28 @@ def distance(position1, position2):
 
 class WaypointAction:
 
-    def __init__(self, id, local_setposition_publisher, waypoint, waittime, distanceThreshold):
-        self.commanded = False
+    def __init__(self, id, local_setposition_publisher, waypoint, distanceThreshold):
         self.id = id
         self.waypoint = waypoint
-        self.waittime = waittime
         self.distanceThreshold = distanceThreshold
         self.local_setposition_publisher = local_setposition_publisher
-
-
-    def localpositionCallback(self, data):
-        self.localposition = data.pose.position
+        self.status = ActionState.WORKING
+        self.commanded = False
 
     def step(self):
-        if not self.commanded :
-            rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.localpositionCallback)
-            rospy.wait_for_message("{}/mavros/local_position/pose".format(self.id), PoseStamped)
+        if not self.commanded:
+            self.commanded = True
+            def updatePosition(localposition):
+
+                # print "Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
+                #       distance(self.waypoint.pose.position, localposition.pose.position)
+
+                if distance(self.waypoint.pose.position, localposition.pose.position) < self.distanceThreshold:
+                    self.status = ActionState.SUCCESS
+                    position_update.unregister()
+
+            position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
+
             self.local_setposition_publisher.publish(self.waypoint)
 
-        print "Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
-              distance(self.waypoint.pose.position, self.localposition)
-
-        return distance(self.waypoint.pose.position, self.localposition) < self.distanceThreshold
+        return self.status

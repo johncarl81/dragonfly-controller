@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class ActionQueue:
 
@@ -8,14 +9,22 @@ class ActionQueue:
     def step(self):
         # print "Step {}".format(len(self.queue))
         if len(self.queue) > 0:
-            print "Trying 0"
             action = self.queue[0]
 
-            if action.step():
+            result = action.step()
+
+            if result == ActionState.SUCCESS :
                 self.queue.pop(0)
-            return True
-        return False
+            elif result == ActionState.FAILURE:
+                self.clear()
+                return ActionState.FAILURE
+            return ActionState.WORKING
+        else:
+            return ActionState.SUCCESS
 
     def push(self, action):
         self.queue.append(action)
         return self
+
+    def clear(self):
+        del self.queue[:]

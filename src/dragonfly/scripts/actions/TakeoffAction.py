@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class TakeoffAction:
 
@@ -8,6 +9,8 @@ class TakeoffAction:
 
     def step(self):
         print "Take off"
-        print self.takeoff_service(altitude = self.altitude)
+        result = self.takeoff_service(altitude = self.altitude)
 
-        return True
+        print "Take off result", result
+
+        return ActionState.mapSuccess(result.success)

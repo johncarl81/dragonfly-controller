@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class PrintAction:
 
@@ -8,4 +9,4 @@ class PrintAction:
     def step(self):
         print self.message
 
-        return True
+        return ActionState.SUCCESS

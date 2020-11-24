@@ -1,4 +1,5 @@
 #! /usr/bin/env python
+from ActionState import ActionState
 
 class ModeAction:
 
@@ -9,6 +10,8 @@ class ModeAction:
 
     def step(self):
         print "Set Mode {}".format(self.mode)
-        print self.setmode_service(custom_mode = self.mode)
+        result = self.setmode_service(custom_mode = self.mode)
 
-        return True
+        print "Set mode result", result
+
+        return ActionState.mapSuccess(result.mode_sent)

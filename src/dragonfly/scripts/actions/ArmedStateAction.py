@@ -2,6 +2,7 @@
 import rospy
 from mavros_msgs.msg import State
 from actions.ActionQueue import ActionQueue
+from ActionState import ActionState
 
 class ArmedStateAction:
 
@@ -9,36 +10,27 @@ class ArmedStateAction:
         self.id = id
         self.armedQueue = ActionQueue()
         self.notarmedQueue = ActionQueue()
+        self.status = ActionState.WORKING
+        self.commanded = False
 
     def step(self):
-        print "Verifying disarmed..."
-        def updateState(state):
+        if not self.commanded:
+            print "Verifying disarmed..."
+            self.commanded = True
+            disabled_update = None
 
-            if not state.armed:
-                while self.armedQueue.step():
-                    continue
-                # print "Commanded to takeoff"
-                #
-                # self.setmode("STABILIZE")
-                #
-                # self.arm()
-                #
-                # self.setmode("GUIDED")
-                #
-                # print "Take off"
-                # print self.takeoff_service(altitude = 3)
-            else:
-                while self.notarmedQueue.step():
-                    continue
+            def updateState(state):
 
-            disabled_update.unregister()
+                if state.armed:
+                    print "Is already armed, failed"
+                    self.status = ActionState.FAILURE
+                else:
+                    print "Is not armed, continue"
+                    self.status = ActionState.SUCCESS
 
-        disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+                if not disabled_update is None:
+                    disabled_update.unregister()
 
-        return True
+            disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
 
-    def armed(self):
-        return self.armedQueue
-
-    def notarmed(self):
-        return self.notarmedQueue
+        return self.status
