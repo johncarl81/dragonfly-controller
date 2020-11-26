@@ -6,7 +6,7 @@ from std_msgs.msg import String
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
 from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
-from geometry_msgs.msg import PoseStamped, Point
+from geometry_msgs.msg import PoseStamped, Point, TwistStamped
 from dragonfly_messages.srv import *
 from waypointUtil import *
 from actions.DisarmAction import DisarmAction
@@ -20,6 +20,7 @@ from actions.WaypointAction import WaypointAction
 from actions.LogAction import LogAction
 from actions.StopInPlaceAction import StopInPlaceAction
 from actions.WaitForZeroAction import WaitForZeroAction
+from actions.FlockingAction import FlockingAction
 
 class DragonflyCommand:
 
@@ -232,6 +233,12 @@ class DragonflyCommand:
 
         return EmptyResponse()
 
+    def flock(self, flockCommand):
+
+        self.actionqueue.push(FlockingAction(self.id, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
+
+        return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
+
     def position(self, data):
         # print data
         self.position = data
@@ -275,6 +282,7 @@ class DragonflyCommand:
         self.takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(self.id), CommandTOL)
         self.land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(self.id), CommandTOL)
         self.local_setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(self.id), PoseStamped, queue_size=1)
+        self.local_setvelocity_publisher = rospy.Publisher("{}/mavros/setpoint_velocity/cmd_vel".format(self.id), TwistStamped, queue_size=1)
         # self.global_setpoint_publisher = rospy.Publisher("{}/mavros/setpoint_position/global".format(self.id), GlobalPositionTarget, queue_size=1)
 
         # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position)
@@ -292,6 +300,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/navigate".format(self.id), Navigation, self.navigate)
+        rospy.Service("/{}/command/flock".format(self.id), Flock, self.flock)
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
 

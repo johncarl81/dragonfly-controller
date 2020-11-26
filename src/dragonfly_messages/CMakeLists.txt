@@ -62,6 +62,7 @@ add_service_files(
    LawnmowerWaypoints.srv
    DDSA.srv
    DDSAWaypoints.srv
+   Flock.srv
    Navigation.srv
 )
 

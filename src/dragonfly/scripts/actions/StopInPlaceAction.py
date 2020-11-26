@@ -18,7 +18,7 @@ class StopInPlaceAction:
             self.commanded = True
             def updatePosition(localposition):
 
-                print "Set mode result", result
+                print "Stop in place"
 
                 self.local_setposition_publisher.publish(localposition)
                 self.status = ActionState.SUCCESS

@@ -1,0 +1,6 @@
+float32 x
+float32 y
+string leader
+---
+int8 success
+string message
