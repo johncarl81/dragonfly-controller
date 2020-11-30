@@ -15,3 +15,6 @@ class ModeAction:
         print "Set mode result", result
 
         return ActionState.mapSuccess(result.mode_sent)
+
+    def stop(self):
+        pass

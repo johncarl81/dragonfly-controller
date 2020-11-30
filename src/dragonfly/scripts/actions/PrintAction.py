@@ -10,3 +10,6 @@ class PrintAction:
         print self.message
 
         return ActionState.SUCCESS
+
+    def stop(self):
+        pass

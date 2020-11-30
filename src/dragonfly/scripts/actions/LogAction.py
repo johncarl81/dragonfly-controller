@@ -11,3 +11,6 @@ class LogAction:
         self.logPublisher.publish(self.message)
 
         return ActionState.SUCCESS
+
+    def stop(self):
+        pass

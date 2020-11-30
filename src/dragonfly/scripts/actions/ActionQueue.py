@@ -26,5 +26,7 @@ class ActionQueue:
         self.queue.append(action)
         return self
 
-    def clear(self):
+    def stop(self):
+        if len(self.queue) > 0:
+            self.queue[0].clear()
         del self.queue[:]

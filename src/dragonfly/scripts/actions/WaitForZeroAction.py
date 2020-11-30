@@ -11,3 +11,6 @@ class WaitForZeroAction:
             return ActionState.WORKING
         else:
             return ActionState.SUCCESS
+
+    def stop(self):
+        pass

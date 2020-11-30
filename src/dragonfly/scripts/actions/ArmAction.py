@@ -13,3 +13,6 @@ class ArmAction:
         print "Arming result", result
 
         return ActionState.mapSuccess(result.success)
+
+    def stop(self):
+        pass

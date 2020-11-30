@@ -6,3 +6,6 @@ class EmptyAction:
     def step(self):
         print "Empty Step"
         return ActionState.SUCCESS
+
+    def stop(self):
+        pass

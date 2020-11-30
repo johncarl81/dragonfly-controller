@@ -14,3 +14,6 @@ class TakeoffAction:
         print "Take off result", result
 
         return ActionState.mapSuccess(result.success)
+
+    def stop(self):
+        pass

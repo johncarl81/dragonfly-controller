@@ -9,6 +9,12 @@ from rx.core import Observable
 
 class FlockingAction:
 
+    DAMPENING = 0.6
+    REPULSION_COEFFIENT = 1.5
+    REPULSION_RADIUS = 2.0
+    POSITION_ATTRACTION = 0.7
+    POSITION_ATTRACTION_RADIUS = 3.0
+
     def __init__(self, id, local_setvelocity_publisher, xoffset, yoffset, leader):
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
@@ -16,11 +22,13 @@ class FlockingAction:
         self.yoffset = yoffset
         self.leader = leader
         self.started = False
+        self.ros_subscriptions = []
 
         self.flock_coordinates = {}
         self.leaderposition_subject = Subject()
         self.selfposition_subject = Subject()
         self.leadervelocity_subject = Subject()
+        self.selfvelocity_subject = Subject()
         self.flock_repulsion = Subject()
 
         formation_position_attraction = Observable.zip(self.leaderposition_subject, self.selfposition_subject,
@@ -29,7 +37,11 @@ class FlockingAction:
         leaderVelocity = self.leadervelocity_subject \
             .map(lambda twist: self.format_velocities(twist))
 
-        Observable.zip_array(leaderVelocity, formation_position_attraction, self.flock_repulsion) \
+
+        leaderVelocityDampening = Observable.zip(self.leadervelocity_subject, self.selfvelocity_subject,
+                                        lambda leadertwist, selftwist: self.velocity_dampening(leadertwist, selftwist))
+
+        self.navigate_subscription = Observable.zip_array(leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion) \
             .subscribe(lambda vectors: self.navigate(vectors))
 
         self.flockSubscription = Observable.empty().subscribe()
@@ -55,10 +67,19 @@ class FlockingAction:
 
     def formation_position(self, leaderPosition, selfPosition):
         difference = self.differenceInMeters(leaderPosition, selfPosition)
+        difference[0] += self.xoffset
+        difference[1] += self.yoffset
+        difference_magnitude = self.magnitude(difference)
 
         return [
-            (0.3 * (difference[0] + self.xoffset)),
-            (0.3 * (difference[1] + self.yoffset))
+            self.POSITION_ATTRACTION * difference[0] / max(self.POSITION_ATTRACTION_RADIUS, difference_magnitude),
+            self.POSITION_ATTRACTION * difference[1] / max(self.POSITION_ATTRACTION_RADIUS, difference_magnitude)
+        ]
+
+    def velocity_dampening(self, leadertwist, selftwist):
+        return [
+            self.DAMPENING * (leadertwist.twist.linear.x - selftwist.twist.linear.x),
+            self.DAMPENING * (leadertwist.twist.linear.y - selftwist.twist.linear.y)
         ]
 
     def format_velocities(self, twist):
@@ -71,17 +92,15 @@ class FlockingAction:
         return math.sqrt((vector[0] * vector[0]) + (vector[1] * vector[1]))
 
     def repulsion_vector(self, positions):
-        equilibrium_distance = 3
-
         vector = [0,0]
         if len(positions) > 1:
             self_position = positions[0]
             for position in positions[1:]:
                 difference = self.differenceInMeters(self_position, position)
                 difference_magnitude = self.magnitude(difference)
-                if difference_magnitude < equilibrium_distance:
-                    vector[0] += (equilibrium_distance - difference_magnitude) * difference[0] / difference_magnitude
-                    vector[1] += (equilibrium_distance - difference_magnitude) * difference[1] / difference_magnitude
+                if difference_magnitude < self.REPULSION_RADIUS:
+                    vector[0] += self.REPULSION_COEFFIENT * (self.REPULSION_RADIUS - difference_magnitude) * difference[0] / difference_magnitude
+                    vector[1] += self.REPULSION_COEFFIENT * (self.REPULSION_RADIUS - difference_magnitude) * difference[1] / difference_magnitude
 
         return vector
 
@@ -98,14 +117,12 @@ class FlockingAction:
                 # print "name: {} position: {} {}".format(name, position.latitude, position.longitude)
                 flock_coordinate_subject.on_next(position)
 
-            rospy.Subscriber("{}/mavros/global_position/global".format(name), NavSatFix, flock_coordiante_subject)
+            self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(name), NavSatFix, flock_coordiante_subject))
 
             self.flockSubscription.dispose()
 
             flock_coordinate_subject_list = [self.selfposition_subject]
             flock_coordinate_subject_list.extend(self.flock_coordinates.values())
-
-
 
             self.flockSubscription = Observable.zip_array(*flock_coordinate_subject_list) \
                     .map(lambda positions: self.repulsion_vector(positions)) \
@@ -117,10 +134,16 @@ class FlockingAction:
 
             print "Subscribing..."
 
-            rospy.Subscriber("{}/mavros/global_position/global".format(self.leader), NavSatFix, lambda position: self.leaderposition_subject.on_next(position))
-            rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, lambda position: self.selfposition_subject.on_next(position))
-            rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.leader), TwistStamped, lambda twist: self.leadervelocity_subject.on_next(twist))
-            rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback)
-
+            self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(self.leader), NavSatFix, lambda position: self.leaderposition_subject.on_next(position)))
+            self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, lambda position: self.selfposition_subject.on_next(position)))
+            self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.leader), TwistStamped, lambda twist: self.leadervelocity_subject.on_next(twist)))
+            self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.id), TwistStamped, lambda twist: self.selfvelocity_subject.on_next(twist)))
+            self.ros_subscriptions.append(rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback))
 
         return ActionState.WORKING
+
+    def stop(self):
+        for subscription in self.ros_subscriptions:
+            subscription.unregister()
+
+        self.navigate_subscription.dispose()

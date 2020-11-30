@@ -17,3 +17,6 @@ class SleepAction:
             return ActionState.SUCCESS
         else:
             return ActionState.WORKING
+
+    def stop(self):
+        pass

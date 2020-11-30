@@ -13,3 +13,6 @@ class DisarmAction:
         print "Disarming result", result
 
         return ActionState.mapSuccess(result.success)
+
+    def stop(self):
+        pass

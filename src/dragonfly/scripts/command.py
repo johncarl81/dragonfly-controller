@@ -235,6 +235,7 @@ class DragonflyCommand:
 
     def flock(self, flockCommand):
 
+        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED'))
         self.actionqueue.push(FlockingAction(self.id, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
 
         return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
@@ -259,7 +260,7 @@ class DragonflyCommand:
 
     def cancel(self, data):
         self.canceled = True
-        self.actionqueue.clear()
+        self.actionqueue.stop()
         self.actionqueue.push(StopInPlaceAction(self.id, self.local_setposition_publisher))
 
     def loop(self):

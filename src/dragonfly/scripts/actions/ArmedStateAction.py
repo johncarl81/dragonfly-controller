@@ -12,12 +12,12 @@ class ArmedStateAction:
         self.notarmedQueue = ActionQueue()
         self.status = ActionState.WORKING
         self.commanded = False
+        self.disabled_update = None
 
     def step(self):
         if not self.commanded:
             print "Verifying disarmed..."
             self.commanded = True
-            disabled_update = None
 
             def updateState(state):
 
@@ -28,9 +28,13 @@ class ArmedStateAction:
                     print "Is not armed, continue"
                     self.status = ActionState.SUCCESS
 
-                if not disabled_update is None:
-                    disabled_update.unregister()
+                if not self.disabled_update is None:
+                    self.disabled_update.unregister()
 
-            disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+            self.disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
 
         return self.status
+
+    def stop(self):
+        if not self.disabled_update is None:
+            self.disabled_update.unregister()
