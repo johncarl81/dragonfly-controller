@@ -22,7 +22,6 @@ def publishco2(id):
                     pub.publish(hello_str)
                     rate.sleep()
         except serial.SerialException as ex:
-            rospy.loginfo('Connection to /dev/ttysba5 failed, retrying...')
             rospy.sleep(1)
 
 if __name__ == '__main__':
