@@ -264,10 +264,10 @@ class DragonflyCommand:
         self.actionqueue.push(StopInPlaceAction(self.id, self.local_setposition_publisher))
 
     def loop(self):
-        rate = rospy.Rate(0.1)
+        rate = rospy.Rate(10)
         while not rospy.is_shutdown():
             self.actionqueue.step()
-            # rospy.sleep(1)
+            rate.sleep()
 
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id), anonymous=True)
