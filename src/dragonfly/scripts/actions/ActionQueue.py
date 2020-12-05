@@ -16,7 +16,7 @@ class ActionQueue:
             if result == ActionState.SUCCESS :
                 self.queue.pop(0)
             elif result == ActionState.FAILURE:
-                self.clear()
+                self.stop()
                 return ActionState.FAILURE
             return ActionState.WORKING
         else:
@@ -28,5 +28,5 @@ class ActionQueue:
 
     def stop(self):
         if len(self.queue) > 0:
-            self.queue[0].clear()
+            self.queue[0].stop()
         del self.queue[:]

@@ -111,7 +111,7 @@ class DragonflyCommand:
             goalPos = PoseStamped()
             goalPos.pose.position.x = 10
             goalPos.pose.position.y = 0
-            goalPos.pose.position.z = self.altitude
+            goalPos.pose.position.z = self.localposition.z
 
             print "Going to: ", goalPos.pose.position
             print self.local_setposition_publisher.publish(goalPos)
@@ -121,7 +121,7 @@ class DragonflyCommand:
             goalPos = PoseStamped()
             goalPos.pose.position.x = 0
             goalPos.pose.position.y = 0
-            goalPos.pose.position.z = self.altitude
+            goalPos.pose.position.z = self.localposition.z
 
             print "Going to: ", goalPos.pose.position
             print self.local_setposition_publisher.publish(goalPos)
