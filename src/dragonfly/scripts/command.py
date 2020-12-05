@@ -21,8 +21,13 @@ from actions.LogAction import LogAction
 from actions.StopInPlaceAction import StopInPlaceAction
 from actions.WaitForZeroAction import WaitForZeroAction
 from actions.FlockingAction import FlockingAction
+from actions.LandAction import LandAction
+from actions.WaitForDisarmAction import WaitForDisarmAction
+from actions.SetPositionAction import SetPositionAction
 
 class DragonflyCommand:
+
+    TEST_ALTITUDE = 3
 
     def __init__(self, id):
         self.zeroing = False
@@ -53,42 +58,31 @@ class DragonflyCommand:
     def armcommand(self, operation):
         print "Commanded to arm"
 
-        self.actionqueue.push(ModeAction(self.setmode_service, "STABILIZE"))
-        self.actionqueue.push(ArmAction(self.arm_service))
-        self.actionqueue.push(SleepAction(5))
-        self.actionqueue.push(DisarmAction(self.arm_service))
+        self.actionqueue.push(ModeAction(self.setmode_service, "STABILIZE")) \
+            .push(ArmAction(self.arm_service)) \
+            .push(SleepAction(5)) \
+            .push(DisarmAction(self.arm_service))
 
         return EmptyResponse()
 
     def takeoff(self, operation):
+        print "Commanded to takeoff"
 
         self.actionqueue.push(ArmedStateAction(self.id)) \
             .push(ModeAction(self.setmode_service, "STABILIZE")) \
             .push(ArmAction(self.arm_service)) \
             .push(SleepAction(5)) \
             .push(ModeAction(self.setmode_service, "GUIDED")) \
-            .push(TakeoffAction(self.takeoff_service, 3))
+            .push(TakeoffAction(self.takeoff_service, self.TEST_ALTITUDE))
 
         return EmptyResponse()
 
     def land(self, operation):
         print "Commanded to land"
 
-        print "Landing"
-        print self.land_service(altitude = 0)
-
-        def updateState(state):
-
-            if not state.armed:
-                print "Landed."
-                print "State: ", state
-
-                self.setmode("STABILIZE")
-
-                position_update.unregister()
-
-        print "Waiting for landing..."
-        position_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+        self.actionqueue.push(LandAction(self.land_service)) \
+            .push(WaitForDisarmAction(self.id)) \
+            .push(ModeAction(self.setmode_service, "STABILIZE"))
 
         return EmptyResponse()
 
@@ -102,31 +96,10 @@ class DragonflyCommand:
     def goto(self, operation):
         print "Commanded to goto"
 
-        def updatePosition(position):
-            position_update.unregister()
-            print "Position: ", position.latitude, " ", position.longitude
-
-            rospy.rostime.wallsleep(0.5)
-
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = 10
-            goalPos.pose.position.y = 0
-            goalPos.pose.position.z = self.localposition.z
-
-            print "Going to: ", goalPos.pose.position
-            print self.local_setposition_publisher.publish(goalPos)
-
-            rospy.rostime.wallsleep(10)
-
-            goalPos = PoseStamped()
-            goalPos.pose.position.x = 0
-            goalPos.pose.position.y = 0
-            goalPos.pose.position.z = self.localposition.z
-
-            print "Going to: ", goalPos.pose.position
-            print self.local_setposition_publisher.publish(goalPos)
-
-        position_update = rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, updatePosition)
+        self.actionqueue.push(SetPositionAction(self.local_setposition_publisher, 0, 10, self.TEST_ALTITUDE)) \
+            .push(SleepAction(10)) \
+            .push(SetPositionAction(self.local_setposition_publisher, 0, 0, self.TEST_ALTITUDE)) \
+            .push(SleepAction(10))
 
         return EmptyResponse()
 
@@ -151,8 +124,8 @@ class DragonflyCommand:
 
     def ddsa(self, operation):
         print "Commanded to ddsa"
-        self.actionqueue.push(LogAction(self.logPublisher, "DDSA Started"))
-        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED'))
+        self.actionqueue.push(LogAction(self.logPublisher, "DDSA Started")) \
+            .push(ModeAction(self.setmode_service, 'GUIDED'))
 
         self.canceled = False
 
@@ -189,8 +162,8 @@ class DragonflyCommand:
 
     def lawnmower(self, operation):
         print "Commanded to lawnmower"
-        self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower Started"))
-        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED'))
+        self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower Started")) \
+            .push(ModeAction(self.setmode_service, 'GUIDED'))
 
         self.canceled = False
 
@@ -206,8 +179,8 @@ class DragonflyCommand:
 
     def navigate(self, operation):
         print "Commanded to navigate"
-        self.actionqueue.push(LogAction(self.logPublisher, "Navigation started"))
-        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED'))
+        self.actionqueue.push(LogAction(self.logPublisher, "Navigation started")) \
+            .push(ModeAction(self.setmode_service, 'GUIDED'))
 
         self.canceled = False
 
@@ -227,16 +200,16 @@ class DragonflyCommand:
     def runWaypoints(self, waypoints, waittime, distanceThreshold):
 
         for waypoint in waypoints:
-            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
-            self.actionqueue.push(SleepAction(waittime))
-            self.actionqueue.push(WaitForZeroAction(self))
+            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold)) \
+                .push(SleepAction(waittime)) \
+                .push(WaitForZeroAction(self))
 
         return EmptyResponse()
 
     def flock(self, flockCommand):
 
-        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED'))
-        self.actionqueue.push(FlockingAction(self.id, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
+        self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED')) \
+            .push(FlockingAction(self.id, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
 
         return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
 
@@ -258,13 +231,15 @@ class DragonflyCommand:
         elif not self.zeroing and previous:
             self.logPublisher.publish('Finished zeroing')
 
-    def cancel(self, data):
+    def cancel(self, operation):
         self.canceled = True
         self.actionqueue.stop()
         self.actionqueue.push(StopInPlaceAction(self.id, self.local_setposition_publisher))
 
+        return EmptyResponse()
+
     def loop(self):
-        rate = rospy.Rate(10)
+        rate = rospy.Rate(1)
         while not rospy.is_shutdown():
             self.actionqueue.step()
             rate.sleep()

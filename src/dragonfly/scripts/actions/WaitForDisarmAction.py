@@ -1,0 +1,30 @@
+#! /usr/bin/env python
+import rospy
+from ActionState import ActionState
+from mavros_msgs.msg import State
+
+class WaitForDisarmAction:
+
+    def __init__(self, id):
+        self.id = id
+        self.status = ActionState.WORKING
+        self.commanded = False
+        self.disabled_update = None
+
+    def step(self):
+        if not self.commanded:
+            self.commanded = True
+
+            def updateState(state):
+
+                if not state.armed:
+                    self.status = ActionState.SUCCESS
+                    self.stop()
+
+            self.disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+
+        return self.status
+
+    def stop(self):
+        if self.disabled_update is not None:
+            self.disabled_update.unregister()
