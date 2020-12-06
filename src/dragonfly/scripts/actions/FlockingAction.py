@@ -45,7 +45,7 @@ class FlockingAction:
         # self.navigate_subscription = Observable.combine_latest([leaderVelocity, formation_position_attraction, self.flock_repulsion], lambda vectors: self.navigate(vectors))
 
         self.navigate_subscription = Observable.combine_latest([leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion], lambda *positions: positions) \
-            .sample(SAMPLE_RATE) \
+            .sample(self.SAMPLE_RATE) \
             .subscribe(lambda vectors: self.navigate(vectors))
 
         # self.navigate_subscription = self.flock_repulsion \
@@ -119,7 +119,7 @@ class FlockingAction:
         flock_coordinate_subject_list.extend(self.flock_coordinates.values())
         
         self.flockSubscription = Observable.combine_latest(flock_coordinate_subject_list, lambda *positions: self.repulsion_vector(positions)) \
-            .sample(SAMPLE_RATE) \
+            .sample(self.SAMPLE_RATE) \
             .subscribe(on_next= lambda v: self.flock_repulsion.on_next(v))
 
     def flock_announce(self, name):
