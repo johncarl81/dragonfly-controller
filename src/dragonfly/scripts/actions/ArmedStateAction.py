@@ -28,13 +28,13 @@ class ArmedStateAction:
                     print "Is not armed, continue"
                     self.status = ActionState.SUCCESS
 
-                if not self.disabled_update is None:
-                    self.disabled_update.unregister()
+                self.stop()
 
             self.disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
 
         return self.status
 
     def stop(self):
-        if not self.disabled_update is None:
+        if self.disabled_update is not None:
             self.disabled_update.unregister()
+            self.disabled_update = None

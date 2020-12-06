@@ -9,10 +9,11 @@ from rx.core import Observable
 
 class FlockingAction:
 
+    SAMPLE_RATE = 100.0
     DAMPENING = 0.6
-    REPULSION_COEFFIENT = 1.5
-    REPULSION_RADIUS = 2.0
-    POSITION_ATTRACTION = 0.7
+    REPULSION_COEFFIENT = 4.0
+    REPULSION_RADIUS = 4.0
+    POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
     def __init__(self, id, local_setvelocity_publisher, xoffset, yoffset, leader):
@@ -31,18 +32,24 @@ class FlockingAction:
         self.selfvelocity_subject = Subject()
         self.flock_repulsion = Subject()
 
-        formation_position_attraction = Observable.zip(self.leaderposition_subject, self.selfposition_subject,
+        formation_position_attraction = Observable.combine_latest(self.leaderposition_subject, self.selfposition_subject,
                                                        lambda leaderposition, selfposition: self.formation_position(leaderposition, selfposition))
 
         leaderVelocity = self.leadervelocity_subject \
             .map(lambda twist: self.format_velocities(twist))
 
 
-        leaderVelocityDampening = Observable.zip(self.leadervelocity_subject, self.selfvelocity_subject,
+        leaderVelocityDampening = Observable.combine_latest(self.leadervelocity_subject, self.selfvelocity_subject,
                                         lambda leadertwist, selftwist: self.velocity_dampening(leadertwist, selftwist))
 
-        self.navigate_subscription = Observable.zip_array(leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion) \
+        # self.navigate_subscription = Observable.combine_latest([leaderVelocity, formation_position_attraction, self.flock_repulsion], lambda vectors: self.navigate(vectors))
+
+        self.navigate_subscription = Observable.combine_latest([leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion], lambda *positions: positions) \
+            .sample(SAMPLE_RATE) \
             .subscribe(lambda vectors: self.navigate(vectors))
+
+        # self.navigate_subscription = self.flock_repulsion \
+        #     .subscribe(lambda vectors: self.navigate([vectors]))
 
         self.flockSubscription = Observable.empty().subscribe()
 
@@ -107,11 +114,29 @@ class FlockingAction:
     def flock_announce_callback(self, nameString):
         self.flock_announce(nameString.data)
 
+    def subscribe_flock(self):
+        flock_coordinate_subject_list = [self.selfposition_subject]
+        flock_coordinate_subject_list.extend(self.flock_coordinates.values())
+        
+        self.flockSubscription = Observable.combine_latest(flock_coordinate_subject_list, lambda *positions: self.repulsion_vector(positions)) \
+            .sample(SAMPLE_RATE) \
+            .subscribe(on_next= lambda v: self.flock_repulsion.on_next(v))
+
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates :
             print "Registering flock member: {}".format(name)
             flock_coordinate_subject = Subject()
             self.flock_coordinates[name] = flock_coordinate_subject
+
+            timeoutSubscription = None
+
+            def coordinate_subscription_timeout():
+                del self.flock_coordinates[name]
+                self.subscribe_flock()
+                timeoutSubscription.dispose()
+
+            timeoutSubscription = flock_coordinate_subject.debounce(10000) \
+                .subscribe(on_next = lambda v: coordinate_subscription_timeout())
 
             def flock_coordiante_subject(position):
                 # print "name: {} position: {} {}".format(name, position.latitude, position.longitude)
@@ -121,12 +146,7 @@ class FlockingAction:
 
             self.flockSubscription.dispose()
 
-            flock_coordinate_subject_list = [self.selfposition_subject]
-            flock_coordinate_subject_list.extend(self.flock_coordinates.values())
-
-            self.flockSubscription = Observable.zip_array(*flock_coordinate_subject_list) \
-                    .map(lambda positions: self.repulsion_vector(positions)) \
-                    .subscribe(on_next= lambda v: self.flock_repulsion.on_next(v))
+            self.subscribe_flock()
 
     def step(self):
         if not self.started:
@@ -140,10 +160,14 @@ class FlockingAction:
             self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.id), TwistStamped, lambda twist: self.selfvelocity_subject.on_next(twist)))
             self.ros_subscriptions.append(rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback))
 
+            print "Finished"
+
         return ActionState.WORKING
 
     def stop(self):
         for subscription in self.ros_subscriptions:
             subscription.unregister()
+
+        del self.ros_subscriptions
 
         self.navigate_subscription.dispose()

@@ -33,8 +33,7 @@ class WaypointAction:
                 if distance(self.waypoint.pose.position, localposition.pose.position) < self.distanceThreshold:
                     self.status = ActionState.SUCCESS
 
-                    if not self.position_update is None:
-                        self.position_update.unregister()
+                    self.stop()
 
             self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
 
@@ -43,5 +42,6 @@ class WaypointAction:
         return self.status
 
     def stop(self):
-        if not self.position_update is None:
+        if self.position_update is not None:
             self.position_update.unregister()
+            self.position_update = None
