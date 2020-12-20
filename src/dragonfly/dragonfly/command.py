@@ -54,6 +54,20 @@ class DragonflyCommand:
         self.semaphore_observable = Subject()
         self.dragonfly_sketch_subject = Subject()
 
+    def circumnavigate(self, request, response):
+
+        self.actionqueue.push(ModeAction(self.logger, self.setmode_service, 'GUIDED')) \
+            .push(CircumnavigateAction(self.id, self.logger, self.local_setvelocity_publisher, request.target, request.flock, self.drone_stream_factory))
+
+        return Circumnavigate.Response(success=True, message=f"Circumnavigating {request.target}.")
+
+    def rollercoaster(self, request, response):
+
+        self.actionqueue.push(ModeAction(self.logger, self.setmode_service, 'GUIDED')) \
+            .push(RollercoasterAction(self.local_setvelocity_publisher))
+
+        return response
+
     def setmode(self, mode):
         self.logger.info(f"Set Mode {mode}")
         future = self.setmode_service.call_async(SetMode.Request(custom_mode=mode))
@@ -633,6 +647,8 @@ class DragonflyCommand:
         self.create_command("setup", self.setup_drone, Setup)
         self.create_command("start_mission", self.start_mission)
         self.create_command("flock", self.mission, Mission)
+        self.create_command("circumnavigate", self.circumnavigate, Circumnavigate)
+        self.create_command("rollercoaster", self.rollercoaster)
         self.create_command("cancel", self.cancelCommand)
         self.create_command("hello", self.hello)
 

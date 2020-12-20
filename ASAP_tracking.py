@@ -117,7 +117,6 @@ t = np.linspace(0, 30, 500)
 
 fig = plt.figure()
 ax = plt.axes(projection='3d')
-ax.set_aspect('equal')
 
 combined_start = flatten_array(agents) + start_threat
 

@@ -1,0 +1,5 @@
+string target
+string[] flock
+---
+int8 success
+string message

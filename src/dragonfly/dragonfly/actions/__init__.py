@@ -26,3 +26,5 @@ from .PumpAction import PumpAction
 from .CalibrateAction import CalibrateAction
 from .SketchAction import SketchAction
 from .StopFlockingAction import StopFlockingAction
+from .CircumnavigateAction import CircumnavigateAction
+from .RollercoasterAction import RollercoasterAction

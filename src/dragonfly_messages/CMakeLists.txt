@@ -54,6 +54,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/SetupPlumes.srv"
   "srv/Simple.srv"
   "srv/Pump.srv"
+  "srv/Circumnavigate.srv"
  )
 
 if(BUILD_TESTING)

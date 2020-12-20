@@ -1,0 +1,10 @@
+source /opt/ros/galactic/setup.bash
+source /workspace/install/setup.bash
+
+ros2 service call /dragonfly1/command/rollercoaster dragonfly_messages/srv/Simple {}
+
+ros2 service call /dragonfly2/command/circumnavigate dragonfly_messages/srv/Circumnavigate '{target: "dragonfly1", flock: ["dragonfly2", "dragonfly3", "dragonfly4"]}'
+
+ros2 service call /dragonfly3/command/circumnavigate dragonfly_messages/srv/Circumnavigate '{target: "dragonfly1", flock: ["dragonfly2", "dragonfly3", "dragonfly4"]}'
+
+ros2 service call /dragonfly4/command/circumnavigate dragonfly_messages/srv/Circumnavigate '{target: "dragonfly1", flock: ["dragonfly2", "dragonfly3", "dragonfly4"]}'
