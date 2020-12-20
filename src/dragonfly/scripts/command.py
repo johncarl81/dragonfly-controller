@@ -103,6 +103,13 @@ class DragonflyCommand:
 
         return EmptyResponse()
 
+    def home(self, operation):
+        print "Commanded to home"
+
+        self.actionqueue.push(SetPositionAction(self.local_setposition_publisher, 0, 0, 10))
+
+        return EmptyResponse()
+
     def build_ddsa_waypoints(self, walk, stacks, loops, radius, steplength, altitude):
         ddsaWaypoints = build3DDDSAWaypoints(Span(walk), stacks, 1, 0, loops, radius, steplength)
 
@@ -272,6 +279,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)
         rospy.Service("/{}/command/land".format(self.id), Empty, self.land)
         rospy.Service("/{}/command/rtl".format(self.id), Empty, self.rtl)
+        rospy.Service("/{}/command/home".format(self.id), Empty, self.home)
         rospy.Service("/{}/command/goto".format(self.id), Empty, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
