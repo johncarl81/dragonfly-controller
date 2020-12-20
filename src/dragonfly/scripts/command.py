@@ -232,7 +232,7 @@ class DragonflyCommand:
         if data.data.startswith('W') or data.data.startswith('Z'):
             self.sincezero = 0
         previous = self.zeroing
-        self.zeroing = self.sincezero < 6
+        self.zeroing = self.sincezero < 60
         if self.zeroing and not previous:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:
