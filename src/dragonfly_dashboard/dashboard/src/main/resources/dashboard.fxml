@@ -32,6 +32,7 @@
 
             <HBox spacing="2">
                 <Button fx:id="add" text="Add..." />
+                <Button fx:id="waypoint" text="Goto"/>
                 <Button fx:id="delete" text="Remove" />
                 <Button fx:id="center" text="Center"/>
                 <Button fx:id="lawnmower" text="Lawnmower"/>

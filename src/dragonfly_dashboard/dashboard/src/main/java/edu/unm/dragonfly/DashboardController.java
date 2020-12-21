@@ -2,7 +2,6 @@ package edu.unm.dragonfly;
 
 import com.esri.arcgisruntime.concurrent.ListenableFuture;
 import com.esri.arcgisruntime.geometry.*;
-import com.esri.arcgisruntime.internal.jni.CoreGeoprocessingLinearUnits;
 import com.esri.arcgisruntime.mapping.ArcGISScene;
 import com.esri.arcgisruntime.mapping.ArcGISTiledElevationSource;
 import com.esri.arcgisruntime.mapping.Basemap;
@@ -28,6 +27,7 @@ import javafx.scene.control.Button;
 import javafx.scene.control.ListView;
 import javafx.scene.control.TextField;
 import javafx.scene.control.TextInputDialog;
+import javafx.scene.input.MouseButton;
 import javafx.scene.input.MouseEvent;
 import org.ros.exception.ServiceNotFoundException;
 import org.ros.node.ConnectedNode;
@@ -74,6 +74,8 @@ public class DashboardController {
     private Button random;
     @FXML
     private Button cancel;
+    @FXML
+    private Button waypoint;
 
     private final ObservableList<Drone> droneList = FXCollections.observableArrayList();
     private final ObservableList<String> logList = FXCollections.observableArrayList();
@@ -81,8 +83,10 @@ public class DashboardController {
     private final GraphicsOverlay droneShadowOverlay = new GraphicsOverlay();
     private final GraphicsOverlay boundaryOverlay = new GraphicsOverlay();
     private final GraphicsOverlay pathOverlay = new GraphicsOverlay();
+    private final GraphicsOverlay waypointOverlay = new GraphicsOverlay();
     private final List<Point> boundaryPoints = new ArrayList<Point>();
     private CoordianteSelectionMode mode = CoordianteSelectionMode.CLEAR;
+    private final Map<String, NavigateWaypoint> waypoints = new HashMap<>();
 
     private enum CoordianteSelectionMode {
         SELECT("Finished"),
@@ -114,6 +118,8 @@ public class DashboardController {
         boundaryOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.DRAPED_FLAT);
         sceneView.getGraphicsOverlays().add(pathOverlay);
         pathOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE);
+        sceneView.getGraphicsOverlays().add(waypointOverlay);
+        waypointOverlay.getSceneProperties().setSurfacePlacement(LayerSceneProperties.SurfacePlacement.RELATIVE);
 
         sceneView.setOnMouseMoved(new EventHandler<MouseEvent>() {
             @Override
@@ -172,6 +178,25 @@ public class DashboardController {
                             e.printStackTrace();
                         }
                     });
+                } else if (event.isControlDown() && event.getButton() == MouseButton.PRIMARY) {
+                    Point2D point2D = new Point2D(event.getX(), event.getY());
+
+                    ListenableFuture<Point> pointFuture = sceneView.screenToLocationAsync(point2D);
+                    pointFuture.addDoneListener(() -> {
+                        try {
+                            Point point = pointFuture.get();
+
+                            AddWaypointDialogFactory.create(point, new AddWaypointDialogFactory.AddWaypointCallback() {
+                                @Override
+                                public void call(String name, double latitude, double longitude, double altitude, float distanceThreshold) {
+                                    waypoints.put(name, new NavigateWaypoint(new Point(longitude, latitude, altitude, SpatialReferences.getWgs84()), distanceThreshold));
+                                    updateWaypointOverlay();
+                                }
+                            });
+                        } catch (InterruptedException | ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                    });
                 }
             }
         });
@@ -203,6 +228,7 @@ public class DashboardController {
         log.setItems(logList);
 
         delete.setDisable(true);
+        waypoint.setDisable(true);
         center.setDisable(true);
         lawnmower.setDisable(true);
         ddsa.setDisable(true);
@@ -220,6 +246,31 @@ public class DashboardController {
                     addDrone(output.get());
                     drones.getSelectionModel().clearSelection();
                 }
+            }
+        });
+
+        waypoint.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                TextInputDialog dialog = new TextInputDialog("Goto Waypoint");
+                dialog.setHeaderText("Add Drone");
+
+                Drone selected = drones.getSelectionModel().getSelectedItem();
+                
+                
+                AddWaypointDialogFactory.createSelect(waypoints, selected, new AddWaypointDialogFactory.NavigateWaypointCallback(){
+
+                    @Override
+                    public void call(NavigateWaypoint waypoint) {
+                        try {
+                            selected.navigate(Collections.singletonList(waypoint.getPoint()), waypoint.getDistanceThreshold());
+                        } catch (ServiceNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+                drones.getSelectionModel().clearSelection();
             }
         });
 
@@ -379,6 +430,7 @@ public class DashboardController {
             public void changed(ObservableValue observable, Drone oldValue, Drone newValue) {
                 boolean selected = newValue != null;
                 delete.setDisable(!selected);
+                waypoint.setDisable(!selected);
                 center.setDisable(!selected);
                 lawnmower.setDisable(!(selected && !boundaryPoints.isEmpty() && mode == CoordianteSelectionMode.FINISHED));
                 ddsa.setDisable(!selected);
@@ -411,6 +463,18 @@ public class DashboardController {
 
     private boolean isLeft(Point a, Point b, Point c) {
         return ((b.getX() - a.getX()) * (c.getY() - a.getY()) - (b.getY() - a.getY()) * (c.getX() - a.getX())) > 0;
+    }
+
+    private void updateWaypointOverlay() {
+        waypointOverlay.getGraphics().clear();
+        for(Map.Entry<String, NavigateWaypoint> entry : waypoints.entrySet()) {
+
+            SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFF0000FF, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
+            TextSymbol nameText = new TextSymbol(10, entry.getKey(), 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
+            nameText.setOffsetX(25);
+            Graphic waypointGraphic = new Graphic(entry.getValue().getPoint(), new CompositeSymbol(Arrays.asList(symbol, nameText)));
+            waypointOverlay.getGraphics().add(waypointGraphic);
+        }
     }
 
     private void draw(List<Point> path) {
