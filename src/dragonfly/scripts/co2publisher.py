@@ -16,6 +16,8 @@ def publishco2(id):
                 rospy.loginfo('Connected to /dev/ttysba5') 
                 # Publish on demand
                 port.write('!')
+                # Configure to 2 decimal places
+                port.write('C2\r')
                 while not rospy.is_shutdown():
                     port.write('M')
                     hello_str = port.readline()
