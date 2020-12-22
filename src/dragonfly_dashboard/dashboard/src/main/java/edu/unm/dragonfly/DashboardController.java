@@ -39,6 +39,7 @@ import java.text.SimpleDateFormat;
 import java.util.*;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 public class DashboardController {
@@ -178,6 +179,25 @@ public class DashboardController {
                             e.printStackTrace();
                         }
                     });
+                } else if (event.isControlDown()) {
+                    Point2D point2D = new Point2D(event.getX(), event.getY());
+
+                    ListenableFuture<Point> pointFuture = sceneView.screenToLocationAsync(point2D);
+                    pointFuture.addDoneListener(() -> {
+                        try {
+                            Point point = pointFuture.get();
+
+                            AddWaypointDialogFactory.create(point, new AddWaypointDialogFactory.AddWaypointCallback() {
+                                @Override
+                                public void call(String name, double latitude, double longitude, double altitude, float distanceThreshold) {
+                                    waypoints.put(name, new NavigateWaypoint(new Point(longitude, latitude, altitude, SpatialReferences.getWgs84()), distanceThreshold));
+                                    updateWaypointOverlay();
+                                }
+                            });
+                        } catch (InterruptedException | ExecutionException e) {
+                            e.printStackTrace();
+                        }
+                    });
                 } else if (event.isControlDown() && event.getButton() == MouseButton.PRIMARY) {
                     Point2D point2D = new Point2D(event.getX(), event.getY());
 
@@ -246,6 +266,31 @@ public class DashboardController {
                     addDrone(output.get());
                     drones.getSelectionModel().clearSelection();
                 }
+            }
+        });
+
+        waypoint.setOnAction(new EventHandler<ActionEvent>() {
+            @Override
+            public void handle(ActionEvent event) {
+                TextInputDialog dialog = new TextInputDialog("Goto Waypoint");
+                dialog.setHeaderText("Add Drone");
+
+                Drone selected = drones.getSelectionModel().getSelectedItem();
+                
+                
+                AddWaypointDialogFactory.createSelect(waypoints, selected, new AddWaypointDialogFactory.NavigateWaypointCallback(){
+
+                    @Override
+                    public void call(NavigateWaypoint waypoint) {
+                        try {
+                            selected.navigate(Collections.singletonList(waypoint.getPoint()), waypoint.getDistanceThreshold());
+                        } catch (ServiceNotFoundException e) {
+                            e.printStackTrace();
+                        }
+                    }
+                });
+
+                drones.getSelectionModel().clearSelection();
             }
         });
 
@@ -524,6 +569,8 @@ public class DashboardController {
                     .subscribe(new Observer<Drone.LatLonRelativeAltitude>() {
                         private Graphic droneGraphic;
                         private Graphic droneShadowGraphic;
+                        private SimpleMarkerSceneSymbol symbol;
+                        private Disposable updateColorDisposable;
 
                         @Override
                         public void onSubscribe(Disposable d) {
@@ -533,19 +580,24 @@ public class DashboardController {
                         public void onNext(Drone.LatLonRelativeAltitude navSatFix) {
                             Point point = new Point(navSatFix.getLongitude(), navSatFix.getLatitude(), navSatFix.getRelativeAltitude());
                             if (droneGraphic == null) {
-                                SimpleMarkerSceneSymbol symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
+                                symbol = new SimpleMarkerSceneSymbol(SimpleMarkerSceneSymbol.Style.CYLINDER, 0xFFFF0000, 1, 1, 1, SceneSymbol.AnchorPosition.CENTER);
                                 TextSymbol nameText = new TextSymbol(10, name, 0xFFFFFFFF, TextSymbol.HorizontalAlignment.LEFT, TextSymbol.VerticalAlignment.MIDDLE);
                                 nameText.setOffsetX(25);
                                 droneGraphic = new Graphic(point, new CompositeSymbol(Arrays.asList(symbol, nameText)));
                                 droneOverlay.getGraphics().add(droneGraphic);
-
                                 SimpleMarkerSymbol shadowSymbol = new SimpleMarkerSymbol(SimpleMarkerSymbol.Style.CIRCLE, 0x99000000, 2.5f);
                                 droneShadowGraphic = new Graphic(point, shadowSymbol);
                                 droneShadowOverlay.getGraphics().add(droneShadowGraphic);
                             } else {
                                 droneGraphic.setGeometry(point);
                                 droneShadowGraphic.setGeometry(point);
+                                symbol.setColor(0xFFFF0000);
                             }
+                            if(updateColorDisposable != null) {
+                                updateColorDisposable.dispose();
+                            }
+                            updateColorDisposable = Observable.timer(10, TimeUnit.SECONDS)
+                                    .subscribe(time -> symbol.setColor(0xFFD3D3D3));
                         }
 
                         @Override
