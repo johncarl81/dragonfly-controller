@@ -207,9 +207,10 @@ class DragonflyCommand:
     def runWaypoints(self, waypoints, waittime, distanceThreshold):
 
         for waypoint in waypoints:
-            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold)) \
-                .push(SleepAction(waittime)) \
-                .push(WaitForZeroAction(self))
+            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+            if waittime > 0:
+            self.actionqueue.push(SleepAction(waittime))
+            self.actionqueue.push(WaitForZeroAction(self))
 
         return EmptyResponse()
 
