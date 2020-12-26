@@ -91,6 +91,8 @@ class DragonflyCommand:
 
         self.setmode("RTL")
 
+        self.cancel(None)
+
         return EmptyResponse()
 
     def goto(self, operation):
@@ -209,7 +211,7 @@ class DragonflyCommand:
         for waypoint in waypoints:
             self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waittime > 0:
-            self.actionqueue.push(SleepAction(waittime))
+                self.actionqueue.push(SleepAction(waittime))
             self.actionqueue.push(WaitForZeroAction(self))
 
         return EmptyResponse()
