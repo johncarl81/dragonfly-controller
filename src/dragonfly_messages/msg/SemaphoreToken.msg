@@ -1,0 +1,2 @@
+string drone
+string id

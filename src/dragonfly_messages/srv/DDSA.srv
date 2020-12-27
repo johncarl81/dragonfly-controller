@@ -1,10 +1,10 @@
 float32 radius
-float32 steplength
+float32 stepLength
 int32 walk
 int32 stacks
 int32 loops
 float32 altitude
-float32 waittime
+float32 waitTime
 float32 distanceThreshold
 ---
 int8 success

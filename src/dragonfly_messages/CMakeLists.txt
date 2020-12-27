@@ -53,6 +53,14 @@ find_package(catkin REQUIRED COMPONENTS
 add_message_files(
     FILES
     LatLon.msg
+    DDSAMission.msg
+    GotoWaypoint.msg
+    LawnmowerMission.msg
+    MissionStep.msg
+    Semaphore.msg
+    SemaphoreToken.msg
+    Sleep.msg
+    Takeoff.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -64,6 +72,7 @@ add_service_files(
    DDSAWaypoints.srv
    Flock.srv
    Navigation.srv
+   Mission.srv
 )
 
 ## Generate actions in the 'action' folder

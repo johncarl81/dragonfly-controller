@@ -1,10 +1,10 @@
 LatLon[] boundary
-float32 steplength
+float32 stepLength
 bool walkBoundary
 int32 walk
 int32 stacks
 float32 altitude
-float32 waittime
+float32 waitTime
 float32 distanceThreshold
 ---
 int8 success

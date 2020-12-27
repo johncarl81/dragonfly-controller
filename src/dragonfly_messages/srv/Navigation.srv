@@ -1,5 +1,5 @@
 LatLon[] waypoints
-float32 waittime
+float32 waitTime
 float32 distanceThreshold
 ---
 int8 success

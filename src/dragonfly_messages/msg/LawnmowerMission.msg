@@ -5,5 +5,4 @@ int32 walk
 int32 stacks
 float32 altitude
 float32 waitTime
----
-LatLon[] waypoints
+float32 distanceThreshold
