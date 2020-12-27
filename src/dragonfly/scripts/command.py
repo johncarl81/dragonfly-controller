@@ -8,6 +8,7 @@ from mavros_msgs.msg import State, Waypoint
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import PoseStamped, Point, TwistStamped
 from dragonfly_messages.srv import *
+from dragonfly_messages.msg import MissionStep
 from waypointUtil import *
 from actions.DisarmAction import DisarmAction
 from actions.ArmAction import ArmAction
@@ -24,6 +25,11 @@ from actions.FlockingAction import FlockingAction
 from actions.LandAction import LandAction
 from actions.WaitForDisarmAction import WaitForDisarmAction
 from actions.SetPositionAction import SetPositionAction
+from actions.MissionStartAction import MissionStartAction
+from actions.SemaphoreAction import SemaphoreAction
+
+class MissionStarter:
+    start = False
 
 class DragonflyCommand:
 
@@ -35,6 +41,7 @@ class DragonflyCommand:
         self.sincezero = 0
         self.id = id
         self.actionqueue = ActionQueue()
+        self.mission_starter = MissionStarter()
 
     def setmode(self, mode):
         print "Set Mode ", mode
@@ -206,6 +213,47 @@ class DragonflyCommand:
 
         return NavigationResponse(success=True, message="Commanded {} to navigate.".format(self.id))
 
+    def mission(self, operation):
+        self.cancel(None)
+
+        for step in operation.steps:
+            if step.msg_type == MissionStep.TYPE_START:
+                print "Start"
+                self.actionqueue.push(MissionStartAction(self.mission_starter))
+            if step.msg_type == MissionStep.TYPE_TAKEOFF:
+                print "Takeoff"
+                self.actionqueue.push(ArmedStateAction(self.id)) \
+                    .push(ModeAction(self.setmode_service, "STABILIZE")) \
+                    .push(ArmAction(self.arm_service)) \
+                    .push(SleepAction(5)) \
+                    .push(ModeAction(self.setmode_service, "GUIDED")) \
+                    .push(TakeoffAction(self.takeoff_service, step.takeoff.altitude)) \
+                    .push(SleepAction(5))
+            if step.msg_type == MissionStep.TYPE_SLEEP:
+                print "Sleep"
+                self.actionqueue.push(SleepAction(step.sleep.duration))
+            if step.msg_type == MissionStep.TYPE_LAND:
+                print "Land"
+                self.actionqueue.push(LandAction(self.land_service)) \
+                    .push(WaitForDisarmAction(self.id)) \
+                    .push(ModeAction(self.setmode_service, "STABILIZE"))
+            if step.msg_type == MissionStep.TYPE_GOTO_WAYPOINT:
+                print "Waypoint"
+                # self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+            if step.msg_type == MissionStep.TYPE_SEMAPHORE:
+                print "Semaphore"
+                self.actionqueue.push(SemaphoreAction(self.id, step.semaphore.id, step.semaphore.drones))
+            if step.msg_type == MissionStep.TYPE_RTL:
+                print "RTL"
+                self.actionqueue.push(ModeAction(self.setmode_service, 'RTL'))
+            if step.msg_type == MissionStep.TYPE_DDSA:
+                print "DDSA"
+            if step.msg_type == MissionStep.TYPE_LAWNMOWER:
+                print "Lawnmower"
+
+    def start_mission(self, operation):
+        self.mission_starter.start = True
+
     def runWaypoints(self, waypoints, waittime, distanceThreshold):
 
         for waypoint in waypoints:
@@ -287,6 +335,8 @@ class DragonflyCommand:
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/navigate".format(self.id), Navigation, self.navigate)
+        rospy.Service("/{}/command/mission".format(self.id), Mission, self.mission)
+        rospy.Service("/{}/command/start_mission".format(self.id), Empty, self.start_mission)
         rospy.Service("/{}/command/flock".format(self.id), Flock, self.flock)
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
         rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
