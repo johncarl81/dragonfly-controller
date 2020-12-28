@@ -1,4 +1,4 @@
-LatLon[] boundary
+string boundary
 float32 stepLength
 bool walkBoundary
 int32 walk

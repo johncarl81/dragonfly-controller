@@ -1,5 +1,6 @@
 MissionStep[] steps
 Waypoint[] waypoints
+Boundary[] boundaries
 ---
 int8 success
 string message

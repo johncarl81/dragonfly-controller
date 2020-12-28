@@ -219,6 +219,12 @@ class DragonflyCommand:
                 return [buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude), waypoint.distanceThreshold]
         return [None, None]
 
+    def findBoundary(self, boundary_name, boundaries):
+        for boundary in boundaries:
+            if boundary.name == boundary_name:
+                return boundary.points
+        return None
+
     def mission(self, operation):
         self.cancel(None)
 
@@ -260,7 +266,10 @@ class DragonflyCommand:
                 self.runWaypoints(waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 print "Lawnmower"
-                # TODO
+                boundary = self.findBoundary(step.lawnmower.boundary, operation.boundaries)
+                if boundary is not None:
+                    waypoints = self.build_lawnmower_waypoints(step.lawnmower.walkBoundary, boundary, step.lawnmower.walk, step.lawnmower.altitude, step.lawnmower.stacks, step.lawnmower.stepLength)
+                    self.runWaypoints(waypoints, step.lawnmower.waitTime, step.lawnmower.distanceThreshold)
 
     def start_mission(self, operation):
         self.mission_starter.start = True
