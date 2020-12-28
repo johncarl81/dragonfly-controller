@@ -58,6 +58,7 @@ add_message_files(
     GotoWaypoint.msg
     LawnmowerMission.msg
     MissionStep.msg
+    NavigationMission.msg
     Semaphore.msg
     SemaphoreToken.msg
     Sleep.msg

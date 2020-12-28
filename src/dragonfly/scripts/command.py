@@ -272,6 +272,14 @@ class DragonflyCommand:
                 if boundary is not None:
                     waypoints = self.build_lawnmower_waypoints(step.lawnmower.walkBoundary, boundary, step.lawnmower.walk, step.lawnmower.altitude, step.lawnmower.stacks, step.lawnmower.stepLength)
                     self.runWaypoints(waypoints, step.lawnmower.waitTime, step.lawnmower.distanceThreshold)
+            elif step.msg_type == MissionStep.TYPE_NAVIGATION:
+                print "Navigation"
+                localWaypoints = []
+                for waypoint in step.navigation.waypoints:
+                    print "{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relativeAltitude)
+                    localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
+                self.runWaypoints(localWaypoints, step.navigation.waitTime, step.navigation.distanceThreshold)
+
 
     def start_mission(self, operation):
         self.mission_starter.start = True

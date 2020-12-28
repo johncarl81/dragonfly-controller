@@ -7,6 +7,7 @@ int8 TYPE_SEMAPHORE=5
 int8 TYPE_RTL=6
 int8 TYPE_DDSA=7
 int8 TYPE_LAWNMOWER=8
+int8 TYPE_NAVIGATION=9
 
 int8 msg_type
 
@@ -16,3 +17,4 @@ GotoWaypoint goto
 Semaphore semaphore
 DDSAMission ddsa
 LawnmowerMission lawnmower
+NavigationMission navigation
