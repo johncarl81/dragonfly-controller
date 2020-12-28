@@ -48,12 +48,12 @@ def createLatLon(localwaypoint, localposition, position):
 
     return LatLon(latitude = latitude, longitude = longitude, relativeAltitude = localwaypoint.z)
 
-def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, steplength):
+def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, stepLength):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        ddsaWaypoints = buildDDSAWaypoints(rangeType, stack, size, index, loops, radius, steplength)
+        ddsaWaypoints = buildDDSAWaypoints(rangeType, stack, size, index, loops, radius, stepLength)
         if toggleReverse:
             ddsaWaypoints = ddsaWaypoints[::-1]
         waypoints = waypoints + ddsaWaypoints
@@ -62,7 +62,7 @@ def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, stepleng
 
     return waypoints
 
-def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, steplength):
+def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, stepLength):
 
     waypoints = []
     start = Point(0, 0, altitude)
@@ -87,7 +87,7 @@ def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, stepleng
 
             print "{}, {} -> {}, {}".format(previous.x, previous.y, next.x, next.y)
 
-            for waypoint in calculateRange(rangeType, previous, next, steplength):
+            for waypoint in calculateRange(rangeType, previous, next, stepLength):
                 waypoints.append(Point(waypoint.x * radius, waypoint.y * radius, waypoint.z))
 
             previous = next
@@ -150,12 +150,12 @@ def linearYRange(points, type):
 
     return y.value()
 
-def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, steplength):
+def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, stepLength):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, steplength)
+        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, stepLength)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
         waypoints = waypoints + lawnmowerWaypoints
@@ -164,7 +164,7 @@ def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stac
 
     return waypoints
 
-def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, steplength):
+def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, stepLength):
     boundary_meters = []
 
     waypoints = []
@@ -185,18 +185,18 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
 
     stepdirection = 1 if miny < maxy else -1
 
-    for y in range(int(miny), int(maxy), int(2 * steplength)):
+    for y in range(int(miny), int(maxy), int(2 * stepLength)):
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
         waypoints.append(createWaypoint(minx, y, altitude))
-        for point in calculateRange(rangeType, Point(minx, y, altitude), Point(maxx, y, altitude), steplength):
+        for point in calculateRange(rangeType, Point(minx, y, altitude), Point(maxx, y, altitude), stepLength):
             waypoints.append(createWaypoint(point.x, point.y, point.z))
-        minx = linearXRange(boundary_meters, y + steplength, pulp.LpMinimize)
-        maxx = linearXRange(boundary_meters, y + steplength, pulp.LpMaximize)
+        minx = linearXRange(boundary_meters, y + stepLength, pulp.LpMinimize)
+        maxx = linearXRange(boundary_meters, y + stepLength, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        waypoints.append(createWaypoint(maxx, y + steplength, altitude))
-        for point in calculateRange(rangeType, Point(maxx, y + (stepdirection * steplength), altitude), Point(minx, y + (stepdirection * steplength), altitude), steplength):
+        waypoints.append(createWaypoint(maxx, y + stepLength, altitude))
+        for point in calculateRange(rangeType, Point(maxx, y + (stepdirection * stepLength), altitude), Point(minx, y + (stepdirection * stepLength), altitude), stepLength):
             waypoints.append(createWaypoint(point.x, point.y, point.z))
 
     return waypoints
