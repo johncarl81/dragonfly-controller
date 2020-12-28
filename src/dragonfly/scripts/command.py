@@ -183,7 +183,7 @@ class DragonflyCommand:
 
         self.canceled = False
 
-        print "Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z)
+        print "Position: {} {} {}".format(self.localpositionpose.x, self.localpositionpose.y, self.localpositionpose.z)
 
         waypoints = self.build_lawnmower_waypoints(operation.walkBoundary, operation.boundary, operation.walk, operation.altitude, operation.stacks, operation.stepLength)
 
@@ -282,6 +282,7 @@ class DragonflyCommand:
 
 
     def start_mission(self, operation):
+        self.canceled = False
         self.mission_starter.start = True
 
     def runWaypoints(self, waypoints, waitTime, distanceThreshold):
