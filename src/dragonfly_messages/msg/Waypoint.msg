@@ -1,0 +1,5 @@
+string name
+float64 latitude
+float64 longitude
+float64 relativeAltitude
+float64 distanceThreshold

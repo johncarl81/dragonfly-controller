@@ -1,4 +1,5 @@
 MissionStep[] steps
+Waypoint[] waypoints
 ---
 int8 success
 string message

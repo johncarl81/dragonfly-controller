@@ -61,6 +61,7 @@ add_message_files(
     SemaphoreToken.msg
     Sleep.msg
     Takeoff.msg
+    Waypoint.msg
 )
 
 ## Generate services in the 'srv' folder
