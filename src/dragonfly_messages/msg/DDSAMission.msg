@@ -1,3 +1,4 @@
+string waypoint
 float32 radius
 float32 stepLength
 int32 walk
