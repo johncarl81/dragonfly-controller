@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import rospy, time, argparse, math, std_msgs, pulp
 
+from datetime import datetime, timedelta
 from std_srvs.srv import Empty, EmptyResponse
 from std_msgs.msg import String
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
@@ -38,7 +39,7 @@ class DragonflyCommand:
     def __init__(self, id):
         self.zeroing = False
         self.canceled = False
-        self.sincezero = 0
+        self.sincezero = datetime.now()
         self.id = id
         self.actionqueue = ActionQueue()
         self.mission_starter = MissionStarter()
@@ -276,7 +277,6 @@ class DragonflyCommand:
                 print "Navigation"
                 localWaypoints = []
                 for waypoint in step.navigation.waypoints:
-                    print "{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relativeAltitude)
                     localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
                 self.runWaypoints(localWaypoints, step.navigation.waitTime, step.navigation.distanceThreshold)
 
@@ -310,11 +310,10 @@ class DragonflyCommand:
         self.localposition = data.pose.position
 
     def co2Callback(self, data):
-        self.sincezero = self.sincezero + 1
         if data.data.startswith('W') or data.data.startswith('Z'):
-            self.sincezero = 0
+            self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = self.sincezero < 60
+        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds = 10)
         if self.zeroing and not previous:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:

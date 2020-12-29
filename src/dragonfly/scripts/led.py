@@ -1,6 +1,7 @@
 #! /usr/bin/env python
 import argparse
 import time
+import threading
 import RPi.GPIO as GPIO
 
 # GPIO setup.
@@ -8,6 +9,7 @@ GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
 class LED:
+
     def __init__(self, red=18, green=17, blue=4):
         GPIO.setup(red, GPIO.OUT)
         GPIO.setup(green, GPIO.OUT)
@@ -21,6 +23,28 @@ class LED:
         self.green.start(100)
         self.blue.start(100)
 
+        self.rgb = [0,0,0]
+        self.blink_value = False
+        
+        self.shutdownBlink = False
+        self.blinkThread = threading.Thread(target=self.blink_operation)
+        self.blinkThread.start()
+
+    def blink_operation(self):
+        print "Blinking..."
+        while not self.shutdownBlink:
+            if(self.blink_value):
+                print "Blink off"
+                previousrgb = self.rgb            
+                self.setColor([0,0,0])
+                self.update()
+                self.rgb = previousrgb
+                time.sleep(1)
+            print "Blink on"
+            self.setColor(self.rgb)
+            self.update()
+            time.sleep(1)
+
     def __enter__(self):
         return self
 
@@ -28,19 +52,29 @@ class LED:
         shutdown(self)
 
     def shutdown(self):
+        print "Shutting down"
+        self.shutdownBlink = True
+        self.blinkThread.join()
         self.setColor([0, 0, 0])
         self.red.stop()
         self.green.stop()
         self.blue.stop()
 
+    def blink(self):
+        self.blink_value = True
+
+    def solid(self):
+        self.blink_value = False
+
+    def update(self):
+        self.red.ChangeDutyCycle(100 - self.rgb[0])
+        self.green.ChangeDutyCycle(100 - self.rgb[1])
+        self.blue.ChangeDutyCycle(100 - self.rgb[2])
        
     # Set a color by giving R, G, and B values of 0-255.
     def setColor(self, rgb = []):
         # Convert 0-255 range to 0-100.
-        rgb = [(x / 255.0) * 100 for x in rgb]
-        self.red.ChangeDutyCycle(100 - rgb[0])
-        self.green.ChangeDutyCycle(100 - rgb[1])
-        self.blue.ChangeDutyCycle(100 - rgb[2])
+        self.rgb = [(x / 255.0) * 100 for x in rgb]
 
 if __name__ == '__main__':
     # Get RGB colors from command line arguments.
