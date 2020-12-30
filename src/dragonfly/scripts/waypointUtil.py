@@ -185,7 +185,7 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
 
     stepdirection = 1 if miny < maxy else -1
 
-    for y in range(int(miny), int(maxy), int(2 * stepLength)):
+    for y in range(int(math.ceil(miny)), int(math.floor(maxy)), int(2 * stepLength)):
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
