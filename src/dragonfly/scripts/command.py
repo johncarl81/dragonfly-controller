@@ -67,29 +67,29 @@ class DragonflyCommand:
         print "Commanded to arm"
 
         self.actionqueue.push(ModeAction(self.setmode_service, "STABILIZE")) \
-            .push(ArmAction(self.arm_service)) \
+            .push(ArmAction(self.logPublisher, self.arm_service)) \
             .push(SleepAction(5)) \
-            .push(DisarmAction(self.arm_service))
+            .push(DisarmAction(self.logPublisher, self.arm_service))
 
         return EmptyResponse()
 
     def takeoff(self, operation):
         print "Commanded to takeoff"
 
-        self.actionqueue.push(ArmedStateAction(self.id)) \
+        self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id)) \
             .push(ModeAction(self.setmode_service, "STABILIZE")) \
-            .push(ArmAction(self.arm_service)) \
+            .push(ArmAction(self.logPublisher, self.arm_service)) \
             .push(SleepAction(5)) \
             .push(ModeAction(self.setmode_service, "GUIDED")) \
-            .push(TakeoffAction(self.takeoff_service, self.TEST_ALTITUDE))
+            .push(TakeoffAction(self.logPublisher, self.takeoff_service, self.TEST_ALTITUDE))
 
         return EmptyResponse()
 
     def land(self, operation):
         print "Commanded to land"
 
-        self.actionqueue.push(LandAction(self.land_service)) \
-            .push(WaitForDisarmAction(self.id)) \
+        self.actionqueue.push(LandAction(self.logPublisher, self.land_service)) \
+            .push(WaitForDisarmAction(self.id, self.logPublisher)) \
             .push(ModeAction(self.setmode_service, "STABILIZE"))
 
         return EmptyResponse()
@@ -97,9 +97,10 @@ class DragonflyCommand:
     def rtl(self, operation):
         print "Commanded to land"
 
-        self.setmode("RTL")
-
         self.cancel(None)
+
+        self.setmode("RTL")
+        self.logPublisher.publish("RTL")
 
         return EmptyResponse()
 
@@ -148,7 +149,7 @@ class DragonflyCommand:
 
         waypoints = self.build_ddsa_waypoints(self.localposition, operation.walk, operation.stacks, operation.loops, operation.radius, operation.stepLength, operation.altitude)
 
-        self.runWaypoints(waypoints, operation.waitTime, operation.distanceThreshold)
+        self.runWaypoints("DDSA", waypoints, operation.waitTime, operation.distanceThreshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "DDSA Finished"))
 
@@ -188,7 +189,7 @@ class DragonflyCommand:
 
         waypoints = self.build_lawnmower_waypoints(operation.walkBoundary, operation.boundary, operation.walk, operation.altitude, operation.stacks, operation.stepLength)
 
-        self.runWaypoints(waypoints, operation.waitTime, operation.distanceThreshold)
+        self.runWaypoints("Lawnmower", waypoints, operation.waitTime, operation.distanceThreshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower Finished"))
 
@@ -208,7 +209,7 @@ class DragonflyCommand:
             print "{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relativeAltitude)
             localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
 
-        self.runWaypoints(localWaypoints, operation.waitTime, operation.distanceThreshold)
+        self.runWaypoints("Navigation", localWaypoints, operation.waitTime, operation.distanceThreshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Navigation Finished"))
 
@@ -232,62 +233,76 @@ class DragonflyCommand:
         for step in operation.steps:
             if step.msg_type == MissionStep.TYPE_START:
                 print "Start"
-                self.actionqueue.push(MissionStartAction(self.mission_starter))
+                self.actionqueue.push(MissionStartAction(self.logPublisher, self.mission_starter))
             elif step.msg_type == MissionStep.TYPE_TAKEOFF:
                 print "Takeoff"
-                self.actionqueue.push(ArmedStateAction(self.id)) \
+                self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id)) \
                     .push(ModeAction(self.setmode_service, "STABILIZE")) \
-                    .push(ArmAction(self.arm_service)) \
+                    .push(ArmAction(self.logPublisher, self.arm_service)) \
                     .push(SleepAction(5)) \
                     .push(ModeAction(self.setmode_service, "GUIDED")) \
-                    .push(TakeoffAction(self.takeoff_service, step.takeoff.altitude)) \
+                    .push(TakeoffAction(self.logPublisher, self.takeoff_service, step.takeoff.altitude)) \
                     .push(SleepAction(5))
             elif step.msg_type == MissionStep.TYPE_SLEEP:
                 print "Sleep"
                 self.actionqueue.push(SleepAction(step.sleep.duration))
             elif step.msg_type == MissionStep.TYPE_LAND:
                 print "Land"
-                self.actionqueue.push(LandAction(self.land_service)) \
-                    .push(WaitForDisarmAction(self.id)) \
+                self.actionqueue.push(LandAction(self.logPublisher, self.land_service)) \
+                    .push(WaitForDisarmAction(self.id, self.logPublisher)) \
                     .push(ModeAction(self.setmode_service, "STABILIZE"))
             elif step.msg_type == MissionStep.TYPE_GOTO_WAYPOINT:
                 print "Waypoint"
                 [waypoint, distanceThreshold] = self.findWaypoint(step.goto.waypoint, operation.waypoints)
                 if waypoint is not None:
-                    self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+                    self.actionqueue.push(LogAction(self.logPublisher, "Goto {}".format(step.goto.waypoint)))\
+                        .push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 print "Semaphore"
                 self.actionqueue.push(SemaphoreAction(self.id, step.semaphore.id, step.semaphore.drones))
             elif step.msg_type == MissionStep.TYPE_RTL:
                 print "RTL"
-                self.actionqueue.push(ModeAction(self.setmode_service, 'RTL'))
+                self.actionqueue.push(LogAction(self.logPublisher, "RTL".format(step.goto.waypoint))) \
+                    .push(ModeAction(self.setmode_service, 'RTL')) \
+                    .push(WaitForDisarmAction(self.id, self.logPublisher))
             elif step.msg_type == MissionStep.TYPE_DDSA:
                 print "DDSA"
+                self.actionqueue.push(LogAction(self.logPublisher, "DDSA"))
                 [waypoint, distanceThreshold] = self.findWaypoint(step.ddsa.waypoint, operation.waypoints)
                 if waypoint is not None:
                     waypoints = self.build_ddsa_waypoints(waypoint.pose.position, step.ddsa.walk, step.ddsa.stacks, step.ddsa.loops, step.ddsa.radius, step.ddsa.stepLength, step.ddsa.altitude)
-                    self.runWaypoints(waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
+                    self.runWaypoints("DDSA", waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 print "Lawnmower"
+                self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower"))
                 boundary = self.findBoundary(step.lawnmower.boundary, operation.boundaries)
                 if boundary is not None:
                     waypoints = self.build_lawnmower_waypoints(step.lawnmower.walkBoundary, boundary, step.lawnmower.walk, step.lawnmower.altitude, step.lawnmower.stacks, step.lawnmower.stepLength)
-                    self.runWaypoints(waypoints, step.lawnmower.waitTime, step.lawnmower.distanceThreshold)
+                    self.runWaypoints("Lawnmower", waypoints, step.lawnmower.waitTime, step.lawnmower.distanceThreshold)
             elif step.msg_type == MissionStep.TYPE_NAVIGATION:
                 print "Navigation"
+                self.actionqueue.push(LogAction(self.logPublisher, "Navigation"))
                 localWaypoints = []
                 for waypoint in step.navigation.waypoints:
                     localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
-                self.runWaypoints(localWaypoints, step.navigation.waitTime, step.navigation.distanceThreshold)
+                self.runWaypoints("Navigation", localWaypoints, step.navigation.waitTime, step.navigation.distanceThreshold)
+
+        self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
+        self.logPublisher.publish("Mission with {} steps setup".format(len(operation.steps)))
+
+        return MissionResponse(success=True, message="{} mission received.".format(self.id))
 
 
     def start_mission(self, operation):
         self.canceled = False
         self.mission_starter.start = True
 
-    def runWaypoints(self, waypoints, waitTime, distanceThreshold):
+        return EmptyResponse()
 
-        for waypoint in waypoints:
+    def runWaypoints(self, waypoints_name, waypoints, waitTime, distanceThreshold):
+
+        for i, waypoint in enumerate(waypoints):
+            self.actionqueue.push(LogAction(self.logPublisher, "Goto {} {}".format(waypoints_name, i)))
             self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waitTime > 0:
                 self.actionqueue.push(SleepAction(waitTime))
@@ -322,7 +337,7 @@ class DragonflyCommand:
     def cancel(self, operation):
         self.canceled = True
         self.actionqueue.stop()
-        self.actionqueue.push(StopInPlaceAction(self.id, self.local_setposition_publisher))
+        self.actionqueue.push(StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher))
 
         return EmptyResponse()
 

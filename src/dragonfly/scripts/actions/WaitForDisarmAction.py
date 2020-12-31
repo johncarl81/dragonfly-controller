@@ -5,8 +5,9 @@ from mavros_msgs.msg import State
 
 class WaitForDisarmAction:
 
-    def __init__(self, id):
+    def __init__(self, id, log_publisher):
         self.id = id
+        self.log_publisher = log_publisher
         self.status = ActionState.WORKING
         self.commanded = False
         self.disabled_update = None
@@ -20,6 +21,7 @@ class WaitForDisarmAction:
                 if not state.armed:
                     self.status = ActionState.SUCCESS
                     self.stop()
+                    self.log_publisher.publish("Disarmed")
 
             self.disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
 

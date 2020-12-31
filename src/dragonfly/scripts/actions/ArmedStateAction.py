@@ -6,7 +6,8 @@ from ActionState import ActionState
 
 class ArmedStateAction:
 
-    def __init__(self, id):
+    def __init__(self, log_publisher, id):
+        self.log_publisher = log_publisher
         self.id = id
         self.armedQueue = ActionQueue()
         self.notarmedQueue = ActionQueue()
@@ -24,6 +25,7 @@ class ArmedStateAction:
                 if state.armed:
                     print "Is already armed, failed"
                     self.status = ActionState.FAILURE
+                    self.log_publisher.publish("Arming failed, already armed")
                 else:
                     print "Is not armed, continue"
                     self.status = ActionState.SUCCESS

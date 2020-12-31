@@ -3,7 +3,8 @@ from ActionState import ActionState
 
 class DisarmAction:
 
-    def __init__(self, arm_service):
+    def __init__(self, log_publisher, arm_service):
+        self.log_publisher = log_publisher
         self.arm_service = arm_service
 
     def step(self):
@@ -11,6 +12,11 @@ class DisarmAction:
         result = self.arm_service(False)
 
         print "Disarming result", result
+
+        if result.success:
+            self.log_publisher.publish("Disarmed")
+        else:
+            self.log_publisher.publish("Disarm failed")
 
         return ActionState.mapSuccess(result.success)
 

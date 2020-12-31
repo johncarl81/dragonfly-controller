@@ -7,8 +7,9 @@ from ActionState import ActionState
 
 class StopInPlaceAction:
 
-    def __init__(self, id, local_setposition_publisher):
+    def __init__(self, id, log_publisher, local_setposition_publisher):
         self.id = id
+        self.log_publisher = log_publisher
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
@@ -18,13 +19,13 @@ class StopInPlaceAction:
         if not self.commanded:
             self.commanded = True
             def updatePosition(localposition):
-
-                print "Stop in place"
-
                 self.local_setposition_publisher.publish(localposition)
                 self.status = ActionState.SUCCESS
 
                 self.stop()
+
+                print "Stop in place"
+                self.log_publisher.publish("Stopped")
 
             self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
 

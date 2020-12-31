@@ -3,7 +3,8 @@ from ActionState import ActionState
 
 class TakeoffAction:
 
-    def __init__(self, takeoff_service, altitude):
+    def __init__(self, log_publisher, takeoff_service, altitude):
+        self.log_publisher = log_publisher
         self.takeoff_service = takeoff_service
         self.altitude = altitude
 
@@ -12,6 +13,10 @@ class TakeoffAction:
         result = self.takeoff_service(altitude = self.altitude)
 
         print "Take off result", result
+        if result.success:
+            self.log_publisher.publish("Takeoff to {}m".format(self.altitude))
+        else:
+            self.log_publisher.publish("Takeoff failed")
 
         return ActionState.mapSuccess(result.success)
 
