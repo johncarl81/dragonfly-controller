@@ -306,7 +306,7 @@ class DragonflyCommand:
             self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waitTime > 0:
                 self.actionqueue.push(SleepAction(waitTime))
-            self.actionqueue.push(WaitForZeroAction(self))
+            self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
 
         return EmptyResponse()
 
