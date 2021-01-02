@@ -16,7 +16,8 @@ class FlockingAction:
     POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
-    def __init__(self, id, local_setvelocity_publisher, xoffset, yoffset, leader):
+    def __init__(self, id, log_publisher, local_setvelocity_publisher, xoffset, yoffset, leader):
+        self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
         self.xoffset = xoffset
@@ -57,7 +58,7 @@ class FlockingAction:
 
         twist = TwistStamped()
 
-        print "Magnitudes: {}".format([self.magnitude(v) for v in input])
+        # print "Magnitudes: {}".format([self.magnitude(v) for v in input])
 
         for vector in input:
             twist.twist.linear.x += vector[0]
@@ -124,6 +125,7 @@ class FlockingAction:
 
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates :
+            self.log_publisher.publish("Flocking with {}".format(name))
             print "Registering flock member: {}".format(name)
             flock_coordinate_subject = Subject()
             self.flock_coordinates[name] = flock_coordinate_subject
@@ -161,6 +163,7 @@ class FlockingAction:
             self.ros_subscriptions.append(rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback))
 
             print "Finished"
+            self.log_publisher.publish("Flocking")
 
         return ActionState.WORKING
 

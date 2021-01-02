@@ -286,6 +286,10 @@ class DragonflyCommand:
                 for waypoint in step.navigation.waypoints:
                     localWaypoints.append(buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relativeAltitude))
                 self.runWaypoints("Navigation", localWaypoints, step.navigation.waitTime, step.navigation.distanceThreshold)
+            elif step.msg_type == MissionStep.TYPE_FLOCK:
+                print "Flock"
+                self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
+                    .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.flock.x, step.flock.y, step.flock.leader))
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish("Mission with {} steps setup".format(len(operation.steps)))
@@ -302,7 +306,7 @@ class DragonflyCommand:
     def runWaypoints(self, waypoints_name, waypoints, waitTime, distanceThreshold):
 
         for i, waypoint in enumerate(waypoints):
-            self.actionqueue.push(LogAction(self.logPublisher, "Goto {} {}".format(waypoints_name, i)))
+            self.actionqueue.push(LogAction(self.logPublisher, "Goto {} {}/{}".format(waypoints_name, i, len(waypoints))))
             self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waitTime > 0:
                 self.actionqueue.push(SleepAction(waitTime))
@@ -313,7 +317,7 @@ class DragonflyCommand:
     def flock(self, flockCommand):
 
         self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED')) \
-            .push(FlockingAction(self.id, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
+            .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y, flockCommand.leader))
 
         return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
 
