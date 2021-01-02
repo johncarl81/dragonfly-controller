@@ -8,11 +8,13 @@ class Span(Enum):
     WALK = 1
     RANGE = 2
 
-def createWaypoint(x, y, altitude):
+def createWaypoint(x, y, altitude, orientation):
     waypoint = PoseStamped()
     waypoint.pose.position.x = x
     waypoint.pose.position.y = y
     waypoint.pose.position.z = altitude
+    waypoint.pose.orientation.z = orientation.z
+    waypoint.pose.orientation.w = orientation.w
 
     return waypoint
 
@@ -33,12 +35,13 @@ def calculateRange(type, start, end, length):
     elif type == Span.RANGE:
         return [end]
 
-def buildRelativeWaypoint(localposition, position, waypoint, altitude):
+def buildRelativeWaypoint(localposition, position, waypoint, altitude, orientation):
     earthCircumference = 40008000
     return createWaypoint(
         localposition.x - ((position.longitude - waypoint.longitude) * (earthCircumference / 360) * math.cos(position.latitude * 0.01745)),
         localposition.y - ((position.latitude - waypoint.latitude) * (earthCircumference / 360)) ,
-        altitude
+        altitude,
+        orientation
     )
 
 def createLatLon(localwaypoint, localposition, position):
@@ -150,12 +153,12 @@ def linearYRange(points, type):
 
     return y.value()
 
-def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, stepLength):
+def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, stepLength, orientation):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, stepLength)
+        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary, stepLength, orientation)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
         waypoints = waypoints + lawnmowerWaypoints
@@ -164,13 +167,13 @@ def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stac
 
     return waypoints
 
-def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, stepLength):
+def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, stepLength, orientation):
     boundary_meters = []
 
     waypoints = []
 
     for waypoint in boundary:
-        goalPos = buildRelativeWaypoint(localposition, position, waypoint, altitude)
+        goalPos = buildRelativeWaypoint(localposition, position, waypoint, altitude, orientation)
 
         boundary_meters.append((goalPos.pose.position.x, goalPos.pose.position.y))
 
@@ -189,14 +192,14 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        waypoints.append(createWaypoint(minx, y, altitude))
+        waypoints.append(createWaypoint(minx, y, altitude, orientation))
         for point in calculateRange(rangeType, Point(minx, y, altitude), Point(maxx, y, altitude), stepLength):
-            waypoints.append(createWaypoint(point.x, point.y, point.z))
+            waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
         minx = linearXRange(boundary_meters, y + stepLength, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y + stepLength, pulp.LpMaximize)
         print "minx:{} maxx:{} ".format(minx, maxx)
-        waypoints.append(createWaypoint(maxx, y + stepLength, altitude))
+        waypoints.append(createWaypoint(maxx, y + stepLength, altitude, orientation))
         for point in calculateRange(rangeType, Point(maxx, y + (stepdirection * stepLength), altitude), Point(minx, y + (stepdirection * stepLength), altitude), stepLength):
-            waypoints.append(createWaypoint(point.x, point.y, point.z))
+            waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
 
     return waypoints
