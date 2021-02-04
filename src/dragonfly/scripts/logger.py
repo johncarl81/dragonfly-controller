@@ -42,7 +42,6 @@ class co2Logger:
     def updateLED(self):
         validPosition = self.validUpdate(self.positionReceived)
         validCo2 = self.validUpdate(self.co2Received)
-        print ("Updating led: {} {}".format(validPosition, validCo2))
         self.led.setColor([255 if validPosition and not validCo2 else 0,
             255 if validPosition and validCo2 else 0,
             255 if not validPosition and validCo2 else 0])

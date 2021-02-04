@@ -31,16 +31,13 @@ class LED:
         self.blinkThread.start()
 
     def blink_operation(self):
-        print "Blinking..."
         while not self.shutdownBlink:
             if(self.blink_value):
-                print "Blink off"
                 previousrgb = self.rgb            
                 self.setColor([0,0,0])
                 self.update()
                 self.rgb = previousrgb
                 time.sleep(1)
-            print "Blink on"
             self.setColor(self.rgb)
             self.update()
             time.sleep(1)
@@ -52,7 +49,6 @@ class LED:
         shutdown(self)
 
     def shutdown(self):
-        print "Shutting down"
         self.shutdownBlink = True
         self.blinkThread.join()
         self.setColor([0, 0, 0])
