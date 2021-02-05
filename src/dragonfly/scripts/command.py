@@ -19,6 +19,7 @@ from actions.SleepAction import SleepAction
 from actions.TakeoffAction import TakeoffAction
 from actions.ArmedStateAction import ArmedStateAction
 from actions.WaypointAction import WaypointAction
+from actions.WaypointDirectAction import WaypointDirectAction
 from actions.LogAction import LogAction
 from actions.StopInPlaceAction import StopInPlaceAction
 from actions.WaitForZeroAction import WaitForZeroAction
@@ -28,6 +29,8 @@ from actions.WaitForDisarmAction import WaitForDisarmAction
 from actions.SetPositionAction import SetPositionAction
 from actions.MissionStartAction import MissionStartAction
 from actions.SemaphoreAction import SemaphoreAction
+
+DIRECT = True
 
 class MissionStarter:
     start = False
@@ -312,7 +315,10 @@ class DragonflyCommand:
 
         for i, waypoint in enumerate(waypoints):
             self.actionqueue.push(LogAction(self.logPublisher, "Goto {} {}/{}".format(waypoints_name, i+1, len(waypoints))))
-            self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+            if DIRECT:
+                self.actionqueue.push(WaypointDirectAction(self.id, self.local_setvelocity_publisher, waypoint, distanceThreshold))
+            else:
+                self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waitTime > 0:
                 self.actionqueue.push(SleepAction(waitTime))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
