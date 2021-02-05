@@ -60,12 +60,11 @@ class WaypointDirectAction:
 
                 if distance(self.waypoint.pose.position, localposition.pose.position) < self.distanceThreshold:
                     self.status = ActionState.SUCCESS
-vector = TwistStamped()
-zero_vector.twist.linear.x = 0
-zero_vector.twist.linear.y = 0
-zero_vector.twist.linear.z = 0
-self.local_setv
-                    zero_elocity_publisher.publish(zero_vector)
+                    zero_vector = TwistStamped()
+                    zero_vector.twist.linear.x = 0
+                    zero_vector.twist.linear.y = 0
+                    zero_vector.twist.linear.z = 0
+                    self.local_setvelocity_publisher.publish(zero_vector)
                     self.stop()
 
             self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
