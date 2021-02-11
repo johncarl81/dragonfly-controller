@@ -36,29 +36,26 @@ class FlockingAction:
         formation_position_attraction = Observable.combine_latest(self.leaderposition_subject, self.selfposition_subject,
                                                        lambda leaderposition, selfposition: self.formation_position(leaderposition, selfposition))
 
+        # Issue a zero velocity token if nothing has been given for a while
+        self.leadervelocity_subject.debounce(1000) \
+            .subscribe(on_next = lambda v: self.leadervelocity_subject.on_next(TwistStamped()))
+
         leaderVelocity = self.leadervelocity_subject \
             .map(lambda twist: self.format_velocities(twist))
 
-
         leaderVelocityDampening = Observable.combine_latest(self.leadervelocity_subject, self.selfvelocity_subject,
                                         lambda leadertwist, selftwist: self.velocity_dampening(leadertwist, selftwist))
-
-        # self.navigate_subscription = Observable.combine_latest([leaderVelocity, formation_position_attraction, self.flock_repulsion], lambda vectors: self.navigate(vectors))
 
         self.navigate_subscription = Observable.combine_latest([leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion], lambda *positions: positions) \
             .sample(self.SAMPLE_RATE) \
             .subscribe(lambda vectors: self.navigate(vectors))
 
-        # self.navigate_subscription = self.flock_repulsion \
-        #     .subscribe(lambda vectors: self.navigate([vectors]))
-
         self.flockSubscription = Observable.empty().subscribe()
+
 
     def navigate(self, input):
 
         twist = TwistStamped()
-
-        # print "Magnitudes: {}".format([self.magnitude(v) for v in input])
 
         for vector in input:
             twist.twist.linear.x += vector[0]
