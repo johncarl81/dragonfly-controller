@@ -10,7 +10,7 @@ RUN apt-get -qq update && \
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
-RUN pip install pulp rx
+RUN pip install pulp rx scikit-learn
 
 # Clear apt cache to save on space
 RUN rm -rf /var/lib/apt/lists/*

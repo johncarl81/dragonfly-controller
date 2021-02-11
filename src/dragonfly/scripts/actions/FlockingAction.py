@@ -162,7 +162,6 @@ class FlockingAction:
             self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.id), TwistStamped, lambda twist: self.selfvelocity_subject.on_next(twist)))
             self.ros_subscriptions.append(rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback))
 
-            print "Finished"
             self.log_publisher.publish("Flocking")
 
         return ActionState.WORKING

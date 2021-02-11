@@ -28,6 +28,7 @@ from actions.WaitForDisarmAction import WaitForDisarmAction
 from actions.SetPositionAction import SetPositionAction
 from actions.MissionStartAction import MissionStartAction
 from actions.SemaphoreAction import SemaphoreAction
+from actions.GradientAction import GradientAction
 
 class MissionStarter:
     start = False
@@ -295,6 +296,10 @@ class DragonflyCommand:
                 print "Flock"
                 self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
                     .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.flock.x, step.flock.y, step.flock.leader))
+            elif step.msg_type == MissionStep.TYPE_GRADIENT:
+                print "Gradient"
+                self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
+                    .push(GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient.drones))
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish("Mission with {} steps setup".format(len(operation.steps)))

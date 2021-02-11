@@ -65,6 +65,7 @@ add_message_files(
     Takeoff.msg
     Waypoint.msg
     FlockMission.msg
+    CO2GradientFollowing.msg
 )
 
 ## Generate services in the 'srv' folder
