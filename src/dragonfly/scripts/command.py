@@ -265,7 +265,9 @@ class DragonflyCommand:
                         .push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 print "Semaphore"
-                self.actionqueue.push(SemaphoreAction(self.id, step.semaphore.id, step.semaphore.drones))
+                self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
+                    .push(SemaphoreAction(self.id, step.semaphore.id, step.semaphore.drones)) \
+                    .push(LogAction(self.logPublisher, "Semaphore reached"))
             elif step.msg_type == MissionStep.TYPE_RTL:
                 print "RTL"
                 self.actionqueue.push(LogAction(self.logPublisher, "RTL".format(step.goto.waypoint))) \
@@ -298,7 +300,7 @@ class DragonflyCommand:
                     .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.flock.x, step.flock.y, step.flock.leader))
             elif step.msg_type == MissionStep.TYPE_GRADIENT:
                 print "Gradient"
-                self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
+                self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
                     .push(GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient.drones))
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))

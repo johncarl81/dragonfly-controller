@@ -54,7 +54,7 @@ class SemaphoreAction:
         return self.status
 
     def stop(self):
-        self.publish_semaphore_interval.dispose()
-        self.semaphore_subject.dispose()
         if self.receive_semaphore_subscription is not None:
             self.receive_semaphore_subscription.unregister()
+        self.publish_semaphore_interval.dispose()
+        self.semaphore_subject.dispose()

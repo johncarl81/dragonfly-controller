@@ -15,8 +15,8 @@ class dotdict(dict):
 class VirtualCO2Publisher:
 
     VIRTUAL_SOURCE = dotdict({
-        "latitude": 35.195058873,
-        "longitude": -106.5960480158447
+        "latitude": 35.19465,
+        "longitude": -106.59625
     })
 
     def __init__(self, id):
@@ -35,8 +35,8 @@ class VirtualCO2Publisher:
 
         [y, x] = self.differenceInMeters(position, self.VIRTUAL_SOURCE)
 
-        if x == 0:
-            x = 0.00001
+        if x >= 0:
+            return 420
 
         Q = 5000
         K = 2

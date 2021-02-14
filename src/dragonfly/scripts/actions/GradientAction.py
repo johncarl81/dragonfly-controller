@@ -72,19 +72,18 @@ class GradientAction:
         })
 
     def navigate(self, vector):
-
-        magnitude = math.sqrt(vector.x * vector.x + vector.y * vector.y)
-
         twist = TwistStamped()
+        if vector.x != 0 and vector.y != 0:
+            magnitude = math.sqrt(vector.x * vector.x + vector.y * vector.y)
 
-        twist.twist.linear.x = self.MAX_VELOCITY * vector.x / magnitude
-        twist.twist.linear.y = self.MAX_VELOCITY * vector.y / magnitude
+            twist.twist.linear.x = self.MAX_VELOCITY * vector.x / magnitude
+            twist.twist.linear.y = self.MAX_VELOCITY * vector.y / magnitude
 
         self.local_setvelocity_publisher.publish(twist)
 
-
     def step(self):
         if not self.commanded:
+            print "Following Gradient"
             self.commanded = True
 
             droneReadingSubjects = []
@@ -92,7 +91,7 @@ class GradientAction:
             for drone in self.drones:
                 droneReadingSubjects.append(self.setupSubject(drone))
 
-            Observable.combine_latest(droneReadingSubjects, lambda *positionReadings: positionReadings) \
+            self.gradient_subscription = Observable.combine_latest(droneReadingSubjects, lambda *positionReadings: positionReadings) \
                 .sample(self.SAMPLE_RATE) \
                 .map(lambda readings: self.linearRegressionNormal(readings)) \
                 .subscribe(on_next = lambda vector: self.navigate(vector))
@@ -101,12 +100,14 @@ class GradientAction:
 
 
     def stop(self):
-        self.gradient_subscription.dispose()
-
         for subscription in self.ros_subscriptions:
             subscription.unregister()
 
         del self.ros_subscriptions
+
+        self.gradient_subscription.dispose()
+
+        self.navigate(dotdict({"x": 0,"y": 0}))
 
     def setupSubject(self, drone):
         position_subject = Subject()
