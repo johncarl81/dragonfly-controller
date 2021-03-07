@@ -1,8 +1,8 @@
-#! /usr/bin/env python
-import math, rospy
-from geometry_msgs.msg import PoseStamped
-from waypointUtil import *
+#!/usr/bin/env python
+import rospy
+
 from ActionState import ActionState
+from waypointUtil import *
 
 
 class StopInPlaceAction:
@@ -24,7 +24,7 @@ class StopInPlaceAction:
 
                 self.stop()
 
-                print "Stop in place"
+                print("Stop in place")
                 self.log_publisher.publish("Stopped")
 
             self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class PrintAction:
@@ -7,7 +7,7 @@ class PrintAction:
         self.message = message
 
     def step(self):
-        print self.message
+        print(self.message)
 
         return ActionState.SUCCESS
 

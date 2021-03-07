@@ -1,8 +1,10 @@
 #!/usr/bin/env python
 
-import rospy
 import argparse
+
+import rospy
 from std_msgs.msg import String
+
 
 def publishco2(id):
     rospy.loginfo("publishing name {} on /dragonfly/announce".format(id))

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class DisarmAction:
@@ -8,10 +8,10 @@ class DisarmAction:
         self.arm_service = arm_service
 
     def step(self):
-        print "Disarming"
+        print("Disarming")
         result = self.arm_service(False)
 
-        print "Disarming result", result
+        print("Disarming result {}".format(result))
 
         if result.success:
             self.log_publisher.publish("Disarmed")

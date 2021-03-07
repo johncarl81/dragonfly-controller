@@ -1,9 +1,11 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 import rospy
-from ActionState import ActionState
 from dragonfly_messages.msg import SemaphoreToken
-from rx.subjects import Subject
 from rx.core import Observable
+from rx.subjects import Subject
+
+from ActionState import ActionState
+
 
 class SemaphoreAction:
 
@@ -34,7 +36,7 @@ class SemaphoreAction:
             self.stop()
 
     def printError(self, e):
-        print "Error while subscibing to semaphore: {}".format(e)
+        print("Error while subscibing to semaphore: {}".format(e))
 
     def step(self):
         if not self.commanded:

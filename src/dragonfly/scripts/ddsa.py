@@ -1,15 +1,17 @@
 #!/usr/bin/env python
-import rospy
-import time
-import math
 import argparse
+import math
+import time
+
+import rospy
+from mavros_msgs.msg import CommandCode
+from mavros_msgs.msg import Waypoint
+from mavros_msgs.msg import WaypointReached
 from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import WaypointClear
 from mavros_msgs.srv import WaypointPush
-from mavros_msgs.msg import Waypoint
-from mavros_msgs.msg import WaypointReached
-from mavros_msgs.msg import CommandCode
 from sensor_msgs.msg import NavSatFix
+
 
 def calculateLatitude(latitude, offset):
     return latitude + (offset * 0.00000898)
@@ -70,34 +72,34 @@ def ddsa(id):
     wp_clear_srv = rospy.ServiceProxy("{}/mavros/mission/clear".format(id), WaypointClear)
     wp_push_srv = rospy.ServiceProxy("{}/mavros/mission/push".format(id), WaypointPush)
     
-    print "Waypoint clear"
-    print wp_clear_srv()
+    print("Waypoint clear")
+    print(wp_clear_srv())
     
     time.sleep(5)
     
     def logWaypoint(waypoint):
-        print "Waypoint: ", waypoint.wp_seq
+        print("Waypoint: {}".format(waypoint.wp_seq))
     
     rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
     
     def updatePosition(position):
         position_update.unregister()
     
-        print "Position: ", position.latitude, " ", position.longitude
+        print("Position: {} {}".format(position.latitude, position.longitude))
     
         altitude = 3
     
         waypoints = buildDDSAWaypoints(position.latitude, position.longitude, altitude, 1, 0, 5, 1)
     
-        print "Push waypoints"
-        print wp_push_srv(start_index=0, waypoints=waypoints)
+        print("Push waypoints")
+        print(wp_push_srv(start_index=0, waypoints=waypoints))
     
         time.sleep(10)
     
-        print "Set Mode"
-        print setmode_service(custom_mode = "AUTO")	
+        print("Set Mode")
+        print(setmode_service(custom_mode = "AUTO"))
     
-        print "Commanded"
+        print("Commanded")
     
     position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)
     

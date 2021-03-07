@@ -1,8 +1,11 @@
-#! /usr/bin/env python
-import math, pulp
+#!/usr/bin/env python
+import math
+import pulp
 from enum import Enum
+
 from dragonfly_messages.msg import LatLon
 from geometry_msgs.msg import PoseStamped, Point
+
 
 class Span(Enum):
     WALK = 1
@@ -19,10 +22,10 @@ def createWaypoint(x, y, altitude, orientation):
     return waypoint
 
 def calculateRange(type, start, end, length):
-    print "TYPE: {} {} {}".format(type, Span.WALK, Span.RANGE)
+    print("TYPE: {} {} {}".format(type, Span.WALK, Span.RANGE))
     if type == Span.WALK:
         waypoints = []
-        print "Calculating walk"
+        print("Calculating walk")
         deltax = end.x - start.x
         deltay = end.y - start.y
         deltaz = end.z - start.z
@@ -88,7 +91,7 @@ def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, stepLeng
 
                 next = Point(xoffset, yoffset, altitude)
 
-            print "{}, {} -> {}, {}".format(previous.x, previous.y, next.x, next.y)
+            print("{}, {} -> {}, {}".format(previous.x, previous.y, next.x, next.y))
 
             for waypoint in calculateRange(rangeType, previous, next, stepLength):
                 waypoints.append(Point(waypoint.x * radius, waypoint.y * radius, waypoint.z))
@@ -111,7 +114,7 @@ def linearXRange(points, setY, type):
         a = -(points[index2][1] - points[index1][1])
         b = points[index2][0] - points[index1][0]
         c = (a * points[index1][0]) + (b * points[index1][1])
-        # print '(', a, 'x+',b,'y >=',c,'),'
+        # print('(', a, 'x+',b,'y >=',c,'),')
         return (a * x) + (b * y) >= c
 
     for i in range(1, len(points)):
@@ -140,7 +143,7 @@ def linearYRange(points, type):
         a = -(points[index2][1] - points[index1][1])
         b = points[index2][0] - points[index1][0]
         c = (a * points[index1][0]) + (b * points[index1][1])
-        # print '(', a, 'x+',b,'y >=',c,'),'
+        # print('(', a, 'x+',b,'y >=',c,'),')
         return (a * x) + (b * y) >= c
 
     for i in range(1, len(points)):
@@ -184,20 +187,20 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
     maxy = linearYRange(boundary_meters, pulp.LpMaximize)
 
 
-    print "miny:{} maxy:{} ".format(miny, maxy)
+    print("miny:{} maxy:{} ".format(miny, maxy))
 
     stepdirection = 1 if miny < maxy else -1
 
     for y in range(int(math.ceil(miny)), int(math.floor(maxy)), int(2 * stepLength)):
         minx = linearXRange(boundary_meters, y, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y, pulp.LpMaximize)
-        print "minx:{} maxx:{} ".format(minx, maxx)
+        print("minx:{} maxx:{} ".format(minx, maxx))
         waypoints.append(createWaypoint(minx, y, altitude, orientation))
         for point in calculateRange(rangeType, Point(minx, y, altitude), Point(maxx, y, altitude), stepLength):
             waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
         minx = linearXRange(boundary_meters, y + stepLength, pulp.LpMinimize)
         maxx = linearXRange(boundary_meters, y + stepLength, pulp.LpMaximize)
-        print "minx:{} maxx:{} ".format(minx, maxx)
+        print("minx:{} maxx:{} ".format(minx, maxx))
         waypoints.append(createWaypoint(maxx, y + stepLength, altitude, orientation))
         for point in calculateRange(rangeType, Point(maxx, y + (stepdirection * stepLength), altitude), Point(minx, y + (stepdirection * stepLength), altitude), stepLength):
             waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))

@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class ActionQueue:
@@ -7,7 +7,7 @@ class ActionQueue:
         self.queue = []
 
     def step(self):
-        # print "Step {}".format(len(self.queue))
+        # print("Step {}".format(len(self.queue))
         if len(self.queue) > 0:
             action = self.queue[0]
 

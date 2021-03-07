@@ -1,6 +1,9 @@
-#! /usr/bin/env python
-import math, rospy
+#!/usr/bin/env python
+import math
+import rospy
+
 from geometry_msgs.msg import PoseStamped
+
 from ActionState import ActionState
 
 
@@ -27,8 +30,8 @@ class WaypointAction:
             self.commanded = True
             def updatePosition(localposition):
 
-                # print "Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
-                #       distance(self.waypoint.pose.position, localposition.pose.position)
+                # print("Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
+                #       distance(self.waypoint.pose.position, localposition.pose.position))
 
                 if distance(self.waypoint.pose.position, localposition.pose.position) < self.distanceThreshold:
                     self.status = ActionState.SUCCESS

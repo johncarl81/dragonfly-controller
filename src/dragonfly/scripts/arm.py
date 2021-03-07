@@ -1,9 +1,11 @@
 #!/usr/bin/env python
-import rospy
-import time
 import argparse
-from mavros_msgs.srv import SetMode
+import time
+
+import rospy
 from mavros_msgs.srv import CommandBool
+from mavros_msgs.srv import SetMode
+
 
 def arm(id):
     rospy.init_node('arm_test_service')
@@ -13,22 +15,22 @@ def arm(id):
     setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
     arm_service = rospy.ServiceProxy("{}/mavros/cmd/arming".format(id), CommandBool)
 
-    print "Setup complete"
+    print("Setup complete")
 
-    print "Set Mode"
-    print setmode_service(custom_mode = "STABILIZE")
+    print("Set Mode")
+    print(setmode_service(custom_mode = "STABILIZE"))
 
     time.sleep(1)
 
-    print "Arming"
-    print arm_service(True)
+    print("Arming")
+    print(arm_service(True))
 
     time.sleep(5)
 
-    print "Disarming"
-    print arm_service(False)
+    print("Disarming")
+    print(arm_service(False))
 
-    print "Commanded"
+    print("Commanded")
 
 if __name__ == '__main__':
     # Get RGB colors from command line arguments.

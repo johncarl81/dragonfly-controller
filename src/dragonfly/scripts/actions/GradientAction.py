@@ -1,13 +1,16 @@
-#! /usr/bin/env python
-import rospy, math
+#!/usr/bin/env python
+import math
 import numpy as np
-from sklearn.linear_model import LinearRegression
-from ActionState import ActionState
-from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
-from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import String
-from rx.subjects import Subject
+import rospy
+from geometry_msgs.msg import TwistStamped
 from rx.core import Observable
+from rx.subjects import Subject
+from sensor_msgs.msg import NavSatFix
+from sklearn.linear_model import LinearRegression
+from std_msgs.msg import String
+
+from ActionState import ActionState
+
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
@@ -49,6 +52,7 @@ class GradientAction:
             self.timerSubscription = Observable.timer(10000) \
                 .subscribe(on_next = lambda v: self.complete())
             self.max_value = readingPosition
+            print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
 
 
 
@@ -83,7 +87,7 @@ class GradientAction:
 
     def step(self):
         if not self.commanded:
-            print "Following Gradient"
+            print("Following Gradient")
             self.commanded = True
 
             droneReadingSubjects = []

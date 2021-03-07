@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class TakeoffAction:
@@ -9,10 +9,10 @@ class TakeoffAction:
         self.altitude = altitude
 
     def step(self):
-        print "Take off"
+        print("Take off")
         result = self.takeoff_service(altitude = self.altitude)
 
-        print "Take off result", result
+        print("Take off result {}".format(result))
         if result.success:
             self.log_publisher.publish("Takeoff to {}m".format(self.altitude))
         else:

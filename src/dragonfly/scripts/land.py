@@ -1,10 +1,11 @@
 #!/usr/bin/env python
-import rospy
 import argparse
-import time
-from mavros_msgs.srv import SetMode
-from mavros_msgs.srv import CommandTOL
+
+import rospy
 from mavros_msgs.msg import State
+from mavros_msgs.srv import CommandTOL
+from mavros_msgs.srv import SetMode
+
 
 def land(id):
 
@@ -13,21 +14,21 @@ def land(id):
 
     land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(id), CommandTOL)
 
-    print "Landing"
-    print land_service(altitude = 0)
+    print("Landing")
+    print(land_service(altitude = 0))
 
     def updateState(state):
 
         if not state.armed:
-            print "Landed."
-            print "State: ", state
+            print("Landed.")
+            print("State: {}".format(state))
             setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-            print "Set Mode"
-            print setmode_service(custom_mode = "STABILIZE")
+            print("Set Mode")
+            print(setmode_service(custom_mode = "STABILIZE"))
 
             position_update.unregister()
 
-    print "Waiting for landing..."
+    print("Waiting for landing...")
     position_update = rospy.Subscriber("{}/mavros/state".format(id), State, updateState)
 
     rospy.spin()

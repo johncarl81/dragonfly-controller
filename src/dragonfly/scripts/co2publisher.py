@@ -1,9 +1,11 @@
 #!/usr/bin/env python
 
+import argparse
+
 import rospy
 import serial
-import argparse
 from std_msgs.msg import String
+
 
 def publishco2(id):
     rospy.loginfo("publishing co2 readings on {}/co2".format(id))

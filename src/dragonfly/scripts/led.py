@@ -1,7 +1,8 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 import argparse
-import time
 import threading
+import time
+
 import RPi.GPIO as GPIO
 
 # GPIO setup.

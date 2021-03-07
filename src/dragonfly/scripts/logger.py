@@ -1,11 +1,15 @@
 #!/usr/bin/env python
-import rospy
-from led import LED
-import sched, time
 import argparse
+import sched
+import time
 from datetime import datetime, timedelta
-from std_msgs.msg import String
+
+import rospy
 from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import String
+
+from led import LED
+
 
 class co2Logger:
 
@@ -33,7 +37,7 @@ class co2Logger:
         previous = self.zeroing
         self.zeroing = datetime.now() - self.sincezero < timedelta(seconds = 10)
         if not self.zeroing == previous:
-            print "Checking zero: {} {}".format(self.zeroing, previous)        
+            print("Checking zero: {} {}".format(self.zeroing, previous)   )
         if self.zeroing and not previous:
             self.led.blink()
         elif not self.zeroing and previous:
@@ -54,12 +58,12 @@ class co2Logger:
     def co2Callback(self, data):
         self.updateStatus(co2 = True, data = data)
         if self.position is not None:
-            print "{} co2: '{}' @ {} {} {}".format(datetime.now(), data, self.position.latitude, self.position.longitude, self.position.altitude)
+            print("{} co2: '{}' @ {} {} {}".format(datetime.now(), data, self.position.latitude, self.position.longitude, self.position.altitude))
         else:
-            print "{} cos: '{}' @ -".format(datetime.now(), data)
+            print("{} cos: '{}' @ -".format(datetime.now(), data))
 
     def logCallback(self, data):
-        print "LOG: {}".format(data)
+        print("LOG: {}".format(data))
 
     def listener(self):
 

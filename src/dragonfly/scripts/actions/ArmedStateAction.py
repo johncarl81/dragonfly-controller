@@ -1,8 +1,10 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 import rospy
 from mavros_msgs.msg import State
-from actions.ActionQueue import ActionQueue
+
 from ActionState import ActionState
+from ActionQueue import ActionQueue
+
 
 class ArmedStateAction:
 
@@ -17,17 +19,17 @@ class ArmedStateAction:
 
     def step(self):
         if not self.commanded:
-            print "Verifying disarmed..."
+            print("Verifying disarmed...")
             self.commanded = True
 
             def updateState(state):
 
                 if state.armed:
-                    print "Is already armed, failed"
+                    print("Is already armed, failed")
                     self.status = ActionState.FAILURE
                     self.log_publisher.publish("Arming failed, already armed")
                 else:
-                    print "Is not armed, continue"
+                    print("Is not armed, continue")
                     self.status = ActionState.SUCCESS
 
                 self.stop()

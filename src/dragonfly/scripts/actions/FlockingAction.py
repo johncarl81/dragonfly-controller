@@ -1,11 +1,15 @@
-#! /usr/bin/env python
-import math, rospy, rx, operator
-from geometry_msgs.msg import PoseStamped, Twist, TwistStamped
+#!/usr/bin/env python
+import math
+import rospy
+
+from geometry_msgs.msg import TwistStamped
+from rx.core import Observable
+from rx.subjects import Subject
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
+
 from ActionState import ActionState
-from rx.subjects import Subject
-from rx.core import Observable
+
 
 class FlockingAction:
 
@@ -123,7 +127,7 @@ class FlockingAction:
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates :
             self.log_publisher.publish("Flocking with {}".format(name))
-            print "Registering flock member: {}".format(name)
+            print("Registering flock member: {}".format(name))
             flock_coordinate_subject = Subject()
             self.flock_coordinates[name] = flock_coordinate_subject
 
@@ -138,7 +142,7 @@ class FlockingAction:
                 .subscribe(on_next = lambda v: coordinate_subscription_timeout())
 
             def flock_coordiante_subject(position):
-                # print "name: {} position: {} {}".format(name, position.latitude, position.longitude)
+                # print("name: {} position: {} {}".format(name, position.latitude, position.longitude))
                 flock_coordinate_subject.on_next(position)
 
             self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(name), NavSatFix, flock_coordiante_subject))
@@ -151,7 +155,7 @@ class FlockingAction:
         if not self.started:
             self.started = True
 
-            print "Subscribing..."
+            print("Subscribing...")
 
             self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(self.leader), NavSatFix, lambda position: self.leaderposition_subject.on_next(position)))
             self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, lambda position: self.selfposition_subject.on_next(position)))

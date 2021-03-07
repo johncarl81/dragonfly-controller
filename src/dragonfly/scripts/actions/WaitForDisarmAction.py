@@ -1,7 +1,9 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 import rospy
-from ActionState import ActionState
 from mavros_msgs.msg import State
+
+from ActionState import ActionState
+
 
 class WaitForDisarmAction:
 

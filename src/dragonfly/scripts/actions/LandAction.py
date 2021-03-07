@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class LandAction:
@@ -8,10 +8,10 @@ class LandAction:
         self.land_service = land_service
 
     def step(self):
-        print "Land off"
+        print("Land off")
         result = self.land_service(altitude = 0)
 
-        print "Land result", result
+        print("Land result {}".format(result))
 
         if result.success:
             self.log_publisher.publish("Landing...")

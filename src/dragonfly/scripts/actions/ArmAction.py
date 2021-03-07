@@ -1,4 +1,4 @@
-#! /usr/bin/env python
+#!/usr/bin/env python
 from ActionState import ActionState
 
 class ArmAction:
@@ -8,10 +8,10 @@ class ArmAction:
         self.arm_service = arm_service
 
     def step(self):
-        print "Arming"
+        print("Arming")
         result = self.arm_service(True)
 
-        print "Arming result", result
+        print("Arming result {}".format(result))
 
         if result.success:
             self.log_publisher.publish("Armed")

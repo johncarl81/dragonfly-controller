@@ -1,13 +1,15 @@
 #!/usr/bin/env python
-import rospy
 import argparse
 import math
-from mavros_msgs.srv import SetMode
-from mavros_msgs.msg import WaypointReached
-from sensor_msgs.msg import NavSatFix
-from mavros_msgs.msg import Waypoint
+
+import rospy
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import CommandCode
+from mavros_msgs.msg import Waypoint
+from mavros_msgs.msg import WaypointReached
+from mavros_msgs.srv import SetMode
+from sensor_msgs.msg import NavSatFix
+
 
 def calculateLatitude(latitude, offset):
     return latitude + (offset * 0.00000898)
@@ -60,17 +62,17 @@ def setpoint(id):
     
     rospy.init_node('guide_service')
     def logWaypoint(waypoint):
-        print "Waypoint: ", waypoint.wp_seq
+        print("Waypoint: {}".format(waypoint.wp_seq))
     
     rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
 
-    print "Change to Guided"
+    print("Change to Guided")
     setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-    print setmode_service(custom_mode = "GUIDED")
+    print(setmode_service(custom_mode = "GUIDED"))
     
     def updatePosition(position):
         position_update.unregister()
-        print "Position: ", position.latitude, " ", position.longitude
+        print("Position: {} {}".format(position.latitude, position.longitude))
 
         setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(id), PoseStamped, queue_size=1)
 
@@ -79,18 +81,18 @@ def setpoint(id):
         waypoints = buildDDSAWaypoints(0, 0, 10, 1, 0, 5, 1)
 
         for waypoint in waypoints:
-            print "Hit enter to proceed"
+            print("Hit enter to proceed")
             raw_input("Enter:")
             goalPos = PoseStamped()
             goalPos.pose.position.x = waypoint.x_lat
             goalPos.pose.position.y = waypoint.y_long
             goalPos.pose.position.z = 5
 
-            print "Going to: ", goalPos
+            print("Going to: {}".format(goalPos))
 
-            print setposition_publisher.publish(goalPos)
+            print(setposition_publisher.publish(goalPos))
         
-            print "Commanded"
+            print("Commanded")
 
 
     position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)

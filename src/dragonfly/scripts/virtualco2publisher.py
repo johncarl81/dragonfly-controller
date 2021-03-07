@@ -1,10 +1,12 @@
 #!/usr/bin/env python
 
-import rospy
 import argparse
 import math
-from std_msgs.msg import String
+
+import rospy
 from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import String
+
 
 class dotdict(dict):
     """dot.notation access to dictionary attributes"""
