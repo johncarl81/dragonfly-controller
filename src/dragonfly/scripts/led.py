@@ -9,6 +9,7 @@ import RPi.GPIO as GPIO
 GPIO.setmode(GPIO.BCM)
 GPIO.setwarnings(False)
 
+
 class LED:
 
     def __init__(self, red=18, green=17, blue=4):
@@ -24,18 +25,18 @@ class LED:
         self.green.start(100)
         self.blue.start(100)
 
-        self.rgb = [0,0,0]
+        self.rgb = [0, 0, 0]
         self.blink_value = False
-        
+
         self.shutdownBlink = False
         self.blinkThread = threading.Thread(target=self.blink_operation)
         self.blinkThread.start()
 
     def blink_operation(self):
         while not self.shutdownBlink:
-            if(self.blink_value):
-                previousrgb = self.rgb            
-                self.setColor([0,0,0])
+            if (self.blink_value):
+                previousrgb = self.rgb
+                self.setColor([0, 0, 0])
                 self.update()
                 self.rgb = previousrgb
                 time.sleep(1)
@@ -47,7 +48,7 @@ class LED:
         return self
 
     def __exit__(self):
-        shutdown(self)
+        self.shutdown()
 
     def shutdown(self):
         self.shutdownBlink = True
@@ -67,15 +68,18 @@ class LED:
         self.red.ChangeDutyCycle(100 - self.rgb[0])
         self.green.ChangeDutyCycle(100 - self.rgb[1])
         self.blue.ChangeDutyCycle(100 - self.rgb[2])
-       
+
     # Set a color by giving R, G, and B values of 0-255.
-    def setColor(self, rgb = []):
+    def setColor(self, rgb=None):
         # Convert 0-255 range to 0-100.
+        if rgb is None:
+            rgb = []
         self.rgb = [(x / 255.0) * 100 for x in rgb]
+
 
 if __name__ == '__main__':
     # Get RGB colors from command line arguments.
-    parser = argparse.ArgumentParser(description = 'Light up the world!')
+    parser = argparse.ArgumentParser(description='Light up the world!')
     parser.add_argument('rgb', metavar='0-255', type=int, nargs=3, help='Red, Green, and Blue color values (0-255).')
     args = parser.parse_args()
 
@@ -87,4 +91,3 @@ if __name__ == '__main__':
         led.shutdown()
 
     GPIO.cleanup()
-

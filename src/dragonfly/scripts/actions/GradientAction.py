@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import math
+
 import numpy as np
 import rospy
 from geometry_msgs.msg import TwistStamped
@@ -9,7 +10,7 @@ from sensor_msgs.msg import NavSatFix
 from sklearn.linear_model import LinearRegression
 from std_msgs.msg import String
 
-from ActionState import ActionState
+from .ActionState import ActionState
 
 
 class dotdict(dict):
@@ -18,6 +19,7 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
+
 class ReadingPosition:
 
     def __init__(self, latitude, longitude, value):
@@ -25,8 +27,8 @@ class ReadingPosition:
         self.longitude = longitude
         self.value = value
 
-class GradientAction:
 
+class GradientAction:
     MAX_VELOCITY = 1.0
     SAMPLE_RATE = 10
 
@@ -50,11 +52,9 @@ class GradientAction:
         if self.max_value is None or readingPosition.value > self.max_value.value:
             self.timerSubscription.dispose()
             self.timerSubscription = Observable.timer(10000) \
-                .subscribe(on_next = lambda v: self.complete())
+                .subscribe(on_next=lambda v: self.complete())
             self.max_value = readingPosition
             print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
-
-
 
     def linearRegressionNormal(self, readingPositions):
 
@@ -95,13 +95,13 @@ class GradientAction:
             for drone in self.drones:
                 droneReadingSubjects.append(self.setupSubject(drone))
 
-            self.gradient_subscription = Observable.combine_latest(droneReadingSubjects, lambda *positionReadings: positionReadings) \
+            self.gradient_subscription = Observable.combine_latest(droneReadingSubjects,
+                                                                   lambda *positionReadings: positionReadings) \
                 .sample(self.SAMPLE_RATE) \
                 .map(lambda readings: self.linearRegressionNormal(readings)) \
-                .subscribe(on_next = lambda vector: self.navigate(vector))
+                .subscribe(on_next=lambda vector: self.navigate(vector))
 
         return self.status
-
 
     def stop(self):
         for subscription in self.ros_subscriptions:
@@ -111,21 +111,27 @@ class GradientAction:
 
         self.gradient_subscription.dispose()
 
-        self.navigate(dotdict({"x": 0,"y": 0}))
+        self.navigate(dotdict({"x": 0, "y": 0}))
 
     def setupSubject(self, drone):
         position_subject = Subject()
         co2_subject = Subject()
-        self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(drone), NavSatFix, lambda position: position_subject.on_next(position)))
-        self.ros_subscriptions.append(rospy.Subscriber("{}/co2".format(drone), String, lambda value: co2_subject.on_next(value)))
+        self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(drone), NavSatFix,
+                                                       lambda position: position_subject.on_next(position)))
+        self.ros_subscriptions.append(
+            rospy.Subscriber("{}/co2".format(drone), String, lambda value: co2_subject.on_next(value)))
 
         position_value_subject = Subject()
 
-        Observable.combine_latest(position_subject, co2_subject, lambda position, reading: ReadingPosition(position.latitude, position.longitude, self.parseReading(reading))) \
-            .subscribe(on_next= lambda v: position_value_subject.on_next(v))
+        Observable.combine_latest(position_subject, co2_subject,
+                                  lambda position, reading: ReadingPosition(position.latitude, position.longitude,
+                                                                            self.parseReading(reading))) \
+            .subscribe(on_next=lambda v: position_value_subject.on_next(v))
 
         return position_value_subject
 
     def complete(self):
-        self.log_publisher.publish("Maximum CO2 of {} found at {}, {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
+        self.log_publisher.publish(
+            "Maximum CO2 of {} found at {}, {}".format(self.max_value.value, self.max_value.latitude,
+                                                       self.max_value.longitude))
         self.status = ActionState.SUCCESS

@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 from enum import Enum
 
+
 class ActionState(Enum):
     WORKING = 1
     SUCCESS = 2

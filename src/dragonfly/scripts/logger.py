@@ -25,9 +25,9 @@ class co2Logger:
         self.s = sched.scheduler(time.time, time.sleep)
 
     def validUpdate(self, inputTime):
-        return inputTime is not None and datetime.now() - inputTime < timedelta(seconds = 3)
+        return inputTime is not None and datetime.now() - inputTime < timedelta(seconds=3)
 
-    def updateStatus(self, position = None, co2 = None, data = None):
+    def updateStatus(self, position=None, co2=None, data=None):
         if position is not None:
             self.positionReceived = datetime.now()
         if co2 is not None:
@@ -35,9 +35,9 @@ class co2Logger:
         if data is not None and (data.data.startswith('W') or data.data.startswith('Z')):
             self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds = 10)
+        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
         if not self.zeroing == previous:
-            print("Checking zero: {} {}".format(self.zeroing, previous)   )
+            print("Checking zero: {} {}".format(self.zeroing, previous))
         if self.zeroing and not previous:
             self.led.blink()
         elif not self.zeroing and previous:
@@ -47,18 +47,20 @@ class co2Logger:
         validPosition = self.validUpdate(self.positionReceived)
         validCo2 = self.validUpdate(self.co2Received)
         self.led.setColor([255 if validPosition and not validCo2 else 0,
-            255 if validPosition and validCo2 else 0,
-            255 if not validPosition and validCo2 else 0])
+                           255 if validPosition and validCo2 else 0,
+                           255 if not validPosition and validCo2 else 0])
         self.s.enter(1, 1, self.updateLED, ())
 
     def callback(self, data):
         self.position = data
-        self.updateStatus(position = True)
+        self.updateStatus(position=True)
 
     def co2Callback(self, data):
-        self.updateStatus(co2 = True, data = data)
+        self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print("{} co2: '{}' @ {} {} {}".format(datetime.now(), data, self.position.latitude, self.position.longitude, self.position.altitude))
+            print(
+                "{} co2: '{}' @ {} {} {}".format(datetime.now(), data, self.position.latitude, self.position.longitude,
+                                                 self.position.altitude))
         else:
             print("{} cos: '{}' @ -".format(datetime.now(), data))
 
@@ -84,8 +86,9 @@ class co2Logger:
         # spin() simply keeps python from exiting until this node is stopped
         rospy.spin()
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Log the given drone\'s GPS And CO2.')
+    parser = argparse.ArgumentParser(description='Log the given drone\'s GPS And CO2.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 

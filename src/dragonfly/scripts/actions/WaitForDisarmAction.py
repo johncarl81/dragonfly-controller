@@ -2,7 +2,7 @@
 import rospy
 from mavros_msgs.msg import State
 
-from ActionState import ActionState
+from .ActionState import ActionState
 
 
 class WaitForDisarmAction:

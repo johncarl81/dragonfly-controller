@@ -4,7 +4,7 @@ from dragonfly_messages.msg import SemaphoreToken
 from rx.core import Observable
 from rx.subjects import Subject
 
-from ActionState import ActionState
+from .ActionState import ActionState
 
 
 class SemaphoreAction:
@@ -50,7 +50,8 @@ class SemaphoreAction:
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
 
-            self.receive_semaphore_subscription = rospy.Subscriber("/dragonfly/semaphore", SemaphoreToken, lambda token: self.semaphore_subject.on_next(token))
+            self.receive_semaphore_subscription = rospy.Subscriber("/dragonfly/semaphore", SemaphoreToken,
+                                                                   lambda token: self.semaphore_subject.on_next(token))
             self.semaphore_subject.subscribe(lambda token: self.handleToken(token))
 
         return self.status

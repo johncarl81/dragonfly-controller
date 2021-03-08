@@ -6,12 +6,13 @@ from sensor_msgs.msg import NavSatFix
 
 position = None
 
+
 def callback(data):
     global position
     rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
 
-def listener(id):
 
+def listener(id):
     # In ROS, nodes are uniquely named. If two nodes with the same
     # name are launched, the previous one is kicked off. The
     # anonymous=True flag means that rospy will choose a unique
@@ -24,8 +25,9 @@ def listener(id):
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Listen to and print the given drone\'s GPS.')
+    parser = argparse.ArgumentParser(description='Listen to and print the given drone\'s GPS.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 

@@ -18,7 +18,7 @@ def arm(id):
     print("Setup complete")
 
     print("Set Mode")
-    print(setmode_service(custom_mode = "STABILIZE"))
+    print(setmode_service(custom_mode="STABILIZE"))
 
     time.sleep(1)
 
@@ -32,9 +32,10 @@ def arm(id):
 
     print("Commanded")
 
+
 if __name__ == '__main__':
     # Get RGB colors from command line arguments.
-    parser = argparse.ArgumentParser(description = 'Arm a drone.')
+    parser = argparse.ArgumentParser(description='Arm a drone.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 

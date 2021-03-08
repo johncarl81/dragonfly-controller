@@ -14,8 +14,10 @@ from sensor_msgs.msg import NavSatFix
 def calculateLatitude(latitude, offset):
     return latitude + (offset * 0.00000898)
 
+
 def calculateLongitude(latitude, longitude, offset):
     return longitude + (offset * 0.00000898) / math.cos(latitude * 0.01745)
+
 
 def createWaypoint(lat, lon, altitude, type):
     waypoint = Waypoint()
@@ -30,51 +32,52 @@ def createWaypoint(lat, lon, altitude, type):
 
     return waypoint
 
+
 def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
+    waypoints = []
+    start = createWaypoint(centerx, centery, altitude, CommandCode.NAV_WAYPOINT)
+    start.is_current = 1
+    waypoints.append(start)
+    for loop in range(0, loops):
+        for corner in range(0, 4):
 
-  waypoints = []
-  start = createWaypoint(centerx, centery, altitude, CommandCode.NAV_WAYPOINT)
-  start.is_current = 1
-  waypoints.append(start)
-  for loop in range(0, loops):
-    for corner in range(0, 4):
+            if (loop == 0 and corner == 0):
+                xoffset = 0
+                yoffset = index + 1
+            else:
+                xoffset = 1 + index + (loop * size)
+                yoffset = xoffset
+                if (corner == 0):
+                    xoffset = -(1 + index + ((loop - 1) * size))
+                elif (corner == 3):
+                    xoffset = -xoffset
+                if (corner == 2 or corner == 3):
+                    yoffset = -yoffset
 
-      if (loop == 0 and corner == 0):
-        xoffset = 0
-        yoffset = index + 1
-      else:
-        xoffset = 1 + index + (loop * size)
-        yoffset = xoffset
-        if (corner == 0):
-          xoffset = -(1 + index + ((loop - 1) * size))
-        elif (corner == 3):
-          xoffset = -xoffset
-        if (corner == 2 or corner == 3):
-          yoffset = -yoffset
- 
-      waypoint = createWaypoint(xoffset * radius, yoffset * radius, altitude, CommandCode.NAV_WAYPOINT)
-      waypoints.append(waypoint)
-  waypoints.append(start)
-  return waypoints
+            waypoint = createWaypoint(xoffset * radius, yoffset * radius, altitude, CommandCode.NAV_WAYPOINT)
+            waypoints.append(waypoint)
+    waypoints.append(start)
+    return waypoints
+
 
 def setpoint(id):
-
-    
     rospy.init_node('guide_service')
+
     def logWaypoint(waypoint):
         print("Waypoint: {}".format(waypoint.wp_seq))
-    
+
     rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
 
     print("Change to Guided")
     setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-    print(setmode_service(custom_mode = "GUIDED"))
-    
+    print(setmode_service(custom_mode="GUIDED"))
+
     def updatePosition(position):
         position_update.unregister()
         print("Position: {} {}".format(position.latitude, position.longitude))
 
-        setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(id), PoseStamped, queue_size=1)
+        setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(id), PoseStamped,
+                                                queue_size=1)
 
         rospy.rostime.wallsleep(0.5)
 
@@ -91,9 +94,8 @@ def setpoint(id):
             print("Going to: {}".format(goalPos))
 
             print(setposition_publisher.publish(goalPos))
-        
-            print("Commanded")
 
+            print("Commanded")
 
     position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)
 
@@ -101,11 +103,8 @@ def setpoint(id):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Command a drone to point.')
+    parser = argparse.ArgumentParser(description='Command a drone to point.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 
     setpoint(args.id)
-
-
-

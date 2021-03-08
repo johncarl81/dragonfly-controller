@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from ActionState import ActionState
+from .ActionState import ActionState
+
 
 class ModeAction:
 
@@ -10,7 +11,7 @@ class ModeAction:
 
     def step(self):
         print("Set Mode {}".format(self.mode))
-        result = self.setmode_service(custom_mode = self.mode)
+        result = self.setmode_service(custom_mode=self.mode)
 
         print("Set mode result", result)
 

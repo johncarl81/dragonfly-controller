@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from ActionState import ActionState
+from .ActionState import ActionState
+
 
 class LandAction:
 
@@ -9,7 +10,7 @@ class LandAction:
 
     def step(self):
         print("Land off")
-        result = self.land_service(altitude = 0)
+        result = self.land_service(altitude=0)
 
         print("Land result {}".format(result))
 

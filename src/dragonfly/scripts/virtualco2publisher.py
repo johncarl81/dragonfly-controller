@@ -14,8 +14,8 @@ class dotdict(dict):
     __setattr__ = dict.__setitem__
     __delattr__ = dict.__delitem__
 
-class VirtualCO2Publisher:
 
+class VirtualCO2Publisher:
     VIRTUAL_SOURCE = dotdict({
         "latitude": 35.19465,
         "longitude": -106.59625
@@ -33,7 +33,6 @@ class VirtualCO2Publisher:
         ]
 
     def calculateCO2(self, position):
-
 
         [y, x] = self.differenceInMeters(position, self.VIRTUAL_SOURCE)
 
@@ -64,10 +63,11 @@ class VirtualCO2Publisher:
     def publishco2(id):
         rospy.loginfo("publishing co2 readings on {}/co2".format(id))
 
+
 if __name__ == '__main__':
     rospy.init_node('virtual_co2', anonymous=True)
 
-    parser = argparse.ArgumentParser(description = 'Starts ROS publisher for CO2 sensor.')
+    parser = argparse.ArgumentParser(description='Starts ROS publisher for CO2 sensor.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 

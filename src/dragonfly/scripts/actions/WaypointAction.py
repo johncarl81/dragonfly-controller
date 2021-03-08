@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 import math
-import rospy
 
+import rospy
 from geometry_msgs.msg import PoseStamped
 
-from ActionState import ActionState
+from .ActionState import ActionState
 
 
 def distance(position1, position2):
@@ -13,6 +13,7 @@ def distance(position1, position2):
     deltaz = position1.z - position2.z
 
     return math.sqrt((deltax * deltax) + (deltay * deltay) + (deltaz * deltaz))
+
 
 class WaypointAction:
 
@@ -28,6 +29,7 @@ class WaypointAction:
     def step(self):
         if not self.commanded:
             self.commanded = True
+
             def updatePosition(localposition):
 
                 # print("Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
@@ -38,7 +40,8 @@ class WaypointAction:
 
                     self.stop()
 
-            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
+            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
+                                                    updatePosition)
 
             self.local_setposition_publisher.publish(self.waypoint)
 

@@ -14,8 +14,9 @@ def publishco2(id):
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
         try:
-            with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE, stopbits=serial.STOPBITS_ONE) as port:
-                rospy.loginfo('Connected to /dev/ttysba5') 
+            with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
+                               stopbits=serial.STOPBITS_ONE) as port:
+                rospy.loginfo('Connected to /dev/ttysba5')
                 # Publish on demand
                 port.write('!')
                 # Configure to 2 decimal places
@@ -28,8 +29,9 @@ def publishco2(id):
         except serial.SerialException as ex:
             rospy.sleep(1)
 
+
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description = 'Starts ROS publisher for CO2 sensor.')
+    parser = argparse.ArgumentParser(description='Starts ROS publisher for CO2 sensor.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 

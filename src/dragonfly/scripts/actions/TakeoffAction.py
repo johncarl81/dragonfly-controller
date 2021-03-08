@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from ActionState import ActionState
+from .ActionState import ActionState
+
 
 class TakeoffAction:
 
@@ -10,7 +11,7 @@ class TakeoffAction:
 
     def step(self):
         print("Take off")
-        result = self.takeoff_service(altitude = self.altitude)
+        result = self.takeoff_service(altitude=self.altitude)
 
         print("Take off result {}".format(result))
         if result.success:

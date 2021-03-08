@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from ActionState import ActionState
+from .ActionState import ActionState
+
 
 class PrintAction:
 

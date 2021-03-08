@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from ActionState import ActionState
+from .ActionState import ActionState
+
 
 class ActionQueue:
 
@@ -13,7 +14,7 @@ class ActionQueue:
 
             result = action.step()
 
-            if result == ActionState.SUCCESS :
+            if result == ActionState.SUCCESS:
                 self.queue.pop(0)
             elif result == ActionState.FAILURE:
                 self.stop()

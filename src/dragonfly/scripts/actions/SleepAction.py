@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 import time
 
-from ActionState import ActionState
+from .ActionState import ActionState
 
 
 class SleepAction:
@@ -15,7 +15,7 @@ class SleepAction:
             self.start = time.time()
             print("Sleeping for {}".format(self.duration))
 
-        if time.time() - self.start > self.duration :
+        if time.time() - self.start > self.duration:
             return ActionState.SUCCESS
         else:
             return ActionState.WORKING

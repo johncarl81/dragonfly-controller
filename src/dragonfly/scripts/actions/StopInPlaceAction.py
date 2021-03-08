@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import rospy
 
-from ActionState import ActionState
-from waypointUtil import *
+from .ActionState import ActionState
 
 
 class StopInPlaceAction:
@@ -18,6 +17,7 @@ class StopInPlaceAction:
     def step(self):
         if not self.commanded:
             self.commanded = True
+
             def updatePosition(localposition):
                 self.local_setposition_publisher.publish(localposition)
                 self.status = ActionState.SUCCESS
@@ -27,10 +27,10 @@ class StopInPlaceAction:
                 print("Stop in place")
                 self.log_publisher.publish("Stopped")
 
-            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, updatePosition)
+            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
+                                                    updatePosition)
 
         return self.status
-
 
     def stop(self):
         if self.position_update is not None:
