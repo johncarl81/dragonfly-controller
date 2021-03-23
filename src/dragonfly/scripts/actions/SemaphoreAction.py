@@ -34,6 +34,9 @@ class SemaphoreAction:
         if self.responded == self.drones:
             self.status = ActionState.SUCCESS
             self.stop()
+            Observable.interval(1000).take(10).subscribe(
+                on_next=self.publishSemaphore,
+                on_error=lambda e: self.printError(e))
 
     def printError(self, e):
         print("Error while subscibing to semaphore: {}".format(e))
@@ -43,9 +46,6 @@ class SemaphoreAction:
             self.commanded = True
 
             # Publish semaphore until finished
-            self.publish_semaphore_ten_times = Observable.interval(1000).take(10).subscribe(
-                on_next=self.publishSemaphore,
-                on_error=lambda e: self.printError(e))
             self.publish_semaphore_interval = Observable.interval(1000).subscribe(
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
