@@ -78,6 +78,7 @@ add_service_files(
    Flock.srv
    Navigation.srv
    Mission.srv
+   Setup.srv
 )
 
 ## Generate actions in the 'action' folder

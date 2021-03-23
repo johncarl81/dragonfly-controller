@@ -7,7 +7,8 @@ import rospy
 from dragonfly_messages.msg import MissionStep
 from dragonfly_messages.srv import *
 from geometry_msgs.msg import TwistStamped
-from mavros_msgs.srv import SetMode, CommandBool, CommandTOL
+from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSet
+from mavros_msgs.msg import ParamValue
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from std_srvs.srv import Empty, EmptyResponse
@@ -234,6 +235,13 @@ class DragonflyCommand:
                 return boundary.points
         return None
 
+    def setup_drone(self, operation):
+        param_value = ParamValue()
+        param_value.integer = operation.rtl_altitude
+        result = self.setparam_service(param_id = 'RTL_ALT', value=param_value)
+
+        return SetupResponse(success=result.success, message="Setup {}".format(self.id))
+
     def mission(self, operation):
         self.cancel(None)
 
@@ -283,10 +291,13 @@ class DragonflyCommand:
                                                           step.ddsa.swarm_size, step.ddsa.swarm_index,
                                                           step.ddsa.loops, step.ddsa.radius, step.ddsa.stepLength,
                                                           step.ddsa.altitude, self.orientation)
-                    self.actionqueue.push(AltitudeAction(self.id, self.local_setposition_publisher, waypoint.pose.position.z + step.ddsa.swarm_index, step.ddsa.distanceThreshold))
+                    self.actionqueue.push(AltitudeAction(self.id,
+                                                         self.local_setposition_publisher,
+                                                         waypoint.pose.position.z + (step.ddsa.radius * step.ddsa.swarm_index),
+                                                         step.ddsa.distanceThreshold))
                     position_waypoint = createWaypoint(waypoint.pose.position.x - (step.ddsa.radius * step.ddsa.swarm_index),
                                                        waypoint.pose.position.y,
-                                                       waypoint.pose.position.z + step.ddsa.swarm_index,
+                                                       waypoint.pose.position.z + (step.ddsa.radius * step.ddsa.swarm_index),
                                                        self.orientation)
                     self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, position_waypoint, step.ddsa.distanceThreshold))
                     self.runWaypoints("DDSA", waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
@@ -393,6 +404,7 @@ class DragonflyCommand:
         rospy.wait_for_service("{}/mavros/cmd/takeoff".format(self.id))
         rospy.wait_for_service("{}/mavros/cmd/land".format(self.id))
 
+        self.setparam_service = rospy.ServiceProxy("{}/mavros/param/set".format(self.id), ParamSet)
         self.setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(self.id), SetMode)
         self.arm_service = rospy.ServiceProxy("{}/mavros/cmd/arming".format(self.id), CommandBool)
         self.takeoff_service = rospy.ServiceProxy("{}/mavros/cmd/takeoff".format(self.id), CommandTOL)
@@ -420,6 +432,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/navigate".format(self.id), Navigation, self.navigate)
         rospy.Service("/{}/command/mission".format(self.id), Mission, self.mission)
+        rospy.Service("/{}/command/setup".format(self.id), Setup, self.setup_drone)
         rospy.Service("/{}/command/start_mission".format(self.id), Empty, self.start_mission)
         rospy.Service("/{}/command/flock".format(self.id), Flock, self.flock)
         rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
