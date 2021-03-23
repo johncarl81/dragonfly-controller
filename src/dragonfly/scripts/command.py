@@ -109,8 +109,8 @@ class DragonflyCommand:
 
         return EmptyResponse()
 
-    def build_ddsa_waypoints(self, startingWaypoint, walk, stacks, loops, radius, stepLength, altitude, orientation):
-        ddsaWaypoints = build3DDDSAWaypoints(Span(walk), stacks, 1, 0, loops, radius, stepLength)
+    def build_ddsa_waypoints(self, startingWaypoint, walk, stacks, swarm_size, swarm_index, loops, radius, stepLength, altitude, orientation):
+        ddsaWaypoints = build3DDDSAWaypoints(Span(walk), stacks, swarm_size, swarm_index, loops, radius, stepLength)
 
         localWaypoints = []
         for localwaypoint in ddsaWaypoints:
@@ -124,7 +124,7 @@ class DragonflyCommand:
         return localWaypoints
 
     def build_ddsa(self, operation):
-        ddsaWaypoints = self.build_ddsa_waypoints(self.localposition, operation.walk, operation.stacks, operation.loops,
+        ddsaWaypoints = self.build_ddsa_waypoints(self.localposition, operation.walk, operation.stacks, 1, 0, operation.loops,
                                                   operation.radius, operation.stepLength, operation.altitude,
                                                   self.orientation)
 
@@ -141,7 +141,7 @@ class DragonflyCommand:
 
         self.canceled = False
 
-        waypoints = self.build_ddsa_waypoints(self.localposition, operation.walk, operation.stacks, operation.loops,
+        waypoints = self.build_ddsa_waypoints(self.localposition, operation.walk, operation.stacks, 1, 0, operation.loops,
                                               operation.radius, operation.stepLength, operation.altitude,
                                               self.orientation)
 
@@ -280,8 +280,15 @@ class DragonflyCommand:
                 [waypoint, distanceThreshold] = self.findWaypoint(step.ddsa.waypoint, operation.waypoints)
                 if waypoint is not None:
                     waypoints = self.build_ddsa_waypoints(waypoint.pose.position, step.ddsa.walk, step.ddsa.stacks,
+                                                          step.ddsa.swarm_size, step.ddsa.swarm_index,
                                                           step.ddsa.loops, step.ddsa.radius, step.ddsa.stepLength,
                                                           step.ddsa.altitude, self.orientation)
+                    self.actionqueue.push(AltitudeAction(self.id, self.local_setposition_publisher, waypoint.pose.position.z + step.ddsa.swarm_index, step.ddsa.distanceThreshold))
+                    position_waypoint = createWaypoint(waypoint.pose.position.x - (step.ddsa.radius * step.ddsa.swarm_index),
+                                                       waypoint.pose.position.y,
+                                                       waypoint.pose.position.z + step.ddsa.swarm_index,
+                                                       self.orientation)
+                    self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, position_waypoint, step.ddsa.distanceThreshold))
                     self.runWaypoints("DDSA", waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 print("Lawnmower")

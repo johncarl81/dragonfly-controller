@@ -2,6 +2,8 @@ string waypoint
 float32 radius
 float32 stepLength
 int32 walk
+int32 swarm_size
+int32 swarm_index
 int32 stacks
 int32 loops
 float32 altitude

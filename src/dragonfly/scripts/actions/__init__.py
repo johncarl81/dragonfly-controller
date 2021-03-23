@@ -18,3 +18,4 @@ from .TakeoffAction import TakeoffAction
 from .WaitForDisarmAction import WaitForDisarmAction
 from .WaitForZeroAction import WaitForZeroAction
 from .WaypointAction import WaypointAction
+from .AltitudeAction import AltitudeAction

@@ -2,6 +2,7 @@
 import rospy
 
 from .ActionState import ActionState
+from geometry_msgs.msg import PoseStamped
 
 
 class StopInPlaceAction:

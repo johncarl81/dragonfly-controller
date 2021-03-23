@@ -24,10 +24,8 @@ def createWaypoint(x, y, altitude, orientation):
 
 
 def calculateRange(type, start, end, length):
-    print("TYPE: {} {} {}".format(type, Span.WALK, Span.RANGE))
     if type == Span.WALK:
         waypoints = []
-        print("Calculating walk")
         deltax = end.x - start.x
         deltay = end.y - start.y
         deltaz = end.z - start.z
@@ -75,30 +73,29 @@ def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, stepLeng
 
     return waypoints
 
-
 def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, stepLength):
+
     waypoints = []
-    start = Point(0, 0, altitude)
+    start = Point(-(index * radius), 0, altitude)
     waypoints.append(start)
     previous = start
-    for loop in range(0, loops):
-        for corner in range(0, 4):
+    for loop in range(loops):
+        for corner in range(4):
 
-            if (loop == 0 and corner == 0):
-                next = Point(0, index + 1, altitude)
-            else:
-                xoffset = 1 + index + (loop * size)
-                yoffset = xoffset
-                if (corner == 0):
-                    xoffset = -(1 + index + ((loop - 1) * size))
-                elif (corner == 3):
-                    xoffset = -xoffset
-                if (corner == 2 or corner == 3):
-                    yoffset = -yoffset
+            xoffset = loop * size + index + 1
+            yoffset = xoffset
+            if corner == 0:
+                xoffset = -size * loop - index
+            if corner == 2 or corner == 3:
+                yoffset = -yoffset
+            if corner == 3:
+                xoffset = -xoffset - (size - 1)
+                # Ends loop square with the last corner
+                if loop == loops - 1:
+                    xoffset += index  + 1
 
-                next = Point(xoffset, yoffset, altitude)
 
-            print("{}, {} -> {}, {}".format(previous.x, previous.y, next.x, next.y))
+            next = Point(xoffset, yoffset, altitude)
 
             for waypoint in calculateRange(rangeType, previous, next, stepLength):
                 waypoints.append(Point(waypoint.x * radius, waypoint.y * radius, waypoint.z))
