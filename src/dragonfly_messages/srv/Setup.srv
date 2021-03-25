@@ -1,4 +1,5 @@
 int32 rtl_altitude
+int32 max_altitude
 Boundary rtl_boundary
 ---
 int8 success

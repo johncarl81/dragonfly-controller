@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 import argparse
 import time
-from datetime import datetime, timedelta
-
+import threading
 import rospy
+
+from datetime import datetime, timedelta
 from dragonfly_messages.msg import MissionStep
 from dragonfly_messages.srv import *
 from geometry_msgs.msg import TwistStamped
@@ -15,6 +16,7 @@ from std_srvs.srv import Empty, EmptyResponse
 
 from actions import *
 from waypointUtil import *
+from boundaryUtil import *
 
 
 class MissionStarter:
@@ -31,6 +33,10 @@ class DragonflyCommand:
         self.id = id
         self.actionqueue = ActionQueue()
         self.mission_starter = MissionStarter()
+        self.position = None
+        self.local_position = None
+        self.localposition = None
+        self.orientation = None
 
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
@@ -240,7 +246,25 @@ class DragonflyCommand:
         param_value.integer = operation.rtl_altitude
         result = self.setparam_service(param_id = 'RTL_ALT', value=param_value)
 
+        self.rtl_boundary = operation.rtl_boundary
+        self.max_altitude = operation.max_altitude
+
+        self.logPublisher.publish("Setup Success: {}".format(result.success))
+
         return SetupResponse(success=result.success, message="Setup {}".format(self.id))
+
+    def rtl_boundary_check(self):
+        rate = rospy.Rate(10)
+        while not rospy.is_shutdown():
+            if self.localposition is not None and self.position is not None and not self.canceled:
+                if self.localposition.z > self.max_altitude:
+                    self.logPublisher.publish("Exceeded maximum altitude of {}m".format(self.max_altitude))
+                    self.rtl(None)
+                if self.rtl_boundary is not None and not isInside(self.position, self.rtl_boundary.points):
+                    self.logPublisher.publish("Exceeded RTL Boundary at {}, {}".format(self.position.longitude, self.position.latitude))
+                    self.rtl(None)
+
+            rate.sleep()
 
     def mission(self, operation):
         self.cancel(None)
@@ -365,11 +389,11 @@ class DragonflyCommand:
 
         return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
 
-    def position(self, data):
+    def position_callbak(self, data):
         # print data
         self.position = data
 
-    def localposition(self, data):
+    def localposition_callback(self, data):
         self.localposition = data.pose.position
         self.orientation = data.pose.orientation
 
@@ -391,13 +415,19 @@ class DragonflyCommand:
         return EmptyResponse()
 
     def loop(self):
-        rate = rospy.Rate(1)
-        while not rospy.is_shutdown():
-            self.actionqueue.step()
-            rate.sleep()
+        try:
+            rate = rospy.Rate(1)
+            while not rospy.is_shutdown():
+                self.actionqueue.step()
+                rate.sleep()
+        except ROSInterruptException:
+            print("Shutting down...")
 
     def setup(self):
         rospy.init_node("{}_remote_service".format(self.id), anonymous=True)
+
+        self.rtl_boundary = None
+        self.max_altitude = 100
 
         rospy.wait_for_service("{}/mavros/set_mode".format(self.id))
         rospy.wait_for_service("{}/mavros/cmd/arming".format(self.id))
@@ -415,9 +445,9 @@ class DragonflyCommand:
                                                            TwistStamped, queue_size=1)
         # self.global_setpoint_publisher = rospy.Publisher("{}/mavros/setpoint_position/global".format(self.id), GlobalPositionTarget, queue_size=1)
 
-        # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position)
-        rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position)
-        rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.localposition)
+        # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position_callbak)
+        rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position_callbak)
+        rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.localposition_callback)
         rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
 
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
@@ -443,6 +473,9 @@ class DragonflyCommand:
 
         print("Setup complete")
 
+        self.boundary_check_thread = threading.Thread(target=self.rtl_boundary_check)
+        self.boundary_check_thread.start()
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Drone command service.')
@@ -457,5 +490,3 @@ if __name__ == '__main__':
     command.setup()
 
     command.loop()
-
-    print("Shutdown")
