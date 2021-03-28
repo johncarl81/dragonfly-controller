@@ -412,6 +412,8 @@ class DragonflyCommand:
 
     def cancelCommand(self, operation):
         print("Commanded to cancel @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
+        
+        self.cancel()
 
         return SimpleResponse()
 
