@@ -227,6 +227,21 @@ class DragonflyCommand:
 
         return NavigationResponse(success=True, message="Commanded {} to navigate.".format(self.id))
 
+    def build_curtain_waypoints(self, startWaypoint, endWaypoint, altitude, stacks, orientation):
+        waypoints = []
+
+        reverse = False
+        for stack in range(stacks):
+            if reverse:
+                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + stack, orientation))
+                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + stack, orientation))
+            else:
+                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + stack, orientation))
+                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + stack, orientation))
+            reverse = not reverse
+
+        return waypoints
+
     def findWaypoint(self, waypoint_name, waypoints):
         for waypoint in waypoints:
             if waypoint.name == waypoint_name:
@@ -356,6 +371,18 @@ class DragonflyCommand:
                 self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
                     .push(
                     GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient.drones))
+            elif step.msg_type == MissionStep.TYPE_CURTAIN:
+                print("Curtain")
+                self.actionqueue.push(LogAction(self.logPublisher, "Curtain"))
+                [startWaypoint, distanceThreshold] = self.findWaypoint(step.curtain.start_waypoint, operation.waypoints)
+                [endWaypoint, distanceThreshold] = self.findWaypoint(step.curtain.end_waypoint, operation.waypoints)
+                if startWaypoint is not None and endWaypoint is not None:
+                    localWaypoints = self.build_curtain_waypoints(startWaypoint.pose.position,
+                                                                  endWaypoint.pose.position,
+                                                                  step.curtain.altitude,
+                                                                  step.curtain.stacks,
+                                                                  self.orientation)
+                    self.runWaypoints("Curtain", localWaypoints, 0, step.curtain.distanceThreshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish("Mission with {} steps setup".format(len(operation.steps)))
