@@ -1,3 +1,4 @@
+time command_time
 float32 x
 float32 y
 string leader

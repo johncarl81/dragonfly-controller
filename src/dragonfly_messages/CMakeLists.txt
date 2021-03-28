@@ -79,6 +79,7 @@ add_service_files(
    Navigation.srv
    Mission.srv
    Setup.srv
+   Simple.srv
 )
 
 ## Generate actions in the 'action' folder

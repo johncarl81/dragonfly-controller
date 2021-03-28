@@ -12,7 +12,6 @@ from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSet
 from mavros_msgs.msg import ParamValue
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
-from std_srvs.srv import Empty, EmptyResponse
 
 from actions import *
 from waypointUtil import *
@@ -54,21 +53,21 @@ class DragonflyCommand:
         print(self.arm_service(False))
 
     def hello(self, command):
-        print("hello")
-        return EmptyResponse()
+        print("hello @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
+        return SimpleResponse()
 
     def armcommand(self, operation):
-        print("Commanded to arm")
+        print("Commanded to arm @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
         self.actionqueue.push(ModeAction(self.setmode_service, "STABILIZE")) \
             .push(ArmAction(self.logPublisher, self.arm_service)) \
             .push(SleepAction(5)) \
             .push(DisarmAction(self.logPublisher, self.arm_service))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def takeoff(self, operation):
-        print("Commanded to takeoff")
+        print("Commanded to takeoff @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
         self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id)) \
             .push(ModeAction(self.setmode_service, "STABILIZE")) \
@@ -77,29 +76,29 @@ class DragonflyCommand:
             .push(ModeAction(self.setmode_service, "GUIDED")) \
             .push(TakeoffAction(self.logPublisher, self.takeoff_service, self.TEST_ALTITUDE))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def land(self, operation):
-        print("Commanded to land")
+        print("Commanded to land @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
         self.actionqueue.push(LandAction(self.logPublisher, self.land_service)) \
             .push(WaitForDisarmAction(self.id, self.logPublisher)) \
             .push(ModeAction(self.setmode_service, "STABILIZE"))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def rtl(self, operation):
-        print("Commanded to land")
+        print("Commanded to RTL @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
-        self.cancel(None)
+        self.cancel()
 
         self.setmode("RTL")
         self.logPublisher.publish("RTL")
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def goto(self, operation):
-        print("Commanded to goto")
+        print("Commanded to goto @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
         self.actionqueue.push(
             SetPositionAction(self.local_setposition_publisher, 0, 10, self.TEST_ALTITUDE, self.orientation)) \
@@ -107,14 +106,14 @@ class DragonflyCommand:
             .push(SetPositionAction(self.local_setposition_publisher, 0, 0, self.TEST_ALTITUDE, self.orientation)) \
             .push(SleepAction(10))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def home(self, operation):
-        print("Commanded to home")
+        print("Commanded to home @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
         self.actionqueue.push(SetPositionAction(self.local_setposition_publisher, 0, 0, 10, self.orientation))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def build_ddsa_waypoints(self, startingWaypoint, walk, stacks, swarm_size, swarm_index, loops, radius, stepLength, altitude, orientation):
         ddsaWaypoints = build3DDDSAWaypoints(Span(walk), stacks, swarm_size, swarm_index, loops, radius, stepLength)
@@ -142,7 +141,7 @@ class DragonflyCommand:
         return DDSAWaypointsResponse(waypoints=waypoints)
 
     def ddsa(self, operation):
-        print("Commanded to ddsa")
+        print("Commanded to ddsa @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
         self.actionqueue.push(LogAction(self.logPublisher, "DDSA Started")) \
             .push(ModeAction(self.setmode_service, 'GUIDED'))
 
@@ -242,6 +241,8 @@ class DragonflyCommand:
         return None
 
     def setup_drone(self, operation):
+        print("Setup @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
+
         param_value = ParamValue()
         param_value.integer = operation.rtl_altitude
         result = self.setparam_service(param_id = 'RTL_ALT', value=param_value)
@@ -267,7 +268,7 @@ class DragonflyCommand:
             rate.sleep()
 
     def mission(self, operation):
-        self.cancel(None)
+        self.cancel()
 
         for step in operation.steps:
             if step.msg_type == MissionStep.TYPE_START:
@@ -362,10 +363,12 @@ class DragonflyCommand:
         return MissionResponse(success=True, message="{} mission received.".format(self.id))
 
     def start_mission(self, operation):
+        print("Commanded to navigate @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
+
         self.canceled = False
         self.mission_starter.start = True
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def runWaypoints(self, waypoints_name, waypoints, waitTime, distanceThreshold):
 
@@ -378,7 +381,7 @@ class DragonflyCommand:
                 self.actionqueue.push(SleepAction(waitTime))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
 
-        return EmptyResponse()
+        return SimpleResponse()
 
     def flock(self, flockCommand):
 
@@ -407,12 +410,15 @@ class DragonflyCommand:
         elif not self.zeroing and previous:
             self.logPublisher.publish('Finished zeroing')
 
-    def cancel(self, operation):
+    def cancelCommand(self, operation):
+        print("Commanded to cancel @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
+
+        return SimpleResponse()
+
+    def cancel(self):
         self.canceled = True
         self.actionqueue.stop()
         self.actionqueue.push(StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher))
-
-        return EmptyResponse()
 
     def loop(self):
         try:
@@ -452,21 +458,21 @@ class DragonflyCommand:
 
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
 
-        rospy.Service("/{}/command/arm".format(self.id), Empty, self.armcommand)
-        rospy.Service("/{}/command/takeoff".format(self.id), Empty, self.takeoff)
-        rospy.Service("/{}/command/land".format(self.id), Empty, self.land)
-        rospy.Service("/{}/command/rtl".format(self.id), Empty, self.rtl)
-        rospy.Service("/{}/command/home".format(self.id), Empty, self.home)
-        rospy.Service("/{}/command/goto".format(self.id), Empty, self.goto)
+        rospy.Service("/{}/command/arm".format(self.id), Simple, self.armcommand)
+        rospy.Service("/{}/command/takeoff".format(self.id), Simple, self.takeoff)
+        rospy.Service("/{}/command/land".format(self.id), Simple, self.land)
+        rospy.Service("/{}/command/rtl".format(self.id), Simple, self.rtl)
+        rospy.Service("/{}/command/home".format(self.id), Simple, self.home)
+        rospy.Service("/{}/command/goto".format(self.id), Simple, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
         rospy.Service("/{}/command/lawnmower".format(self.id), Lawnmower, self.lawnmower)
         rospy.Service("/{}/command/navigate".format(self.id), Navigation, self.navigate)
         rospy.Service("/{}/command/mission".format(self.id), Mission, self.mission)
         rospy.Service("/{}/command/setup".format(self.id), Setup, self.setup_drone)
-        rospy.Service("/{}/command/start_mission".format(self.id), Empty, self.start_mission)
+        rospy.Service("/{}/command/start_mission".format(self.id), Simple, self.start_mission)
         rospy.Service("/{}/command/flock".format(self.id), Flock, self.flock)
-        rospy.Service("/{}/command/cancel".format(self.id), Empty, self.cancel)
-        rospy.Service("/{}/command/hello".format(self.id), Empty, self.hello)
+        rospy.Service("/{}/command/cancel".format(self.id), Simple, self.cancelCommand)
+        rospy.Service("/{}/command/hello".format(self.id), Simple, self.hello)
 
         rospy.Service("/{}/build/ddsa".format(self.id), DDSAWaypoints, self.build_ddsa)
         rospy.Service("/{}/build/lawnmower".format(self.id), LawnmowerWaypoints, self.build_lawnmower)

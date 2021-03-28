@@ -1,3 +1,4 @@
+time command_time
 float32 radius
 float32 stepLength
 int32 walk
