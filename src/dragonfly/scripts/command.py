@@ -87,15 +87,18 @@ class DragonflyCommand:
 
         return SimpleResponse()
 
-    def rtl(self, operation):
+    def rtl_command(self, operation):
         print("Commanded to RTL @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
 
+        self.rtl()
+
+        return SimpleResponse()
+
+    def rtl(self):
         self.cancel()
 
         self.setmode("RTL")
         self.logPublisher.publish("RTL")
-
-        return SimpleResponse()
 
     def goto(self, operation):
         print("Commanded to goto @ {}".format(datetime.fromtimestamp(operation.command_time.secs)))
@@ -275,10 +278,10 @@ class DragonflyCommand:
             if self.localposition is not None and self.position is not None and not self.canceled:
                 if self.localposition.z > self.max_altitude:
                     self.logPublisher.publish("Exceeded maximum altitude of {}m".format(self.max_altitude))
-                    self.rtl(None)
+                    self.rtl()
                 if self.rtl_boundary is not None and not isInside(self.position, self.rtl_boundary.points):
                     self.logPublisher.publish("Exceeded RTL Boundary at {}, {}".format(self.position.longitude, self.position.latitude))
-                    self.rtl(None)
+                    self.rtl()
 
             rate.sleep()
 
@@ -490,7 +493,7 @@ class DragonflyCommand:
         rospy.Service("/{}/command/arm".format(self.id), Simple, self.armcommand)
         rospy.Service("/{}/command/takeoff".format(self.id), Simple, self.takeoff)
         rospy.Service("/{}/command/land".format(self.id), Simple, self.land)
-        rospy.Service("/{}/command/rtl".format(self.id), Simple, self.rtl)
+        rospy.Service("/{}/command/rtl".format(self.id), Simple, self.rtl_command)
         rospy.Service("/{}/command/home".format(self.id), Simple, self.home)
         rospy.Service("/{}/command/goto".format(self.id), Simple, self.goto)
         rospy.Service("/{}/command/ddsa".format(self.id), DDSA, self.ddsa)
