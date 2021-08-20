@@ -12,6 +12,7 @@ from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSet
 from mavros_msgs.msg import ParamValue
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
+from rospy import ROSInterruptException
 
 from actions import *
 from waypointUtil import *
@@ -314,7 +315,7 @@ class DragonflyCommand:
                 [waypoint, distanceThreshold] = self.findWaypoint(step.goto.waypoint, operation.waypoints)
                 if waypoint is not None:
                     self.actionqueue.push(LogAction(self.logPublisher, "Goto {}".format(step.goto.waypoint))) \
-                        .push(WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+                        .push(WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint, distanceThreshold))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 print("Semaphore")
                 self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
@@ -342,7 +343,7 @@ class DragonflyCommand:
                                                        waypoint.pose.position.y,
                                                        waypoint.pose.position.z + (step.ddsa.radius * step.ddsa.swarm_index),
                                                        self.orientation)
-                    self.actionqueue.push(WaypointAction(self.id, self.local_setposition_publisher, position_waypoint, step.ddsa.distanceThreshold))
+                    self.actionqueue.push(WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint, step.ddsa.distanceThreshold))
                     self.runWaypoints("DDSA", waypoints, step.ddsa.waitTime, step.ddsa.distanceThreshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 print("Lawnmower")
@@ -406,7 +407,7 @@ class DragonflyCommand:
             self.actionqueue.push(
                 LogAction(self.logPublisher, "Goto {} {}/{}".format(waypoints_name, i + 1, len(waypoints))))
             self.actionqueue.push(
-                WaypointAction(self.id, self.local_setposition_publisher, waypoint, distanceThreshold))
+                WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint, distanceThreshold))
             if waitTime > 0:
                 self.actionqueue.push(SleepAction(waitTime))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
