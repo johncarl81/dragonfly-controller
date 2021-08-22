@@ -21,6 +21,7 @@ class WaypointAction:
 
     STOP_VELOCITY_THRESHOLD = 0.1
     SAMPLE_RATE = 1000.0
+    WAIT_FOR_WAYPOINT = 10
     WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z' : 0}
 
     def __init__(self, id, logPublisher, local_setposition_publisher, waypoint, distanceThreshold):
@@ -47,9 +48,6 @@ class WaypointAction:
                 #       distance(self.waypoint.pose.position, localposition.pose.position))
                 time = poseVelocity['time']
                 alteredposition = poseVelocity['pose']
-                alteredposition.x += 5
-                alteredposition.y -= 2
-                alteredposition.z += 10
 
                 alteredposition.x += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x']
                 alteredposition.y += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y']
@@ -58,16 +56,16 @@ class WaypointAction:
                 velocity = poseVelocity['velocity']
 
                 magnitude = math.sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y) + (velocity.z * velocity.z))
-                print("{} - {} @ {}".format(magnitude, distance(self.waypoint.pose.position, alteredposition), time))
+                # print("{} - {} @ {}".format(magnitude, distance(self.waypoint.pose.position, alteredposition), time))
 
                 if distance(self.waypoint.pose.position, alteredposition) < self.distanceThreshold:
                     self.status = ActionState.SUCCESS
 
                     self.stop()
-                elif time > 10 and magnitude < self.STOP_VELOCITY_THRESHOLD:
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] = self.waypoint.pose.position.x - poseVelocity['pose'].x
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] = self.waypoint.pose.position.y - poseVelocity['pose'].y
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] = self.waypoint.pose.position.z - poseVelocity['pose'].z
+                elif time > self.WAIT_FOR_WAYPOINT and magnitude < self.STOP_VELOCITY_THRESHOLD:
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.waypoint.pose.position.x - poseVelocity['pose'].x
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.waypoint.pose.position.y - poseVelocity['pose'].y
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.waypoint.pose.position.z - poseVelocity['pose'].z
                     self.logPublisher.publish("Adjusted waypoint acceptance: {}".format(WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT))
 
             self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
