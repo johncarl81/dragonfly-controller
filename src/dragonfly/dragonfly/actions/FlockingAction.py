@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 import math
-
-import rospy
 from geometry_msgs.msg import TwistStamped
 from rx.core import Observable
-from rx.subjects import Subject
+from rx.subject import Subject
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
@@ -19,7 +17,7 @@ class FlockingAction:
     POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
-    def __init__(self, id, log_publisher, local_setvelocity_publisher, xoffset, yoffset, leader):
+    def __init__(self, id, log_publisher, local_setvelocity_publisher, xoffset, yoffset, leader, node):
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
@@ -28,6 +26,7 @@ class FlockingAction:
         self.leader = leader
         self.started = False
         self.ros_subscriptions = []
+        self.node = node
 
         self.flock_coordinates = {}
         self.leaderposition_subject = Subject()
@@ -153,7 +152,8 @@ class FlockingAction:
                 flock_coordinate_subject.on_next(position)
 
             self.ros_subscriptions.append(
-                rospy.Subscriber("{}/mavros/global_position/global".format(name), NavSatFix, flock_coordiante_subject))
+                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(name),
+                                              flock_coordiante_subject, 10))
 
             self.flockSubscription.dispose()
 
@@ -166,18 +166,20 @@ class FlockingAction:
             print("Subscribing...")
 
             self.ros_subscriptions.append(
-                rospy.Subscriber("{}/mavros/global_position/global".format(self.leader), NavSatFix,
-                                 lambda position: self.leaderposition_subject.on_next(position)))
+                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.leader),
+                                              lambda position: self.leaderposition_subject.on_next(position), 10))
             self.ros_subscriptions.append(
-                rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix,
-                                 lambda position: self.selfposition_subject.on_next(position)))
+                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),
+                                              lambda position: self.selfposition_subject.on_next(position), 10))
             self.ros_subscriptions.append(
-                rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.leader), TwistStamped,
-                                 lambda twist: self.leadervelocity_subject.on_next(twist)))
+                self.node.create_subscription(TwistStamped,
+                                              "{}/mavros/local_position/velocity_local".format(self.leader),
+                                              lambda twist: self.leadervelocity_subject.on_next(twist), 10))
             self.ros_subscriptions.append(
-                rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.id), TwistStamped,
-                                 lambda twist: self.selfvelocity_subject.on_next(twist)))
-            self.ros_subscriptions.append(rospy.Subscriber("/dragonfly/announce", String, self.flock_announce_callback))
+                self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id),
+                                              lambda twist: self.selfvelocity_subject.on_next(twist), 10))
+            self.ros_subscriptions.append(
+                self.node.create_subscription(String, "/dragonfly/announce", self.flock_announce_callback, 10))
 
             self.log_publisher.publish("Flocking")
 
@@ -185,7 +187,7 @@ class FlockingAction:
 
     def stop(self):
         for subscription in self.ros_subscriptions:
-            subscription.unregister()
+            subscription.destroy()
 
         del self.ros_subscriptions
 

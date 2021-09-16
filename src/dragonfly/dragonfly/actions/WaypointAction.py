@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 import math
 import rx
-import rospy
 from geometry_msgs.msg import PoseStamped, TwistStamped
-from rx.subjects import Subject
 from rx.core import Observable
+from rx.subject import Subject
 
 from .ActionState import ActionState
 
@@ -18,17 +17,16 @@ def distance(position1, position2):
 
 
 class WaypointAction:
-
     STOP_VELOCITY_THRESHOLD = 0.1
     SAMPLE_RATE = 1000.0
     WAIT_FOR_WAYPOINT = 10
-    WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z' : 0}
+    WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z': 0}
 
-    def __init__(self, id, logPublisher, local_setposition_publisher, waypoint, distanceThreshold):
+    def __init__(self, id, logPublisher, local_setposition_publisher, waypoint, distance_threshold, node):
         self.id = id
         self.logPublisher = logPublisher
         self.waypoint = waypoint
-        self.distanceThreshold = distanceThreshold
+        self.distance_threshold = distance_threshold
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
@@ -37,6 +35,7 @@ class WaypointAction:
         self.velocity_subject = Subject()
         self.pose_subject = Subject()
         self.waypointAcceptanceSubscription = Observable.empty().subscribe()
+        self.node = node
 
     def step(self):
         if not self.commanded:
@@ -58,23 +57,29 @@ class WaypointAction:
                 magnitude = math.sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y) + (velocity.z * velocity.z))
                 # print("{} - {} @ {}".format(magnitude, distance(self.waypoint.pose.position, alteredposition), time))
 
-                if distance(self.waypoint.pose.position, alteredposition) < self.distanceThreshold:
+                if distance(self.waypoint.pose.position, alteredposition) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
 
                     self.stop()
                 elif time > self.WAIT_FOR_WAYPOINT and magnitude < self.STOP_VELOCITY_THRESHOLD:
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.waypoint.pose.position.x - poseVelocity['pose'].x
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.waypoint.pose.position.y - poseVelocity['pose'].y
-                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.waypoint.pose.position.z - poseVelocity['pose'].z
-                    self.logPublisher.publish("Adjusted waypoint acceptance: {}".format(WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT))
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.waypoint.pose.position.x - poseVelocity[
+                        'pose'].x
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.waypoint.pose.position.y - poseVelocity[
+                        'pose'].y
+                    WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.waypoint.pose.position.z - poseVelocity[
+                        'pose'].z
+                    self.logPublisher.publish(
+                        "Adjusted waypoint acceptance: {}".format(WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT))
 
-            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
-                                                    lambda pose: self.pose_subject.on_next(pose))
-            self.velocity_update = rospy.Subscriber("{}/mavros/local_position/velocity_local".format(self.id), TwistStamped,
-                                                    lambda velocity: self.velocity_subject.on_next(velocity))
 
-            self.waypointAcceptanceSubscription = Observable.combine_latest(self.pose_subject, self.velocity_subject, rx.Observable.interval(1000),
-                                      lambda position, velocity, time: self.combinePoseVelocity(position, velocity, time)) \
+            self.position_update = self.node.create_subscription(PoseStamped, "{}/mavros/local_position/pose".format(self.id), lambda pose: self.pose_subject.on_next(pose), 10)
+            self.velocity_update = self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id), lambda velocity: self.velocity_subject.on_next(velocity), 10)
+
+            self.waypointAcceptanceSubscription = Observable.combine_latest(self.pose_subject, self.velocity_subject,
+                                                                            rx.Observable.interval(1000),
+                                                                            lambda position, velocity,
+                                                                                   time: self.combinePoseVelocity(
+                                                                                position, velocity, time)) \
                 .sample(self.SAMPLE_RATE) \
                 .subscribe(on_next=lambda pose_velocity: updatePosition(pose_velocity))
 
@@ -87,9 +92,9 @@ class WaypointAction:
 
     def stop(self):
         if self.position_update is not None:
-            self.position_update.unregister()
+            self.position_update.destroy()
             self.position_update = None
         if self.velocity_update is not None:
-            self.velocity_update.unregister()
+            self.velocity_update.destroy()
             self.velocity_update = None
         self.waypointAcceptanceSubscription.dispose()

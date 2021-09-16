@@ -1,5 +1,4 @@
 #!/usr/bin/env python
-import rospy
 from mavros_msgs.msg import State
 
 from .ActionState import ActionState
@@ -25,10 +24,10 @@ class WaitForDisarmAction:
                     self.stop()
                     self.log_publisher.publish("Disarmed")
 
-            self.disabled_update = rospy.Subscriber("{}/mavros/state".format(self.id), State, updateState)
+            self.disabled_update = self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateState, 10)
 
         return self.status
 
     def stop(self):
         if self.disabled_update is not None:
-            self.disabled_update.unregister()
+            self.disabled_update.destroy()

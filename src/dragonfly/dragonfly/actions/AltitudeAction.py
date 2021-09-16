@@ -1,7 +1,5 @@
 #!/usr/bin/env python
 import math
-
-import rospy
 from geometry_msgs.msg import PoseStamped
 
 from .ActionState import ActionState
@@ -17,10 +15,11 @@ def distance(position1, position2):
 
 class AltitudeAction:
 
-    def __init__(self, id, local_setposition_publisher, altitude, distanceThreshold):
+    def __init__(self, id, local_setposition_publisher, altitude, distance_threshold, node):
         self.id = id
+        self.node = node
         self.altitude = altitude
-        self.distanceThreshold = distanceThreshold
+        self.distance_threshold = distance_threshold
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
@@ -45,16 +44,17 @@ class AltitudeAction:
 
                     self.local_setposition_publisher.publish(self.waypoint)
 
-                if distance(self.waypoint.pose.position, localposition.pose.position) < self.distanceThreshold:
+                if distance(self.waypoint.pose.position, localposition.pose.position) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
                     self.stop()
 
-            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
-                                                    updatePosition)
+            self.position_update = self.node.create_subscription(PoseStamped,
+                                                                 "{}/mavros/local_position/pose".format(self.id),
+                                                                 updatePosition, 10)
 
         return self.status
 
     def stop(self):
         if self.position_update is not None:
-            self.position_update.unregister()
+            self.position_update.destroy()
             self.position_update = None

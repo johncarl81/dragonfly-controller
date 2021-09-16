@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from waypointUtil import createWaypoint
+from ..waypointUtil import createWaypoint
+
 from .ActionState import ActionState
 
 

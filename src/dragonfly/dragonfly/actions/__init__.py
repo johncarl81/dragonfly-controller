@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 from .ActionQueue import ActionQueue
+from .AltitudeAction import AltitudeAction
 from .ArmAction import ArmAction
 from .ArmedStateAction import ArmedStateAction
 from .DisarmAction import DisarmAction
@@ -18,4 +19,3 @@ from .TakeoffAction import TakeoffAction
 from .WaitForDisarmAction import WaitForDisarmAction
 from .WaitForZeroAction import WaitForZeroAction
 from .WaypointAction import WaypointAction
-from .AltitudeAction import AltitudeAction

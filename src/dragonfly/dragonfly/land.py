@@ -24,7 +24,7 @@ def land(id):
             print("Set Mode")
             print(setmode_service(custom_mode="STABILIZE"))
 
-            position_update.unregister()
+            position_update.destroy()
 
     print("Waiting for landing...")
     position_update = rospy.Subscriber("{}/mavros/state".format(id), State, updateState)

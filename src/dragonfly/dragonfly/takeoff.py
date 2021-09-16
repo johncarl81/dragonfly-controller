@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 import argparse
-import time
-
 import rospy
+import time
 from mavros_msgs.srv import CommandBool
 from mavros_msgs.srv import CommandTOL
 from mavros_msgs.srv import SetMode

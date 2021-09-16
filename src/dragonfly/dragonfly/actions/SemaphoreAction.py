@@ -1,24 +1,24 @@
 #!/usr/bin/env python
-import rospy
 from dragonfly_messages.msg import SemaphoreToken
 from rx.core import Observable
-from rx.subjects import Subject
+from rx.subject import Subject
 
 from .ActionState import ActionState
 
 
 class SemaphoreAction:
 
-    def __init__(self, id, semaphore_id, drones):
+    def __init__(self, id, semaphore_id, drones, node):
         self.id = id
         self.semaphore_id = semaphore_id
         self.drones = set(drones)
         self.commanded = False
         self.status = ActionState.WORKING
+        self.node = node
 
         self.publish_semaphore_interval = Observable.empty().subscribe()
         self.receive_semaphore_subscription = None
-        self.semaphore_publisher = rospy.Publisher("/dragonfly/semaphore", SemaphoreToken, queue_size=1)
+        self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore", 10)
 
         self.semaphore_subject = Subject()
 
@@ -50,14 +50,14 @@ class SemaphoreAction:
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
 
-            self.receive_semaphore_subscription = rospy.Subscriber("/dragonfly/semaphore", SemaphoreToken,
-                                                                   lambda token: self.semaphore_subject.on_next(token))
+            self.receive_semaphore_subscription = self.node.create_subscription(SemaphoreToken, "/dragonfly/semaphore",
+                                                                                lambda token: self.semaphore_subject.on_next(token), 10)
             self.semaphore_subject.subscribe(lambda token: self.handleToken(token))
 
         return self.status
 
     def stop(self):
         if self.receive_semaphore_subscription is not None:
-            self.receive_semaphore_subscription.unregister()
+            self.receive_semaphore_subscription.destroy()
         self.publish_semaphore_interval.dispose()
         self.semaphore_subject.dispose()

@@ -5,7 +5,7 @@ from .ActionState import ActionState
 class EmptyAction:
 
     def step(self):
-        print("Empty Step"
+        print("Empty Step")
         return ActionState.SUCCESS
 
     def stop(self):
