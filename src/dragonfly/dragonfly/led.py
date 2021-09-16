@@ -1,9 +1,8 @@
 #!/usr/bin/env python
+import RPi.GPIO as GPIO
 import argparse
 import threading
 import time
-
-import RPi.GPIO as GPIO
 
 # GPIO setup.
 GPIO.setmode(GPIO.BCM)

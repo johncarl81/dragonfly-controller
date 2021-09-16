@@ -14,13 +14,13 @@ int8 TYPE_CURTAIN=12
 
 int8 msg_type
 
-Takeoff takeoff
-Sleep sleep
-GotoWaypoint goto
-Semaphore semaphore
-DDSAMission ddsa
-LawnmowerMission lawnmower
-NavigationMission navigation
-FlockMission flock
-CO2GradientFollowing gradient
-Curtain curtain
+Takeoff takeoff_step
+Sleep sleep_step
+GotoWaypoint goto_step
+Semaphore semaphore_step
+DDSAMission ddsa_step
+LawnmowerMission lawnmower_step
+NavigationMission navigation_step
+FlockMission flock_step
+CO2GradientFollowing gradient_step
+Curtain curtain_step

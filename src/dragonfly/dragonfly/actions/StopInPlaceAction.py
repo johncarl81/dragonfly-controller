@@ -1,19 +1,19 @@
 #!/usr/bin/env python
-import rospy
+from geometry_msgs.msg import PoseStamped
 
 from .ActionState import ActionState
-from geometry_msgs.msg import PoseStamped
 
 
 class StopInPlaceAction:
 
-    def __init__(self, id, log_publisher, local_setposition_publisher):
+    def __init__(self, id, log_publisher, local_setposition_publisher, node):
         self.id = id
         self.log_publisher = log_publisher
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
         self.position_update = None
+        self.node = node
 
     def step(self):
         if not self.commanded:
@@ -28,12 +28,11 @@ class StopInPlaceAction:
                 print("Stop in place")
                 self.log_publisher.publish("Stopped")
 
-            self.position_update = rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped,
-                                                    updatePosition)
+            self.node.create_subscription(PoseStamped, "{}/mavros/local_position/pose".format(self.id), updatePosition, 10)
 
         return self.status
 
     def stop(self):
         if self.position_update is not None:
-            self.position_update.unregister()
+            self.position_update.destroy()
             self.position_update = None

@@ -1,9 +1,9 @@
 LatLon[] boundary
-float32 stepLength
-bool walkBoundary
+float32 step_length
+bool walk_boundary
 int32 walk
 int32 stacks
 float32 altitude
-float32 waitTime
+float32 wait_time
 ---
 LatLon[] waypoints

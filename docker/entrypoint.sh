@@ -1,8 +1,8 @@
 #!/bin/bash
 set -e
 
-source /opt/ros/melodic/setup.bash
-source /workspace/devel/setup.bash
+source /opt/ros/foxy/setup.bash
+source /workspace/install/setup.bash
 
 export ROS_MASTER_URI=http://172.18.0.2:11311
 

@@ -1,11 +1,11 @@
 string waypoint
 float32 radius
-float32 stepLength
+float32 step_length
 int32 walk
 int32 swarm_size
 int32 swarm_index
 int32 stacks
 int32 loops
 float32 altitude
-float32 waitTime
-float32 distanceThreshold
+float32 wait_time
+float32 distance_threshold

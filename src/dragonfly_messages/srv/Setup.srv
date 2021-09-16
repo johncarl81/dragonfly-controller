@@ -1,4 +1,3 @@
-time command_time
 int32 rtl_altitude
 int32 max_altitude
 Boundary rtl_boundary

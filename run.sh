@@ -17,12 +17,12 @@ rosrun master_sync_fkie master_sync &
 P2=$!
 /opt/ros/kinetic/bin/roslaunch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 &
 P3=$!
-rosrun dragonfly virtualco2publisher.py $1 &
+ros2 run dragonfly co2publisher $1 &
 P4=$!
-rosrun dragonfly logger.py $1 >> /home/ubuntu/dev/dragonfly/logs/run.log &
+ros2 run dragonfly logger $1 >> /home/ubuntu/dev/dragonfly/logs/run.log &
 P5=$!
-rosrun dragonfly command.py $1 >> /home/ubuntu/dev/dragonfly/logs/command.log &
+ros2 run dragonfly command $1 >> /home/ubuntu/dev/dragonfly/logs/command.log &
 P6=$!
-rosrun dragonfly announce.py $1 &
+ros2 run dragonfly announce $1 &
 P7=$!
 wait $P1 $P2 $P3 $P4 $P5 $P6 $P7
