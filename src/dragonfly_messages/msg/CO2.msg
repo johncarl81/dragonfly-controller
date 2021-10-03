@@ -1,0 +1,12 @@
+float32 ppm
+float32 sensor_temp
+float32 humidity
+float32 humidity_sensor_temp
+float32 atmospheric_pressure
+float32 detector_temp
+float32 source_temp
+int32 status
+bool zeroing
+bool warming
+int32 zeroing_index
+int32 zeroing_count

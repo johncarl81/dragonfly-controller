@@ -5,7 +5,7 @@ import threading
 import rospy
 
 from datetime import datetime, timedelta
-from dragonfly_messages.msg import MissionStep
+from dragonfly_messages.msg import MissionStep, CO2
 from dragonfly_messages.srv import *
 from geometry_msgs.msg import TwistStamped
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSet
@@ -432,7 +432,7 @@ class DragonflyCommand:
         self.orientation = data.pose.orientation
 
     def co2Callback(self, data):
-        if data.data.startswith('W') or data.data.startswith('Z'):
+        if data.warming or data.zeroing:
             self.sincezero = datetime.now()
         previous = self.zeroing
         self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
@@ -487,7 +487,7 @@ class DragonflyCommand:
         # rospy.Subscriber("{}/mavros/global_position/raw/fix".format(self.id), NavSatFix, self.position_callbak)
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position_callbak)
         rospy.Subscriber("{}/mavros/local_position/pose".format(self.id), PoseStamped, self.localposition_callback)
-        rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
+        rospy.Subscriber("{}/co2".format(self.id), CO2, self.co2Callback)
 
         self.logPublisher = rospy.Publisher("{}/log".format(self.id), String, queue_size=1)
 

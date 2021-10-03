@@ -6,6 +6,7 @@ from datetime import datetime, timedelta
 
 import rospy
 from sensor_msgs.msg import NavSatFix, TimeReference
+from dragonfly_messages.msg import CO2
 from std_msgs.msg import String
 
 from led import LED
@@ -32,7 +33,7 @@ class co2Logger:
             self.positionReceived = datetime.now()
         if co2 is not None:
             self.co2Received = datetime.now()
-        if data is not None and (data.data.startswith('W') or data.data.startswith('Z')):
+        if data is not None and data.warming or data.zeroing:
             self.sincezero = datetime.now()
         previous = self.zeroing
         self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
@@ -62,16 +63,31 @@ class co2Logger:
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print("{} co2: '{}' @ {} {} {}".format(self.getDate(),
-                                                   data,
-                                                   self.position.latitude,
-                                                   self.position.longitude,
-                                                   self.position.altitude))
+            print("{} co2: {} {} {} {} {} {} {} {} @ {} {} {}".format(self.getDate(),
+                                           data.ppm,
+                                           data.sensor_temp,
+                                           data.humidity,
+                                           data.humidity_sensor_temp,
+                                           data.atmospheric_pressure,
+                                           data.detector_temp,
+                                           data.source_temp,
+                                           data.status,
+                                           self.position.latitude,
+                                           self.position.longitude,
+                                           self.position.altitude))
         else:
-            print("{} cos: '{}' @ -".format(self.getDate(), data))
+            print("{} cos: {} {} {} {} {} {} {} {} @ -".format(self.getDate(),
+                                            data.ppm,
+                                            data.sensor_temp,
+                                            data.humidity,
+                                            data.humidity_sensor_temp,
+                                            data.atmospheric_pressure,
+                                            data.detector_temp,
+                                            data.source_temp,
+                                            data.status))
 
     def logCallback(self, data):
-        print("LOG: {}".format(data))
+        print("{} LOG: {}".format(self.getDate(),data))
 
     def listener(self):
 
@@ -87,7 +103,7 @@ class co2Logger:
         
         print("got time reference: {} diff: {} current: {}".format(flight_computer_time, self.time_offset, self.getDate()))
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.callback)
-        rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
+        rospy.Subscriber("{}/co2".format(self.id), CO2, self.co2Callback)
         rospy.Subscriber("{}/log".format(self.id), String, self.logCallback)
 
         self.s.enter(1, 1, self.updateLED, ())

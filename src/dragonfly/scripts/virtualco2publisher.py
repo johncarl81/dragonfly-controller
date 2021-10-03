@@ -5,7 +5,7 @@ import math
 
 import rospy
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 
 
 class dotdict(dict):
@@ -28,7 +28,7 @@ class VirtualCO2Publisher:
 
     def __init__(self, id):
         self.id = id
-        self.pub = rospy.Publisher("{}/co2".format(id), String, queue_size=10)
+        self.pub = rospy.Publisher("{}/co2".format(id), CO2, queue_size=10)
 
     def differenceInMeters(self, one, two):
         earthCircumference = 40008000
@@ -60,7 +60,17 @@ class VirtualCO2Publisher:
 
         co2 = self.calculateCO2(data)
 
-        self.pub.publish("M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2))
+        reading = CO2()
+        reading.ppm = co2
+        reading.sensor_temp = 55.0
+        reading.humidity = 0.0
+        reading.humidity_sensor_temp = 0.0
+        reading.atmospheric_pressure = 800
+        reading.detector_temp = 55.0
+        reading.source_temp = 55.0
+        reading.status = 0
+
+        self.pub.publish(reading)
 
     def publish(self):
         rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.position_callback)

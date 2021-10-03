@@ -8,7 +8,7 @@ from rx.core import Observable
 from rx.subjects import Subject
 from sensor_msgs.msg import NavSatFix
 from sklearn.linear_model import LinearRegression
-from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 
 from .ActionState import ActionState
 
@@ -46,7 +46,7 @@ class GradientAction:
         self.max_value = None
 
     def parseReading(self, reading):
-        return float(reading.data.split()[3])
+        return reading.ppm
 
     def checkForMax(self, readingPosition):
         if self.max_value is None or readingPosition.value > self.max_value.value:
@@ -119,7 +119,7 @@ class GradientAction:
         self.ros_subscriptions.append(rospy.Subscriber("{}/mavros/global_position/global".format(drone), NavSatFix,
                                                        lambda position: position_subject.on_next(position)))
         self.ros_subscriptions.append(
-            rospy.Subscriber("{}/co2".format(drone), String, lambda value: co2_subject.on_next(value)))
+            rospy.Subscriber("{}/co2".format(drone), CO2, lambda value: co2_subject.on_next(value)))
 
         position_value_subject = Subject()
 

@@ -4,12 +4,41 @@ import argparse
 
 import rospy
 import serial
-from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 
+def parse_command(input):
+    reading = None
+    parts = input.strip().split(" ")
+    if parts[0] == 'M' and len(parts) == 11:
+        # M 50885 48094 500.96 55.0 0.0 0.0 829 55.0 55.0 00
+        reading = CO2()
+        reading.ppm = float(parts[3])
+        reading.sensor_temp = float(parts[4])
+        reading.humidity = float(parts[5])
+        reading.humidity_sensor_temp = float(parts[6])
+        reading.atmospheric_pressure = float(parts[7])
+        reading.detector_temp = float(parts[8])
+        reading.source_temp = float(parts[9])
+        reading.status = int(parts[10])
+    elif parts[0].startswith('Z') and len(parts) == 3:
+        # Z,22 of 25\r\n
+        zeroing_parts = parts[0].split(',')
+        reading = CO2()
+        reading.zeroing = True
+        reading.zeroing_index = int(zeroing_parts[1])
+        reading.zeroing_count = int(parts[2])
+    elif parts[0].startswith('W') and len(parts) == 1:
+        # W,43.1
+        warming_parts = parts[0].split(',')
+        reading = CO2()
+        reading.warming = True
+        reading.sensor_temp = float(warming_parts[1])
+
+    return reading
 
 def publishco2(id):
     rospy.loginfo("publishing co2 readings on {}/co2".format(id))
-    pub = rospy.Publisher("{}/co2".format(id), String, queue_size=10)
+    pub = rospy.Publisher("{}/co2".format(id), CO2, queue_size=10)
     rospy.init_node('talker', anonymous=True)
     rate = rospy.Rate(10)
     while not rospy.is_shutdown():
@@ -23,8 +52,9 @@ def publishco2(id):
                 port.write('C2\r')
                 while not rospy.is_shutdown():
                     port.write('M')
-                    hello_str = port.readline()
-                    pub.publish(hello_str)
+                    value = parse_command(port.readline())
+                    if not value == None:
+                        pub.publish(value)
                     rate.sleep()
         except serial.SerialException as ex:
             rospy.sleep(1)

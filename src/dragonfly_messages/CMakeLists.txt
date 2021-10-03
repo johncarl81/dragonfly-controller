@@ -66,6 +66,7 @@ add_message_files(
     Waypoint.msg
     FlockMission.msg
     CO2GradientFollowing.msg
+    CO2.msg
     Curtain.msg
 )
 
