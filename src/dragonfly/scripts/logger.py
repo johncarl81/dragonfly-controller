@@ -33,12 +33,9 @@ class co2Logger:
             self.positionReceived = datetime.now()
         if co2 is not None:
             self.co2Received = datetime.now()
-        if data is not None and data.warming or data.zeroing:
-            self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
-        if not self.zeroing == previous:
-            print("Checking zero: {} {}".format(self.zeroing, previous))
+        if data is not None:
+            self.zeroing = data.warming or data.zeroing
         if self.zeroing and not previous:
             self.led.blink()
         elif not self.zeroing and previous:

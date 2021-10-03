@@ -432,10 +432,8 @@ class DragonflyCommand:
         self.orientation = data.pose.orientation
 
     def co2Callback(self, data):
-        if data.warming or data.zeroing:
-            self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
+        self.zeroing = data.warming or data.zeroing
         if self.zeroing and not previous:
             self.logPublisher.publish('Zeroing')
         elif not self.zeroing and previous:
