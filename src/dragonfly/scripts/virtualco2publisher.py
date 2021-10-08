@@ -2,6 +2,7 @@
 
 import argparse
 import math
+import random
 
 import rospy
 from sensor_msgs.msg import NavSatFix
@@ -29,6 +30,8 @@ class VirtualCO2Publisher:
     def __init__(self, id):
         self.id = id
         self.pub = rospy.Publisher("{}/co2".format(id), CO2, queue_size=10)
+        self.random_offset = random.uniform(-10, 10)
+        self.reading_index = random.randint(0, 100)
 
     def differenceInMeters(self, one, two):
         earthCircumference = 40008000
@@ -49,7 +52,7 @@ class VirtualCO2Publisher:
         H = 2
         u = 1
 
-        value = (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
+        value = (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x))) + self.random_offset
 
         if value < 0:
             return 420
@@ -58,10 +61,11 @@ class VirtualCO2Publisher:
 
     def position_callback(self, data):
 
+        self.reading_index += 1
+
         co2 = self.calculateCO2(data)
 
         reading = CO2()
-        reading.ppm = co2
         reading.sensor_temp = 55.0
         reading.humidity = 0.0
         reading.humidity_sensor_temp = 0.0
@@ -69,6 +73,16 @@ class VirtualCO2Publisher:
         reading.detector_temp = 55.0
         reading.source_temp = 55.0
         reading.status = 0
+
+        if self.reading_index > 900:
+            reading.ppm = 0
+            reading.zeroing = True
+        else:
+            reading.ppm = co2
+
+        if self.reading_index > 1000:
+            self.reading_index = 0
+
 
         self.pub.publish(reading)
 
