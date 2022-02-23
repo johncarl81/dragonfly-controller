@@ -28,7 +28,8 @@ class StopInPlaceAction:
                 print("Stop in place")
                 self.log_publisher.publish("Stopped")
 
-            self.node.create_subscription(PoseStamped, "{}/mavros/local_position/pose".format(self.id), updatePosition, 10)
+            self.node.create_subscription(PoseStamped, "{}/mavros/local_position/pose".format(self.id), updatePosition,
+                                          10)
 
         return self.status
 

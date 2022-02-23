@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import math
+
 import numpy as np
 from geometry_msgs.msg import TwistStamped
 from rx.core import Observable
@@ -115,8 +116,9 @@ class GradientAction:
     def setupSubject(self, drone):
         position_subject = Subject()
         co2_subject = Subject()
-        self.ros_subscriptions.append(self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(drone),
-                                                                    lambda position: position_subject.on_next(position), 10))
+        self.ros_subscriptions.append(
+            self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(drone),
+                                          lambda position: position_subject.on_next(position), 10))
         self.ros_subscriptions.append(
             self.node.create_subscription(String, "{}/co2".format(drone), lambda value: co2_subject.on_next(value), 10))
 

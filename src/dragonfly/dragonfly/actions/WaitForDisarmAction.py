@@ -1,5 +1,7 @@
 #!/usr/bin/env python
+import rclpy
 from mavros_msgs.msg import State
+from rclpy.qos import QoSProfile
 
 from .ActionState import ActionState
 
@@ -7,6 +9,8 @@ from .ActionState import ActionState
 class WaitForDisarmAction:
 
     def __init__(self, id, log_publisher):
+        rclpy.init(args=id)
+        self.node = rclpy.create_node(id + 'WaitForDisarmAction')
         self.id = id
         self.log_publisher = log_publisher
         self.status = ActionState.WORKING
@@ -24,7 +28,8 @@ class WaitForDisarmAction:
                     self.stop()
                     self.log_publisher.publish("Disarmed")
 
-            self.disabled_update = self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateState, 10)
+            self.disabled_update = self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateState,
+                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
         return self.status
 

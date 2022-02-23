@@ -1,7 +1,6 @@
 #!/usr/bin/env python
-from ..waypointUtil import createWaypoint
-
 from .ActionState import ActionState
+from ..waypointUtil import createWaypoint
 
 
 class SetPositionAction:

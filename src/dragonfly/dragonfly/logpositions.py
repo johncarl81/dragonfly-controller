@@ -1,11 +1,15 @@
 #!/usr/bin/env python
 import math
+import sys
 
-import rospy
+import rclpy
+from rclpy.qos import QoSProfile
+from rx import Observable
 from rx.subject import Subject
 from sensor_msgs.msg import NavSatFix
 
 SAMPLE_RATE = 10
+node = None
 
 
 class dotdict(dict):
@@ -55,25 +59,29 @@ def log_vectors(vectors):
 
 
 def main():
+    global node
+
     df1_subject = Subject()
     df2_subject = Subject()
     df3_subject = Subject()
 
-    rospy.Subscriber("/dragonfly1/mavros/global_position/global", NavSatFix,
-                     lambda position: df1_subject.on_next(position))
-    rospy.Subscriber("/dragonfly2/mavros/global_position/global", NavSatFix,
-                     lambda position: df2_subject.on_next(position))
-    rospy.Subscriber("/dragonfly3/mavros/global_position/global", NavSatFix,
-                     lambda position: df3_subject.on_next(position))
+    node.create_subscription(NavSatFix, "/dragonfly1/mavros/global_position/global",
+                             lambda position: df1_subject.on_next(position), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    node.create_subscription(NavSatFix, "/dragonfly2/mavros/global_position/global",
+                             lambda position: df2_subject.on_next(position), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    node.create_subscription(NavSatFix, "/dragonfly3/mavros/global_position/global",
+                             lambda position: df3_subject.on_next(position), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    rclpy.spin(node)
 
     print(
-        "df1.lon, df1.lat, df1.alt, df1.value, df2.lon, df2.lat, df2.alt, df2.value, df3.lon, df3.lat, df3.alt, df3.value")
+        "df1.lon, df1.lat, df1.alt, df1.value, df2.lon, df2.lat, df2.alt, df2.value, df3.lon, df3.lat, df3.alt, "
+        "df3.value")
     Observable.combine_latest([df1_subject, df2_subject, df3_subject], lambda *positions: positions) \
         .sample(SAMPLE_RATE) \
         .subscribe(lambda vectors: log_vectors(vectors))
 
-    if __name__ == '__main__':
-        rospy.init_node("position_logger")
-    main()
 
-    rospy.spin()
+if __name__ == '__main__':
+    rclpy.init(args=sys.argv)
+    node = rclpy.create_node("position_logger")
+    main()

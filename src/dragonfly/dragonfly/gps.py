@@ -1,29 +1,33 @@
 #!/usr/bin/env python
 import argparse
 
-import rospy
+import rclpy
+from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix
 
 position = None
+node = None
 
 
 def callback(data):
-    global position
-    rospy.loginfo(rospy.get_caller_id() + "I heard %s", data)
+    global position, node
+    node.get_logger().info("I heard %s", data)
 
 
 def listener(id):
+    global node
     # In ROS, nodes are uniquely named. If two nodes with the same
     # name are launched, the previous one is kicked off. The
     # anonymous=True flag means that rospy will choose a unique
     # name for our 'listener' node so that multiple listeners can
     # run simultaneously.
-    rospy.init_node('gpslistener', anonymous=True)
-
-    rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, callback)
+    rclpy.init(args=id)
+    node = rclpy.create_node('gpslistener')
+    node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), callback,
+                             qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     # spin() simply keeps python from exiting until this node is stopped
-    rospy.spin()
+    rclpy.spin(node)
 
 
 if __name__ == '__main__':

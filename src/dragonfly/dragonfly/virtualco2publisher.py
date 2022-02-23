@@ -2,8 +2,11 @@
 
 import argparse
 import math
-import rclpy
 import sys
+
+import rclpy
+import std_msgs
+from rclpy.qos import QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
@@ -55,12 +58,15 @@ class VirtualCO2Publisher:
     def position_callback(self, data):
 
         co2 = self.calculateCO2(data)
-
-        self.pub.publish("M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2))
+        # @TODO add this back was getting TypeError: __init__() takes 1 positional argument but 2 were given
+        # [ros2run]: Process exited with failure 1
+        #self.pub.publish(std_msgs.msg._string.String("M 55146 52516 10 55.0 0.0 0.0 800 55.0 55.0 00"))  # String("M 55146 52516 10 55.0 0.0 0.0 800 55.0 55.0 00")
+        # self.pub.publish(String("M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2)))
 
     def publish(self):
         self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),
-                                      self.position_callback, 10)
+                                      self.position_callback,
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
 
 def main():

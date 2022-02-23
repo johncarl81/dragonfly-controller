@@ -1,13 +1,15 @@
 #!/usr/bin/env python
 import argparse
 import math
+import time
 
-import rospy
+import rclpy
 from geometry_msgs.msg import PoseStamped
 from mavros_msgs.msg import CommandCode
 from mavros_msgs.msg import Waypoint
 from mavros_msgs.msg import WaypointReached
 from mavros_msgs.srv import SetMode
+from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix
 
 
@@ -61,31 +63,31 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
 
 
 def setpoint(id):
-    rospy.init_node('guide_service')
+    rclpy.init(args=id)
+    node = rclpy.create_node('guide_service')
 
     def logWaypoint(waypoint):
         print("Waypoint: {}".format(waypoint.wp_seq))
 
-    rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
+    node.create_subscription(WaypointReached, "{}/mavros/mission/reached".format(id), logWaypoint,
+                             qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     print("Change to Guided")
-    setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-    print(setmode_service(custom_mode="GUIDED"))
+    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    print(setmode_service.call(SetMode.Request(custom_mode="GUIDED")))
 
     def updatePosition(position):
         position_update.destroy()
         print("Position: {} {}".format(position.latitude, position.longitude))
 
-        setposition_publisher = rospy.Publisher("{}/mavros/setpoint_position/local".format(id), PoseStamped,
-                                                queue_size=1)
-
-        rospy.rostime.wallsleep(0.5)
-
+        setposition_publisher = node.create_publisher(PoseStamped, "{}/mavros/setpoint_position/local".format(id),
+                                                      qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        time.sleep(.5)  # @TODO fix rostime.wallsleep(0.5)
         waypoints = buildDDSAWaypoints(0, 0, 10, 1, 0, 5, 1)
 
         for waypoint in waypoints:
             print("Hit enter to proceed")
-            raw_input("Enter:")
+            input("Enter:")
             goalPos = PoseStamped()
             goalPos.pose.position.x = waypoint.x_lat
             goalPos.pose.position.y = waypoint.y_long
@@ -97,9 +99,10 @@ def setpoint(id):
 
             print("Commanded")
 
-    position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)
+    position_update = node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), updatePosition,
+                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
-    rospy.spin()
+    rclpy.spin(node)
 
 
 if __name__ == '__main__':

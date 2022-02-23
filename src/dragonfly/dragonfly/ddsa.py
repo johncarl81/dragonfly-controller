@@ -1,15 +1,21 @@
 #!/usr/bin/env python
 import argparse
 import math
-import rospy
 import time
+
+import rclpy
 from mavros_msgs.msg import CommandCode
 from mavros_msgs.msg import Waypoint
 from mavros_msgs.msg import WaypointReached
 from mavros_msgs.srv import SetMode
 from mavros_msgs.srv import WaypointClear
 from mavros_msgs.srv import WaypointPush
+from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix
+
+setmode_service = None
+wp_push_srv = None
+wp_clear_srv = None
 
 
 def calculateLatitude(latitude, offset):
@@ -64,26 +70,36 @@ def buildDDSAWaypoints(centerx, centery, altitude, size, index, loops, radius):
 
 
 def ddsa(id):
-    rospy.init_node('ddsa_service')
-    rospy.wait_for_service("{}/mavros/set_mode".format(id))
-    rospy.wait_for_service("{}/mavros/mission/clear".format(id))
-    rospy.wait_for_service("{}/mavros/mission/push".format(id))
+    global setmode_service, wp_clear_srv, wp_push_srv
+    rclpy.init(args=id)
+    node = rclpy.create_node('ddsa_service')
 
-    setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-    wp_clear_srv = rospy.ServiceProxy("{}/mavros/mission/clear".format(id), WaypointClear)
-    wp_push_srv = rospy.ServiceProxy("{}/mavros/mission/push".format(id), WaypointPush)
+    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    while not setmode_service.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('set_mode service not available, waiting again...')
+
+    wp_clear_srv = node.create_client(WaypointClear, "{}/mavros/mission/clear".format(id))
+    while not wp_clear_srv.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('clear service not available, waiting again...')
+
+    wp_push_srv = node.create_client(WaypointPush, "{}/mavros/mission/push".format(id))
+    while not wp_push_srv.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('push service not available, waiting again...')
 
     print("Waypoint clear")
-    print(wp_clear_srv())
+    wp_clear = wp_clear_srv.call_async(WaypointClear())  # @TODO try None if this does not work
+    print(wp_clear)
+    rclpy.spin_until_future_complete(node, wp_clear)
 
     time.sleep(5)
 
     def logWaypoint(waypoint):
         print("Waypoint: {}".format(waypoint.wp_seq))
-
-    rospy.Subscriber("{}/mavros/mission/reached".format(id), WaypointReached, logWaypoint)
+        node.create_subscription(WaypointReached, "{}/mavros/mission/reached".format(id), logWaypoint,
+                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     def updatePosition(position):
+        global setmode_service, wp_clear_srv, wp_push_srv
         position_update.destroy()
 
         print("Position: {} {}".format(position.latitude, position.longitude))
@@ -92,19 +108,24 @@ def ddsa(id):
 
         waypoints = buildDDSAWaypoints(position.latitude, position.longitude, altitude, 1, 0, 5, 1)
 
+        wp_push = wp_push_srv.call_async(WaypointPush.Request(start_index=0, waypoints=waypoints))
         print("Push waypoints")
-        print(wp_push_srv(start_index=0, waypoints=waypoints))
+        print(wp_push)
+        rclpy.spin_until_future_complete(node, wp_push)
 
         time.sleep(10)
 
         print("Set Mode")
-        print(setmode_service(custom_mode="AUTO"))
+        print(setmode_service())
+
+        setmode_service = setmode_service.call_async(custom_mode="AUTO")
+        rclpy.spin_until_future_complete(node, setmode_service)
 
         print("Commanded")
 
-    position_update = rospy.Subscriber("{}/mavros/global_position/global".format(id), NavSatFix, updatePosition)
-
-    rospy.spin()
+    position_update = node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), updatePosition,
+                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    rclpy.spin(node)
 
 
 if __name__ == '__main__':
