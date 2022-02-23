@@ -1,28 +1,28 @@
 <?xml version="1.0"?>
 <?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
 <package format="3">
-  <name>dragonfly_messages</name>
-  <version>0.0.1</version>
-  <description>The dragonfly_messages package</description>
+    <name>dragonfly_messages</name>
+    <version>0.0.1</version>
+    <description>The dragonfly_messages package</description>
 
-  <maintainer email="john@todo.todo">john</maintainer>
+    <maintainer email="john@todo.todo">john</maintainer>
 
-  <license>TODO</license>
+    <license>TODO</license>
 
-  <member_of_group>rosidl_interface_packages</member_of_group>
+    <member_of_group>rosidl_interface_packages</member_of_group>
 
-  <build_depend>mavros</build_depend>
-  <build_depend>std_msgs</build_depend>
-  <build_depend>sensor_msgs</build_depend>
-  <build_depend>builtin_interfaces</build_depend>
-  <build_depend>rosidl_default_generators</build_depend>
+    <build_depend>mavros</build_depend>
+    <build_depend>std_msgs</build_depend>
+    <build_depend>sensor_msgs</build_depend>
+    <build_depend>builtin_interfaces</build_depend>
+    <build_depend>rosidl_default_generators</build_depend>
 
-  <exec_depend>mavros</exec_depend>
-  <exec_depend>std_msgs</exec_depend>
-  <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>rosidl_default_runtime</exec_depend>
+    <exec_depend>mavros</exec_depend>
+    <exec_depend>std_msgs</exec_depend>
+    <exec_depend>sensor_msgs</exec_depend>
+    <exec_depend>rosidl_default_runtime</exec_depend>
 
-  <export>
-    <build_type>ament_cmake</build_type>
-  </export>
+    <export>
+        <build_type>ament_cmake</build_type>
+    </export>
 </package>
