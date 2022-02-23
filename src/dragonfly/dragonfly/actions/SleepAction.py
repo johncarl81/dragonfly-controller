@@ -11,7 +11,7 @@ class SleepAction:
         self.start = None
 
     def step(self):
-        if self.start == None:
+        if self.start is None:
             self.start = time.time()
             print("Sleeping for {}".format(self.duration))
 

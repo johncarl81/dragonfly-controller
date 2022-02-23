@@ -1,6 +1,7 @@
 #!/usr/bin/env python
-from .ActionState import ActionState
 from mavros_msgs.srv import SetMode
+
+from .ActionState import ActionState
 
 
 class ModeAction:
@@ -17,12 +18,14 @@ class ModeAction:
             self.commanded = True
             print("Set Mode {}".format(self.mode))
             request = SetMode.Request()
-            request.custom_mode=self.mode
+            request.custom_mode = self.mode
             future = self.setmode_service.call_async(request)
+
             def mode_finished():
                 result = future.result()
                 print("Set mode result", result)
                 self.status = ActionState.mapSuccess(result.mode_sent)
+
             future.add_done_callback(mode_finished)
         return self.status
 

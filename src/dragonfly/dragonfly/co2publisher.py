@@ -2,32 +2,34 @@
 
 import argparse
 
-import rospy
+import rclpy
 import serial
+from rclpy.qos import QoSProfile
 from std_msgs.msg import String
 
 
 def publishco2(id):
-    rospy.loginfo("publishing co2 readings on {}/co2".format(id))
-    pub = rospy.Publisher("{}/co2".format(id), String, queue_size=10)
-    rospy.init_node('talker', anonymous=True)
-    rate = rospy.Rate(10)
-    while not rospy.is_shutdown():
+    rclpy.init(args=id)
+    node = rclpy.create_node('talker')
+    node.get_logger().info("publishing co2 readings on {}/co2".format(id))
+    pub = node.create_publisher(String, "{}/co2".format(id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    rate = node.create_rate(10)
+    while rclpy.ok():
         try:
             with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
                                stopbits=serial.STOPBITS_ONE) as port:
-                rospy.loginfo('Connected to /dev/ttysba5')
+                node.get_logger().info('Connected to /dev/ttysba5')
                 # Publish on demand
                 port.write('!')
                 # Configure to 2 decimal places
                 port.write('C2\r')
-                while not rospy.is_shutdown():
+                while rclpy.ok():
                     port.write('M')
                     hello_str = port.readline()
                     pub.publish(hello_str)
                     rate.sleep()
         except serial.SerialException as ex:
-            rospy.sleep(1)
+            rate.sleep()
 
 
 def main():

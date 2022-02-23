@@ -1,40 +1,54 @@
 #!/usr/bin/env python
 import argparse
 
-import rospy
+import rclpy
 from mavros_msgs.msg import State
 from mavros_msgs.srv import CommandTOL
 from mavros_msgs.srv import SetMode
+from rclpy.qos import QoSProfile
+
+node = None
+position_update = None
 
 
 def land(id):
-    rospy.init_node('land_service')
-    rospy.wait_for_service("{}/mavros/cmd/land".format(id))
+    global node, position_update
+    rclpy.init(args=id)
+    node = rclpy.create_node('land_service')
 
-    land_service = rospy.ServiceProxy("{}/mavros/cmd/land".format(id), CommandTOL)
-
+    land_service = node.create_client(CommandTOL, '"{}/mavros/cmd/land".format(id)')
+    while not land_service.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('service not available, waiting again...')
     print("Landing")
-    print(land_service(altitude=0))
+    resp = land_service.call_async(CommandTOL.Request(altitude=0))
+    rclpy.spin_until_future_complete(node, resp)
+    print(resp)
+    position_update = node.create_subscription(State, "{}/mavros/state".format(id), updateState,
+                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
-    def updateState(state):
-        if not state.armed:
-            print("Landed.")
-            print("State: {}".format(state))
-            setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-            print("Set Mode")
-            print(setmode_service(custom_mode="STABILIZE"))
 
-            position_update.destroy()
+def updateState(state):
+    global node, position_update
+    node = rclpy.create_node('land_service')
+    if not state.armed:
+        print("Landed.")
+        print("State: {}".format(state))
+
+        setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+        print("Set Mode")
+        print(setmode_service.call(SetMode.Request(custom_mode="STABILIZE")))
+
+        position_update.destroy()
 
     print("Waiting for landing...")
-    position_update = rospy.Subscriber("{}/mavros/state".format(id), State, updateState)
+    position_update = node.create_subscription(State, "{}/mavros/state".format(id), updateState,
+                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
-    rospy.spin()
+    rclpy.spin(node)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Command a drone to land.')
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
-
     land(args.id)

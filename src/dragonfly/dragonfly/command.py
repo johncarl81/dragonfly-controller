@@ -1,18 +1,20 @@
 #!/usr/bin/env python
 import argparse
-import rclpy
 import sys
 import threading
 import time
 from datetime import datetime, timedelta
-from dragonfly_messages.msg import MissionStep
-from dragonfly_messages.srv import *
+
+import rclpy
 from geometry_msgs.msg import TwistStamped
 from mavros_msgs.msg import ParamValue
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2
+from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
+from dragonfly_messages.msg import MissionStep
+from dragonfly_messages.srv import *
 from .actions import *
 from .boundaryUtil import *
 from .waypointUtil import *
@@ -26,6 +28,7 @@ class DragonflyCommand:
     TEST_ALTITUDE = 3
 
     def __init__(self, id, node):
+        self.boundary_check_thread = None
         self.node = node
         self.zeroing = False
         self.canceled = False
@@ -144,7 +147,7 @@ class DragonflyCommand:
         for localwaypoint in ddsaWaypoints:
             waypoints.append(createLatLon(localwaypoint.pose.position, self.localposition, self.position))
 
-        return DDSAWaypointsResponse(waypoints=waypoints)
+        return DDSAWaypoints.Response(waypoints=waypoints)
 
     def ddsa(self, request, response):
         print("Commanded to ddsa")
@@ -162,7 +165,7 @@ class DragonflyCommand:
 
         self.actionqueue.push(LogAction(self.logPublisher, "DDSA Finished"))
 
-        return DDSAResponse(success=True, message="Commanded {} to DDSA.".format(self.id))
+        return DDSA.Response(success=True, message="Commanded {} to DDSA.".format(self.id))
 
     def build_lawnmower_waypoints(self, walk_boundary, boundary, walk, altitude, stacks, step_length, orientation):
         lawnmowerLocalWaypoints = []
@@ -191,7 +194,7 @@ class DragonflyCommand:
                                                                      self.orientation):
             waypoints.append(createLatLon(lawnmowerLocalWaypoint.pose.position, self.localposition, self.position))
 
-        return LawnmowerWaypointsResponse(waypoints=waypoints)
+        return LawnmowerWaypoints.Response(waypoints=waypoints)
 
     def lawnmower(self, request, response):
         print("Commanded to lawnmower")
@@ -209,8 +212,7 @@ class DragonflyCommand:
         self.runWaypoints("Lawnmower", waypoints, request.wait_time, request.distance_threshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower Finished"))
-
-        return LawnmowerResponse(success=True, message="Commanded {} to lawnmower.".format(self.id))
+        return Lawnmower.Response(success=True, message="Commanded {} to lawnmower.".format(self.id))
 
     def navigate(self, request, response):
         print("Commanded to navigate")
@@ -232,7 +234,7 @@ class DragonflyCommand:
 
         self.actionqueue.push(LogAction(self.logPublisher, "Navigation Finished"))
 
-        return NavigationResponse(success=True, message="Commanded {} to navigate.".format(self.id))
+        return Navigation.Response(success=True, message="Commanded {} to navigate.".format(self.id))
 
     def build_curtain_waypoints(self, startWaypoint, endWaypoint, altitude, stacks, orientation):
         waypoints = []
@@ -274,7 +276,7 @@ class DragonflyCommand:
 
         self.logPublisher.publish("Setup Success: {}".format(result.success))
 
-        return SetupResponse(success=result.success, message="Setup {}".format(self.id))
+        return Setup.Response(success=result.success, message="Setup {}".format(self.id))
 
     def rtl_boundary_check(self):
         rate = self.node.create_rate(10)
@@ -343,7 +345,7 @@ class DragonflyCommand:
                     self.actionqueue.push(AltitudeAction(self.id,
                                                          self.local_setposition_publisher,
                                                          waypoint.pose.position.z + (
-                                                                     step.ddsa.radius * step.ddsa.swarm_index),
+                                                                 step.ddsa.radius * step.ddsa.swarm_index),
                                                          step.ddsa.distance_threshold,
                                                          self.node))
                     position_waypoint = createWaypoint(
@@ -385,7 +387,8 @@ class DragonflyCommand:
                 print("Gradient")
                 self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
                     .push(
-                    GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient.drones, self.node))
+                    GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient.drones,
+                                   self.node))
             elif step.msg_type == MissionStep.TYPE_CURTAIN:
                 print("Curtain")
                 self.actionqueue.push(LogAction(self.logPublisher, "Curtain"))
@@ -403,7 +406,7 @@ class DragonflyCommand:
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish("Mission with {} steps setup".format(len(request.steps)))
 
-        return MissionResponse(success=True, message="{} mission received.".format(self.id))
+        return Mission.Response(success=True, message="{} mission received.".format(self.id))
 
     def start_mission(self, request, response):
         print("Commanded to navigate")
@@ -411,7 +414,7 @@ class DragonflyCommand:
         self.canceled = False
         self.mission_starter.start = True
 
-        return SimpleResponse()
+        return
 
     def runWaypoints(self, waypoints_name, waypoints, wait_time, distance_threshold):
 
@@ -425,16 +428,16 @@ class DragonflyCommand:
                 self.actionqueue.push(SleepAction(wait_time))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
 
-        return SimpleResponse()
+        return
 
     def flock(self, request, response):
-
+        flockCommand = request.steps[0]  # @TODO: check if this is right
         self.actionqueue.push(ModeAction(self.setmode_service, 'GUIDED')) \
             .push(
             FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
                            flockCommand.leader, self.node))
 
-        return FlockResponse(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
+        return Flock.Response(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
 
     def position_callback(self, data):
         # print data
@@ -464,7 +467,8 @@ class DragonflyCommand:
     def cancel(self):
         self.canceled = True
         self.actionqueue.stop()
-        self.actionqueue.push(StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher, self.node))
+        self.actionqueue.push(
+            StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher, self.node))
 
     def loop(self):
         try:
@@ -477,8 +481,8 @@ class DragonflyCommand:
 
     def create_client_and_wait(self, type, name):
         client = self.node.create_client(type, name)
-        while not client.wait_for_service(timeout_sec=1.0):
-            self.node.get_logger().info("{} service not available, waiting again...".format(name))
+        # while not client.wait_for_service(timeout_sec=1.0):
+        #    self.node.get_logger().info("{} service not available, waiting again...".format(name))
         return client
 
     def create_command(self, name, callback, type=Simple):
@@ -488,26 +492,32 @@ class DragonflyCommand:
         self.rtl_boundary = None
         self.max_altitude = 100
 
-        self.setparam_service = self.create_client_and_wait(ParamSetV2, "/mavros/param/set")
-        self.setmode_service = self.create_client_and_wait(SetMode, "/mavros/set_mode")
-        self.arm_service = self.create_client_and_wait(CommandBool, "/mavros/cmd/arming")
-        self.takeoff_service = self.create_client_and_wait(CommandTOL, "/mavros/cmd/takeoff")
-        self.land_service = self.create_client_and_wait(CommandTOL, "/mavros/cmd/land")
-
+        self.setparam_service = self.create_client_and_wait(ParamSetV2, "/{}/mavros/param/set".format(self.id))
+        self.setmode_service = self.create_client_and_wait(SetMode, "/{}/mavros/set_mode".format(self.id))
+        self.arm_service = self.create_client_and_wait(CommandBool, "/{}/mavros/cmd/arming".format(self.id))
+        self.takeoff_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/takeoff".format(self.id))
+        self.land_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/land".format(self.id))
         self.local_setposition_publisher = self.node.create_publisher(PoseStamped,
-                                                                      "/mavros/setpoint_position/local", 10)
+                                                                      "/{}/mavros/setpoint_position/local".format(
+                                                                          self.id), qos_profile=QoSProfile(
+                history=HistoryPolicy.KEEP_LAST, depth=10))
         self.local_setvelocity_publisher = self.node.create_publisher(TwistStamped,
-                                                                      "/mavros/setpoint_velocity/cmd_vel", 10)
+                                                                      "/{}/mavros/setpoint_velocity/cmd_vel".format(
+                                                                          self.id), qos_profile=QoSProfile(
+                history=HistoryPolicy.KEEP_LAST, depth=10))
         # self.global_setpoint_publisher = self.node.create_publisher(GlobalPositionTarget, "/{}/mavros/setpoint_position/global".format(self.id), 10)
 
         # self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/raw/fix".format(self.id), self.position_callback, 10)
-        self.node.create_subscription(NavSatFix, "/mavros/global_position/global",
-                                      self.position_callback, 10)
-        self.node.create_subscription(PoseStamped, "/mavros/local_position/pose",
-                                      self.localposition_callback, 10)
-        self.node.create_subscription(String, "/co2", self.co2Callback, 10)
+        self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id),
+                                      self.position_callback,
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.node.create_subscription(PoseStamped, "/{}/mavros/local_position/pose".format(self.id),
+                                      self.localposition_callback,
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback,
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
-        self.logPublisher = self.node.create_publisher(String, "{}/log".format(self.id), 10)
+        self.logPublisher = self.node.create_publisher(String, "{}/log".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
         self.create_command("arm", self.armcommand)
         self.create_command("takeoff", self.takeoff)
@@ -555,6 +565,7 @@ def main():
     node.destroy_node()
     rclpy.shutdown()
     thread.join()
+
 
 if __name__ == '__main__':
     main()

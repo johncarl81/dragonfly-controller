@@ -1,8 +1,8 @@
 #!/usr/bin/env python
-from dragonfly_messages.msg import SemaphoreToken
 from rx.core import Observable
 from rx.subject import Subject
 
+from dragonfly_messages.msg import SemaphoreToken
 from .ActionState import ActionState
 
 
@@ -25,7 +25,7 @@ class SemaphoreAction:
         self.responded = {id}
 
     def publishSemaphore(self, time):
-        self.semaphore_publisher.publish(SemaphoreToken(self.id, self.semaphore_id))
+        self.semaphore_publisher.publish(SemaphoreToken(self.id, self.semaphore_id))  # @TODO this is wrong
 
     def handleToken(self, token):
         if token.id == self.semaphore_id:
@@ -51,7 +51,9 @@ class SemaphoreAction:
                 on_error=lambda e: self.printError(e))
 
             self.receive_semaphore_subscription = self.node.create_subscription(SemaphoreToken, "/dragonfly/semaphore",
-                                                                                lambda token: self.semaphore_subject.on_next(token), 10)
+                                                                                lambda
+                                                                                    token: self.semaphore_subject.on_next(
+                                                                                    token), 10)
             self.semaphore_subject.subscribe(lambda token: self.handleToken(token))
 
         return self.status

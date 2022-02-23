@@ -1,33 +1,38 @@
 #!/usr/bin/env python
 import argparse
-import rospy
 import time
+
+import rclpy
 from mavros_msgs.srv import CommandBool
 from mavros_msgs.srv import SetMode
 
 
 def arm(id):
-    rospy.init_node('arm_test_service')
-    rospy.wait_for_service("{}/mavros/set_mode".format(id))
-    rospy.wait_for_service("{}/mavros/cmd/arming".format(id))
+    rclpy.init(args=id)
+    node = rclpy.create_node('arm_test_service')
 
-    setmode_service = rospy.ServiceProxy("{}/mavros/set_mode".format(id), SetMode)
-    arm_service = rospy.ServiceProxy("{}/mavros/cmd/arming".format(id), CommandBool)
+    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    while not setmode_service.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('service not available, waiting again...')
+
+    arm_service = node.create_client(CommandBool, "{}/mavros/cmd/arming".format(id))
+    while not arm_service.wait_for_service(timeout_sec=1.0):
+        node.get_logger().info('service not available, waiting again...')
 
     print("Setup complete")
 
     print("Set Mode")
-    print(setmode_service(custom_mode="STABILIZE"))
+    print(setmode_service.call(SetMode.Request(custom_mode="STABILIZE")))
 
     time.sleep(1)
 
     print("Arming")
-    print(arm_service(True))
+    print(arm_service.call(True))
 
     time.sleep(5)
 
     print("Disarming")
-    print(arm_service(False))
+    print(arm_service.call(False))
 
     print("Commanded")
 

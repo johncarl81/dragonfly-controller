@@ -1,9 +1,10 @@
 #!/usr/bin/env python
 
 import argparse
-import rclpy
 import sys
 import threading
+
+import rclpy
 from std_msgs.msg import String
 
 

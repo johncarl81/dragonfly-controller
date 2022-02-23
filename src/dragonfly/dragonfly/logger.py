@@ -3,15 +3,18 @@ import argparse
 import sched
 import time
 from datetime import datetime, timedelta
-from sensor_msgs.msg import NavSatFix, TimeReference
-from std_msgs.msg import String
 
+import rclpy
 from led import LED
+from rclpy.qos import QoSProfile
+from sensor_msgs.msg import NavSatFix
+from std_msgs.msg import String
 
 
 class co2Logger:
 
     def __init__(self, id):
+        self.node = None
         self.id = id
 
         self.position = None
@@ -55,7 +58,7 @@ class co2Logger:
         self.updateStatus(position=True)
 
     def getDate(self):
-        return datetime.now() + self.time_offset
+        return datetime.now() + timedelta(self.time_offset)
 
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
@@ -78,20 +81,26 @@ class co2Logger:
         # anonymous=True flag means that rospy will choose a unique
         # name for our 'listener' node so that multiple listeners can
         # run simultaneously.
-        rospy.init_node('gpslistener', anonymous=True)
+        rclpy.init(args=self.id)
+        self.node = rclpy.create_node('gpslistener')
 
-        flight_computer_time = rospy.wait_for_message("{}/mavros/global_position/global".format(self.id), TimeReference)
-        self.time_offset = flight_computer_time.time_ref - datetime.now()
+        # flight_computer_time = rclpy.wait_for_message(,
+        # TimeReference)
+        # flight_computer_time = self.node.create_subscription(TimeReference, "{}/mavros/global_position/global".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        # @TODO fix me as the wait_for_message no longer exists at this time
+        # self.time_offset = flight_computer_time.time_ref - datetime.now()
+        self.time_offset = datetime.now()
 
-        rospy.Subscriber("{}/mavros/global_position/global".format(self.id), NavSatFix, self.callback)
-        rospy.Subscriber("{}/co2".format(self.id), String, self.co2Callback)
-        rospy.Subscriber("{}/log".format(self.id), String, self.logCallback)
+        self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id), self.callback,
+                                      qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        self.node.create_subscription(String, "{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        self.node.create_subscription(String, "{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
         self.s.enter(1, 1, self.updateLED, ())
         self.s.run()
 
         # spin() simply keeps python from exiting until this node is stopped
-        rospy.spin()
+        rclpy.spin(self.node)
 
 
 def main():
