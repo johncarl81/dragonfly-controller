@@ -1,4 +1,4 @@
-FROM ros:rolling-ros-base
+FROM ros:galactic-ros-base
 
 ENV DEBIAN_FRONTEND noninteractive
 ENV WORKSPACE=/workspace
@@ -6,7 +6,7 @@ ENV WORKSPACE=/workspace
 # Install dependencies
 RUN apt-get -qq update && \
     apt-get -qq upgrade && \
-    apt-get -qq install apt-utils build-essential vim glpk-utils ros-rolling-mavros python3-pip
+    apt-get -qq install apt-utils build-essential vim glpk-utils ros-galactic-mavros python3-pip
 
 RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
@@ -26,7 +26,7 @@ COPY . $WORKSPACE
 RUN cd $WORKSPACE && rm -rf docker build devel && \
 	rm -rf src/dragonfly_dashboard src/dragonfly_messages_java
 
-RUN source /opt/ros/rolling/setup.bash && \
+RUN source /opt/ros/galactic/setup.bash && \
 	cd $WORKSPACE && \
     colcon build
 
