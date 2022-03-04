@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 import math
+import rx
 
 import numpy as np
 from geometry_msgs.msg import TwistStamped
-from rx.core import Observable
 from rx.subject import Subject
 from sensor_msgs.msg import NavSatFix
 from sklearn.linear_model import LinearRegression
@@ -41,8 +41,8 @@ class GradientAction:
         self.node = node
 
         self.ros_subscriptions = []
-        self.gradient_subscription = Observable.empty().subscribe()
-        self.timerSubscription = Observable.empty().subscribe()
+        self.gradient_subscription = rx.empty().subscribe()
+        self.timerSubscription = rx.empty().subscribe()
         self.max_value = None
 
     def parseReading(self, reading):
@@ -51,7 +51,7 @@ class GradientAction:
     def checkForMax(self, readingPosition):
         if self.max_value is None or readingPosition.value > self.max_value.value:
             self.timerSubscription.dispose()
-            self.timerSubscription = Observable.timer(10000) \
+            self.timerSubscription = rx.timer(10000) \
                 .subscribe(on_next=lambda v: self.complete())
             self.max_value = readingPosition
             print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
@@ -95,7 +95,7 @@ class GradientAction:
             for drone in self.drones:
                 droneReadingSubjects.append(self.setupSubject(drone))
 
-            self.gradient_subscription = Observable.combine_latest(droneReadingSubjects,
+            self.gradient_subscription = rx.combine_latest(droneReadingSubjects,
                                                                    lambda *positionReadings: positionReadings) \
                 .sample(self.SAMPLE_RATE) \
                 .map(lambda readings: self.linearRegressionNormal(readings)) \
@@ -124,7 +124,7 @@ class GradientAction:
 
         position_value_subject = Subject()
 
-        Observable.combine_latest(position_subject, co2_subject,
+        rx.combine_latest(position_subject, co2_subject,
                                   lambda position, reading: ReadingPosition(position.latitude, position.longitude,
                                                                             self.parseReading(reading))) \
             .subscribe(on_next=lambda v: position_value_subject.on_next(v))

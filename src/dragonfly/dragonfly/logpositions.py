@@ -76,7 +76,7 @@ def main():
     print(
         "df1.lon, df1.lat, df1.alt, df1.value, df2.lon, df2.lat, df2.alt, df2.value, df3.lon, df3.lat, df3.alt, "
         "df3.value")
-    Observable.combine_latest([df1_subject, df2_subject, df3_subject], lambda *positions: positions) \
+    rx.combine_latest([df1_subject, df2_subject, df3_subject], lambda *positions: positions) \
         .sample(SAMPLE_RATE) \
         .subscribe(lambda vectors: log_vectors(vectors))
 

@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import math
+import rx
 
 from geometry_msgs.msg import TwistStamped
 from rx.core import Observable
@@ -36,7 +37,7 @@ class FlockingAction:
         self.selfvelocity_subject = Subject()
         self.flock_repulsion = Subject()
 
-        formation_position_attraction = Observable.combine_latest(self.leaderposition_subject,
+        formation_position_attraction = rx.combine_latest(self.leaderposition_subject,
                                                                   self.selfposition_subject,
                                                                   lambda leaderposition,
                                                                          selfposition: self.formation_position(
@@ -49,17 +50,17 @@ class FlockingAction:
         leaderVelocity = self.leadervelocity_subject \
             .map(lambda twist: self.format_velocities(twist))
 
-        leaderVelocityDampening = Observable.combine_latest(self.leadervelocity_subject, self.selfvelocity_subject,
+        leaderVelocityDampening = rx.combine_latest(self.leadervelocity_subject, self.selfvelocity_subject,
                                                             lambda leadertwist, selftwist: self.velocity_dampening(
                                                                 leadertwist, selftwist))
 
-        self.navigate_subscription = Observable.combine_latest(
+        self.navigate_subscription = rx.combine_latest(
             [leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion],
             lambda *positions: positions) \
             .sample(self.SAMPLE_RATE) \
             .subscribe(lambda vectors: self.navigate(vectors))
 
-        self.flockSubscription = Observable.empty().subscribe()
+        self.flockSubscription = rx.empty().subscribe()
 
     def navigate(self, input):
 
@@ -126,7 +127,7 @@ class FlockingAction:
         flock_coordinate_subject_list = [self.selfposition_subject]
         flock_coordinate_subject_list.extend(self.flock_coordinates.values())
 
-        self.flockSubscription = Observable.combine_latest(flock_coordinate_subject_list,
+        self.flockSubscription = rx.combine_latest(flock_coordinate_subject_list,
                                                            lambda *positions: self.repulsion_vector(positions)) \
             .sample(self.SAMPLE_RATE) \
             .subscribe(on_next=lambda v: self.flock_repulsion.on_next(v))

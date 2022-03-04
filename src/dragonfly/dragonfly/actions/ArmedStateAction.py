@@ -1,5 +1,6 @@
 #!/usr/bin/env python
-from mavros_msgs.msg import State
+import rx
+import rx.operators as ops
 
 from .ActionQueue import ActionQueue
 from .ActionState import ActionState
@@ -8,15 +9,15 @@ from std_msgs.msg import String
 
 class ArmedStateAction:
 
-    def __init__(self, log_publisher, id, node):
-        self.node = node
+    def __init__(self, log_publisher, id, status_observable):
+        self.status_observable = status_observable
         self.log_publisher = log_publisher
         self.id = id
         self.armedQueue = ActionQueue()
         self.notarmedQueue = ActionQueue()
         self.status = ActionState.WORKING
         self.commanded = False
-        self.disabled_update = None
+        self.status_subscription = rx.empty().subscribe()
 
     def step(self):
         if not self.commanded:
@@ -33,14 +34,15 @@ class ArmedStateAction:
                     print("Is not armed, continue")
                     self.status = ActionState.SUCCESS
 
-                self.stop()
+                    self.stop()
 
-            self.disabled_update = self.node.create_subscription(
-                State, "{}/mavros/state".format(self.id), updateState, 10)
+            self.status_subscription = self.status_observable.pipe(
+                ops.take(1)
+            ).subscribe(
+                on_next = lambda state:updateState(state)
+            )
 
         return self.status
 
     def stop(self):
-        if self.disabled_update is not None:
-            self.disabled_update.destroy()
-            self.disabled_update = None
+        self.status_subscription.dispose()

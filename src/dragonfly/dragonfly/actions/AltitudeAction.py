@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 import math
+import rx
 
 from geometry_msgs.msg import PoseStamped
 
@@ -16,16 +17,16 @@ def distance(position1, position2):
 
 class AltitudeAction:
 
-    def __init__(self, id, local_setposition_publisher, altitude, distance_threshold, node):
+    def __init__(self, id, local_setposition_publisher, altitude, distance_threshold, local_position_observable):
         self.id = id
-        self.node = node
+        self.local_position_observable = local_position_observable
         self.altitude = altitude
         self.distance_threshold = distance_threshold
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
         self.waypoint_published = False
-        self.position_update = None
+        self.position_update = rx.empty().subscribe()
         self.waypoint = None
 
     def step(self):
@@ -49,13 +50,9 @@ class AltitudeAction:
                     self.status = ActionState.SUCCESS
                     self.stop()
 
-            self.position_update = self.node.create_subscription(PoseStamped,
-                                                                 "{}/mavros/local_position/pose".format(self.id),
-                                                                 updatePosition, 10)
+            self.position_update = self.local_position_observable.subscribe(on_next = lambda position: updatePosition(position))
 
         return self.status
 
     def stop(self):
-        if self.position_update is not None:
-            self.position_update.destroy()
-            self.position_update = None
+        self.position_update.dispose()

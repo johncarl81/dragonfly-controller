@@ -3,7 +3,6 @@ from mavros_msgs.srv import SetMode
 
 from .ActionState import ActionState
 
-
 class ModeAction:
 
     def __init__(self, setmode_service, mode):
@@ -17,9 +16,7 @@ class ModeAction:
         if not self.commanded:
             self.commanded = True
             print("Set Mode {}".format(self.mode))
-            request = SetMode.Request()
-            request.custom_mode = self.mode
-            future = self.setmode_service.call_async(request)
+            future = self.setmode_service.call_async(SetMode.Request(custom_mode=self.mode))
 
             def mode_finished(msg):
                 result = future.result()

@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-from rx.core import Observable
+import rx
 from rx.subject import Subject
 
 from dragonfly_messages.msg import SemaphoreToken
@@ -16,7 +16,7 @@ class SemaphoreAction:
         self.status = ActionState.WORKING
         self.node = node
 
-        self.publish_semaphore_interval = Observable.empty().subscribe()
+        self.publish_semaphore_interval = rx.empty().subscribe()
         self.receive_semaphore_subscription = None
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore", 10)
 
@@ -34,7 +34,7 @@ class SemaphoreAction:
         if self.responded == self.drones:
             self.status = ActionState.SUCCESS
             self.stop()
-            Observable.interval(1000).take(10).subscribe(
+            rx.interval(1000).take(10).subscribe(
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
 
@@ -46,7 +46,7 @@ class SemaphoreAction:
             self.commanded = True
 
             # Publish semaphore until finished
-            self.publish_semaphore_interval = Observable.interval(1000).subscribe(
+            self.publish_semaphore_interval = rx.interval(1000).subscribe(
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
 

@@ -1,24 +1,22 @@
 #!/usr/bin/env python
-import rclpy
-from mavros_msgs.msg import State
-from rclpy.qos import QoSProfile, HistoryPolicy
+import rx
+
 from std_msgs.msg import String
 from .ActionState import ActionState
 
-
 class WaitForDisarmAction:
 
-    def __init__(self, id, log_publisher):
-        rclpy.init(args=id)
-        self.node = rclpy.create_node(id + 'WaitForDisarmAction')
+    def __init__(self, id, log_publisher, status_observable):
+        self.status_observable = status_observable
         self.id = id
         self.log_publisher = log_publisher
         self.status = ActionState.WORKING
         self.commanded = False
-        self.disabled_update = None
+        self.status_subscription = rx.empty().subscribe()
 
     def step(self):
         if not self.commanded:
+            print("Waiting for disarm...")
             self.commanded = True
 
             def updateState(state):
@@ -28,12 +26,11 @@ class WaitForDisarmAction:
                     self.stop()
                     self.log_publisher.publish(String(data="Disarmed"))
 
-            self.disabled_update = self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateState,
-                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST,
-                                                                                        depth=10))
+            self.status_subscription = self.status_observable.subscribe(
+                on_next = lambda state: updateState(state)
+            )
 
         return self.status
 
     def stop(self):
-        if self.disabled_update is not None:
-            self.disabled_update.destroy()
+        self.status_subscription.dispose()

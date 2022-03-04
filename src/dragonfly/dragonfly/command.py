@@ -7,11 +7,12 @@ from datetime import datetime, timedelta
 
 import rclpy
 from geometry_msgs.msg import TwistStamped
-from mavros_msgs.msg import ParamValue
+from mavros_msgs.msg import ParamValue, State
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
+from rx.subject import Subject
 
 from dragonfly_messages.msg import MissionStep
 from dragonfly_messages.srv import *
@@ -25,7 +26,7 @@ class MissionStarter:
 
 
 class DragonflyCommand:
-    TEST_ALTITUDE = 3
+    TEST_ALTITUDE = 3.0
 
     def __init__(self, id, node):
         self.boundary_check_thread = None
@@ -41,9 +42,14 @@ class DragonflyCommand:
         self.localposition = None
         self.orientation = None
 
+        self.stateSubject = Subject()
+        self.local_position_observable = Subject()
+        self.local_velocity_observable = Subject()
+
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
         print(self.setmode_service.call(SetMode.Request(custom_mode=mode)))
+
         time.sleep(1)
 
     def arm(self):
@@ -73,10 +79,10 @@ class DragonflyCommand:
     def takeoff(self, request, response):
         print("Commanded to takeoff")
 
-        self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id, self.node)) \
+        self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id, self.stateSubject)) \
             .push(ModeAction(self.setmode_service, "STABILIZE")) \
             .push(ArmAction(self.logPublisher, self.arm_service)) \
-            .push(SleepAction(5)) \
+            .push(SleepAction(1)) \
             .push(ModeAction(self.setmode_service, "GUIDED")) \
             .push(TakeoffAction(self.logPublisher, self.takeoff_service, self.TEST_ALTITUDE))
 
@@ -86,7 +92,7 @@ class DragonflyCommand:
         print("Commanded to land")
 
         self.actionqueue.push(LandAction(self.logPublisher, self.land_service)) \
-            .push(WaitForDisarmAction(self.id, self.logPublisher)) \
+            .push(WaitForDisarmAction(self.id, self.logPublisher, self.stateSubject)) \
             .push(ModeAction(self.setmode_service, "STABILIZE"))
 
         return response
@@ -301,7 +307,7 @@ class DragonflyCommand:
                 self.actionqueue.push(MissionStartAction(self.logPublisher, self.mission_starter))
             elif step.msg_type == MissionStep.TYPE_TAKEOFF:
                 print("Takeoff")
-                self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id, self.node)) \
+                self.actionqueue.push(ArmedStateAction(self.logPublisher, self.id, self.stateSubject)) \
                     .push(ModeAction(self.setmode_service, "STABILIZE")) \
                     .push(ArmAction(self.logPublisher, self.arm_service)) \
                     .push(SleepAction(5)) \
@@ -322,7 +328,7 @@ class DragonflyCommand:
                 if waypoint is not None:
                     self.actionqueue.push(LogAction(self.logPublisher, "Goto {}".format(step.goto.waypoint))) \
                         .push(WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                                             distance_threshold, self.node))
+                                             distance_threshold, self.local_velocity_observable, self.local_position_observable))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 print("Semaphore")
                 self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
@@ -355,7 +361,7 @@ class DragonflyCommand:
                         self.orientation)
                     self.actionqueue.push(
                         WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint,
-                                       step.ddsa.distance_threshold, self.node))
+                                       step.ddsa.distance_threshold, self.local_velocity_observable, self.local_position_observable))
                     self.runWaypoints("DDSA", waypoints, step.ddsa.wait_time, step.ddsa.distance_threshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 print("Lawnmower")
@@ -423,7 +429,7 @@ class DragonflyCommand:
                 LogAction(self.logPublisher, "Goto {} {}/{}".format(waypoints_name, i + 1, len(waypoints))))
             self.actionqueue.push(
                 WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                               distance_threshold, self.node))
+                               distance_threshold, self.local_velocity_observable, self.local_position_observable))
             if wait_time > 0:
                 self.actionqueue.push(SleepAction(wait_time))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
@@ -444,6 +450,7 @@ class DragonflyCommand:
         self.position = data
 
     def localposition_callback(self, data):
+        self.local_position_observable.on_next(data)
         self.localposition = data.pose.position
         self.orientation = data.pose.orientation
 
@@ -468,7 +475,7 @@ class DragonflyCommand:
         self.canceled = True
         self.actionqueue.stop()
         self.actionqueue.push(
-            StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher, self.node))
+            StopInPlaceAction(self.id, self.logPublisher, self.local_setposition_publisher, self.local_position_observable))
 
     def loop(self):
         try:
@@ -515,6 +522,14 @@ class DragonflyCommand:
                                       self.localposition_callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback,
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        def updateStateSubject(state):
+            self.stateSubject.on_next(state)
+
+        self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateStateSubject, 10)
+
+        self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id),
+                                      lambda velocity: self.local_velocity_observable.on_next(velocity),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
         self.logPublisher = self.node.create_publisher(String, "{}/log".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))

@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from .ActionState import ActionState
+from mavros_msgs.srv import CommandTOL
+from std_msgs.msg import String
 
+from .ActionState import ActionState
 
 class LandAction:
 
@@ -9,11 +11,9 @@ class LandAction:
         self.land_service = land_service
 
     def step(self):
-        print("Land off")
-        result = self.land_service(altitude=0)
-
-        print("Land result {}".format(result))
-
+        print("Land action")
+        result = self.land_service.call(CommandTOL.Request(altitude=0.0))
+        print("Arming result {}".format(result))
         if result.success:
             self.log_publisher.publish(String(data="Landing..."))
         else:
