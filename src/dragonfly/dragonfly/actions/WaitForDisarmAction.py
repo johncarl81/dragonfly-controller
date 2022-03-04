@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 import rclpy
 from mavros_msgs.msg import State
-from rclpy.qos import QoSProfile
-
+from rclpy.qos import QoSProfile, HistoryPolicy
+from std_msgs.msg import String
 from .ActionState import ActionState
 
 
@@ -26,10 +26,11 @@ class WaitForDisarmAction:
                 if not state.armed:
                     self.status = ActionState.SUCCESS
                     self.stop()
-                    self.log_publisher.publish("Disarmed")
+                    self.log_publisher.publish(String(data="Disarmed"))
 
             self.disabled_update = self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateState,
-                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST,
+                                                                                        depth=10))
 
         return self.status
 

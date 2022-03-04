@@ -15,9 +15,9 @@ class LandAction:
         print("Land result {}".format(result))
 
         if result.success:
-            self.log_publisher.publish("Landing...")
+            self.log_publisher.publish(String(data="Landing..."))
         else:
-            self.log_publisher.publish("Landing failed")
+            self.log_publisher.publish(String(data="Landing failed"))
 
         return ActionState.mapSuccess(result.success)
 

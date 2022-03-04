@@ -10,7 +10,7 @@ class MissionStartAction:
 
     def step(self):
         if self.mission_starter.start:
-            self.log_publisher.publish("Mission started")
+            self.log_publisher.publish(String(data="Mission started"))
             self.mission_starter.start = False
             return ActionState.SUCCESS
         return ActionState.WORKING

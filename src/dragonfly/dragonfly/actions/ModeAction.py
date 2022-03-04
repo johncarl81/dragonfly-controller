@@ -21,9 +21,9 @@ class ModeAction:
             request.custom_mode = self.mode
             future = self.setmode_service.call_async(request)
 
-            def mode_finished():
+            def mode_finished(msg):
                 result = future.result()
-                print("Set mode result", result)
+                print("Set mode result", result, msg)
                 self.status = ActionState.mapSuccess(result.mode_sent)
 
             future.add_done_callback(mode_finished)

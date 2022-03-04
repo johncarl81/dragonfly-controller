@@ -1,6 +1,8 @@
 #!/usr/bin/env python
-from .ActionState import ActionState
+from mavros_msgs.srv import CommandTOL
 
+from .ActionState import ActionState
+from std_msgs.msg import String
 
 class TakeoffAction:
 
@@ -11,13 +13,13 @@ class TakeoffAction:
 
     def step(self):
         print("Take off")
-        result = self.takeoff_service(altitude=self.altitude)
+        result = self.takeoff_service.call(CommandTOL.Request(altitude=self.altitude))
 
         print("Take off result {}".format(result))
-        if result.success:
-            self.log_publisher.publish("Takeoff to {}m".format(self.altitude))
+        if result and result.success:
+            self.log_publisher.publish(String(data="Takeoff to {}m".format(self.altitude)))
         else:
-            self.log_publisher.publish("Takeoff failed")
+            self.log_publisher.publish(String(data="Takeoff failed"))
 
         return ActionState.mapSuccess(result.success)
 

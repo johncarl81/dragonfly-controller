@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from .ActionState import ActionState
-
+from std_msgs.msg import String
 
 class WaitForZeroAction:
 
@@ -13,7 +13,7 @@ class WaitForZeroAction:
         if self.zeroingSingleton.zeroing:
             if not self.logged:
                 self.logged = True
-                self.log_publisher.publish("Waiting for zero...")
+                self.log_publisher.publish(String(data="Waiting for zero..."))
             return ActionState.WORKING
         else:
             return ActionState.SUCCESS

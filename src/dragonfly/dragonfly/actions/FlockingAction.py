@@ -133,7 +133,7 @@ class FlockingAction:
 
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates:
-            self.log_publisher.publish("Flocking with {}".format(name))
+            self.log_publisher.publish(String(data="Flocking with {}".format(name)))
             print("Registering flock member: {}".format(name))
             flock_coordinate_subject = Subject()
             self.flock_coordinates[name] = flock_coordinate_subject
@@ -182,7 +182,7 @@ class FlockingAction:
             self.ros_subscriptions.append(
                 self.node.create_subscription(String, "/dragonfly/announce", self.flock_announce_callback, 10))
 
-            self.log_publisher.publish("Flocking")
+            self.log_publisher.publish(String(data="Flocking"))
 
         return ActionState.WORKING
 

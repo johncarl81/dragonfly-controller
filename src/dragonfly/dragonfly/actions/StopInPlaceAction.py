@@ -1,8 +1,7 @@
 #!/usr/bin/env python
 from geometry_msgs.msg import PoseStamped
-
 from .ActionState import ActionState
-
+from std_msgs.msg import String
 
 class StopInPlaceAction:
 
@@ -26,7 +25,7 @@ class StopInPlaceAction:
                 self.stop()
 
                 print("Stop in place")
-                self.log_publisher.publish("Stopped")
+                self.log_publisher.publish(String(data="Stopped"))
 
             self.node.create_subscription(PoseStamped, "{}/mavros/local_position/pose".format(self.id), updatePosition,
                                           10)

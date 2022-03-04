@@ -3,6 +3,7 @@ from mavros_msgs.msg import State
 
 from .ActionQueue import ActionQueue
 from .ActionState import ActionState
+from std_msgs.msg import String
 
 
 class ArmedStateAction:
@@ -27,7 +28,7 @@ class ArmedStateAction:
                 if state.armed:
                     print("Is already armed, failed")
                     self.status = ActionState.FAILURE
-                    self.log_publisher.publish("Arming failed, already armed")
+                    self.log_publisher.publish(String(data="Arming failed, already armed"))
                 else:
                     print("Is not armed, continue")
                     self.status = ActionState.SUCCESS

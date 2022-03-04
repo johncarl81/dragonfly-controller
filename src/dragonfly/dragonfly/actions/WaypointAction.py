@@ -3,7 +3,7 @@ import math
 
 import rx
 from geometry_msgs.msg import PoseStamped, TwistStamped
-from rclpy.qos import QoSProfile
+from rclpy.qos import QoSProfile, HistoryPolicy
 from rx.core import Observable
 from rx.subject import Subject
 
@@ -76,13 +76,15 @@ class WaypointAction:
             self.position_update = self.node.create_subscription(PoseStamped,
                                                                  "{}/mavros/local_position/pose".format(self.id),
                                                                  lambda pose: self.pose_subject.on_next(pose),
-                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST,
+                                                                                        depth=10))
             self.velocity_update = self.node.create_subscription(TwistStamped,
                                                                  "{}/mavros/local_position/velocity_local".format(
                                                                      self.id),
                                                                  lambda velocity: self.velocity_subject.on_next(
                                                                      velocity),
-                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+                                                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST,
+                                                                                        depth=10))
 
             self.waypointAcceptanceSubscription = Observable.combine_latest(self.pose_subject, self.velocity_subject,
                                                                             rx.Observable.interval(1000),

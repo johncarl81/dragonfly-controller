@@ -1,6 +1,7 @@
 #!/usr/bin/env python
+from mavros_msgs.srv import CommandBool
 from .ActionState import ActionState
-
+from std_msgs.msg import String
 
 class ArmAction:
 
@@ -10,14 +11,12 @@ class ArmAction:
 
     def step(self):
         print("Arming")
-        result = self.arm_service(True)
-
+        result = self.arm_service.call(CommandBool.Request(value=True))
         print("Arming result {}".format(result))
-
-        if result.success:
-            self.log_publisher.publish("Armed")
+        if result and result.success:
+            self.log_publisher.publish(String(data="Armed"))
         else:
-            self.log_publisher.publish("Arming failed")
+            self.log_publisher.publish(String(data="Arming failed"))
 
         return ActionState.mapSuccess(result.success)
 
