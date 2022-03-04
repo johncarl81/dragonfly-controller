@@ -43,18 +43,18 @@ class DragonflyCommand:
 
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
-        print(self.setmode_service(custom_mode=mode))
+        print(self.setmode_service.call(SetMode.Request(custom_mode=mode)))
         time.sleep(1)
 
     def arm(self):
         print("Arming")
-        print(self.arm_service(True))
+        print(self.arm_service.call(CommandBool.Request(value=True)))
 
         time.sleep(5)
 
     def disarm(self):
         print("Disarming")
-        print(self.arm_service(False))
+        print(self.arm_service.call(CommandBool.Request(value=False)))
 
     def hello(self, request, response):
         print("hello")
@@ -102,7 +102,7 @@ class DragonflyCommand:
         self.cancel()
 
         self.setmode("RTL")
-        self.logPublisher.publish("RTL")
+        self.logPublisher.publish(String(data="RTL"))
 
     def goto(self, request, response):
         print("Commanded to goto")
@@ -269,12 +269,12 @@ class DragonflyCommand:
 
         param_value = ParamValue()
         param_value.integer = request.rtl_altitude
-        result = self.setparam_service(param_id='RTL_ALT', value=param_value)
+        result = self.setparam_service.call(param_id='RTL_ALT', value=param_value)
 
         self.rtl_boundary = request.rtl_boundary
         self.max_altitude = request.max_altitude
 
-        self.logPublisher.publish("Setup Success: {}".format(result.success))
+        self.logPublisher.publish(String(data="Setup Success: {}".format(result.success)))
 
         return Setup.Response(success=result.success, message="Setup {}".format(self.id))
 
@@ -283,11 +283,11 @@ class DragonflyCommand:
         while rclpy.ok():
             if self.localposition is not None and self.position is not None and not self.canceled:
                 if self.localposition.z > self.max_altitude:
-                    self.logPublisher.publish("Exceeded maximum altitude of {}m".format(self.max_altitude))
+                    self.logPublisher.publish(String(data="Exceeded maximum altitude of {}m".format(self.max_altitude)))
                     self.rtl()
                 if self.rtl_boundary is not None and not isInside(self.position, self.rtl_boundary.points):
-                    self.logPublisher.publish(
-                        "Exceeded RTL Boundary at {}, {}".format(self.position.longitude, self.position.latitude))
+                    self.logPublisher.publish(String(data=
+                        "Exceeded RTL Boundary at {}, {}".format(self.position.longitude, self.position.latitude)))
                     self.rtl()
 
             rate.sleep()
@@ -404,7 +404,7 @@ class DragonflyCommand:
                     self.runWaypoints("Curtain", localWaypoints, 0, step.curtain.distance_threshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
-        self.logPublisher.publish("Mission with {} steps setup".format(len(request.steps)))
+        self.logPublisher.publish(String(data="Mission with {} steps setup".format(len(request.steps))))
 
         return Mission.Response(success=True, message="{} mission received.".format(self.id))
 
@@ -453,9 +453,9 @@ class DragonflyCommand:
         previous = self.zeroing
         self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
         if self.zeroing and not previous:
-            self.logPublisher.publish('Zeroing')
+            self.logPublisher.publish(String(data='Zeroing'))
         elif not self.zeroing and previous:
-            self.logPublisher.publish('Finished zeroing')
+            self.logPublisher.publish(String(data='Finished zeroing'))
 
     def cancelCommand(self, request, response):
         print("Commanded to cancel")
