@@ -41,6 +41,8 @@ class DragonflyCommand:
         self.local_position = None
         self.localposition = None
         self.orientation = None
+        self.rtl_boundary = None
+        self.max_altitude = 100
 
         self.stateSubject = Subject()
         self.local_position_observable = Subject()
@@ -48,9 +50,13 @@ class DragonflyCommand:
 
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
-        print(self.setmode_service.call(SetMode.Request(custom_mode=mode)))
+        future = self.setmode_service.call_async(SetMode.Request(custom_mode=mode))
 
-        time.sleep(1)
+        def mode_finished(msg):
+            result = future.result()
+            print("Set mode result", result, msg)
+
+        future.add_done_callback(mode_finished)
 
     def arm(self):
         print("Arming")
