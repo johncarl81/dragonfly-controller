@@ -15,11 +15,11 @@ class Span(Enum):
 
 def createWaypoint(x, y, altitude, orientation):
     waypoint = PoseStamped()
-    waypoint.pose.position.x = x
-    waypoint.pose.position.y = y
-    waypoint.pose.position.z = altitude
-    waypoint.pose.orientation.z = orientation.z
-    waypoint.pose.orientation.w = orientation.w
+    waypoint.pose.position.x = float(x)
+    waypoint.pose.position.y = float(y)
+    waypoint.pose.position.z = float(altitude)
+    waypoint.pose.orientation.z = float(orientation.z)
+    waypoint.pose.orientation.w = float(orientation.w)
 
     return waypoint
 
@@ -77,7 +77,7 @@ def build3DDDSAWaypoints(rangeType, stacks, size, index, loops, radius, step_len
 
 def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, step_length):
     waypoints = []
-    start = Point(x=-(index * radius), y=0, z=altitude)
+    start = Point(x=-float(index * radius), y=0.0, z=float(altitude))
     waypoints.append(start)
     previous = start
     for loop in range(loops):
@@ -95,10 +95,10 @@ def buildDDSAWaypoints(rangeType, altitude, size, index, loops, radius, step_len
                 if loop == loops - 1:
                     xoffset += index + 1
 
-            next = Point(x=xoffset, y=yoffset, z=altitude)
+            next = Point(x=float(xoffset), y=float(yoffset), z=float(altitude))
 
             for waypoint in calculateRange(rangeType, previous, next, step_length):
-                waypoints.append(Point(x=waypoint.x * radius, y=waypoint.y * radius, z=waypoint.z))
+                waypoints.append(Point(x=float(waypoint.x * radius), y=float(waypoint.y * radius), z=float(waypoint.z)))
 
             previous = next
 
@@ -201,15 +201,15 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
         maxx = float(linearXRange(boundary_meters, y, pulp.LpMaximize))
         print("minx:{} maxx:{} ".format(minx, maxx))
         waypoints.append(createWaypoint(minx, y, altitude, orientation))
-        for point in calculateRange(rangeType, Point(x=minx, y=y, z=altitude), Point(x=maxx, y=y, z=altitude),
+        for point in calculateRange(rangeType, Point(x=float(minx), y=float(y), z=float(altitude)), Point(x=float(maxx), y=float(y), z=float(altitude)),
                                     step_length):
             waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
         minx = float(linearXRange(boundary_meters, y + step_length, pulp.LpMinimize))
         maxx = float(linearXRange(boundary_meters, y + step_length, pulp.LpMaximize))
         print("minx:{} maxx:{} ".format(minx, maxx))
         waypoints.append(createWaypoint(maxx, y + step_length, altitude, orientation))
-        for point in calculateRange(rangeType, Point(x=maxx, y=y + (stepdirection * step_length), z=altitude),
-                                    Point(x=minx, y=y + (stepdirection * step_length), z=altitude), step_length):
+        for point in calculateRange(rangeType, Point(x=float(maxx), y=float(y + (stepdirection * step_length)), z=float(altitude)),
+                                    Point(x=float(minx), y=float(y + (stepdirection * step_length)), z=float(altitude)), step_length):
             waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
 
     return waypoints

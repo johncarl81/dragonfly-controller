@@ -1,5 +1,6 @@
 #!/usr/bin/env python
 from .ActionState import ActionState
+from std_msgs.msg import String
 
 
 class MissionStartAction:
