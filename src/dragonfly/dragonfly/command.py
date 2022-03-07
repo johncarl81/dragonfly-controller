@@ -6,7 +6,7 @@ import time
 from datetime import datetime, timedelta
 
 import rclpy
-from geometry_msgs.msg import TwistStamped
+from geometry_msgs.msg import TwistStamped, PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
@@ -15,7 +15,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from rx.subject import Subject
 
-from dragonfly_messages.msg import MissionStep
+from dragonfly_messages.msg import MissionStep, SemaphoreToken
 from dragonfly_messages.srv import *
 from .actions import *
 from .boundaryUtil import *
@@ -48,6 +48,7 @@ class DragonflyCommand:
         self.stateSubject = Subject()
         self.local_position_observable = Subject()
         self.local_velocity_observable = Subject()
+        self.semaphore_observable = Subject()
 
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
@@ -346,7 +347,7 @@ class DragonflyCommand:
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 print("Semaphore")
                 self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
-                    .push(SemaphoreAction(self.id, step.semaphore_step.id, step.semaphore_step.drones, self.node)) \
+                    .push(SemaphoreAction(self.id, step.semaphore_step.id, step.semaphore_step.drones, self.semaphore_publisher, self.semaphore_observable)) \
                     .push(LogAction(self.logPublisher, "Semaphore reached"))
             elif step.msg_type == MissionStep.TYPE_RTL:
                 print("RTL")
@@ -537,6 +538,8 @@ class DragonflyCommand:
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
+                                                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
         def updateStateSubject(state):
             self.stateSubject.on_next(state)
 
@@ -544,6 +547,10 @@ class DragonflyCommand:
 
         self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id),
                                       lambda velocity: self.local_velocity_observable.on_next(velocity),
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+
+        self.receive_semaphore_subscription = self.node.create_subscription(SemaphoreToken, "/dragonfly/semaphore",
+                                      lambda token: self.semaphore_observable.on_next(token),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
         self.logPublisher = self.node.create_publisher(String, "{}/log".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
