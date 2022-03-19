@@ -1,0 +1,69 @@
+---
+- hosts: localhost
+  name: dragonfly setup
+  become: yes
+  tasks:
+    #@TODO add ros software source
+    - name: Install packages 
+      ansible.builtin.apt:
+        update_cache: yes
+        cache_valid_time: 3600
+        name:
+          - apt-utils 
+          - build-essential 
+          - glpk-utils 
+          - openssh-server
+          - python3-pip
+          - python-dev 
+          - python-lxml 
+          - python-matplotlib 
+          #- python-opencv 
+          #- python-pip 
+          - python-pygame 
+          #- python-rosinstall 
+          #- python-rosinstall-generator 
+          #- python-wstool 
+          - python-wxgtk3.0 
+          - python-yaml
+          #- ros-galactic-mavros 
+          #- ros-galactic-mavros-extras
+          - vim 
+
+    - name: Remove ModemManager package
+      ansible.builtin.apt:
+          name: ModemManager
+          state: absent
+          
+    - name: pip install pulp rx scikit-learn MAVProxy
+      ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy
+    
+    - name: Add the user odroid
+      ansible.builtin.user:
+        name: odroid
+        group: dialout
+    
+    - name: add $HOME/.local/bin to the path
+      lineinfile:
+        path: ~/.bashrc
+        line: export PATH=$PATH:$HOME/.local/bin
+
+    # not sure where this comes from
+    - name: run ./datasets/install_geographiclib_datasets.sh
+      ansible.builtin.command: ./datasets/install_geographiclib_datasets.sh
+      
+    - name: Copy 10-dragonfly.rules file with owner and permissions
+      ansible.builtin.copy:
+        src: ../system_config/10-dragonfly.rules
+        dest: /etc/udev/rules.d/
+        
+    - name: Copy rc.local file with owner and permissions
+      ansible.builtin.copy:
+        src: ../system_config/rc.local
+        dest: /etc/rc.local
+
+    - name: Copy interfaces file with owner and permissions
+      ansible.builtin.copy:
+        src: ../system_config/interfaces
+        dest: /etc/network/interfaces
+        
+        
