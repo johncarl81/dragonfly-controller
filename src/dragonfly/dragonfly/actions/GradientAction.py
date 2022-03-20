@@ -1,13 +1,12 @@
 #!/usr/bin/env python
 import math
 import rx
+import rx.operators as ops
 
 import numpy as np
 from geometry_msgs.msg import TwistStamped
 from rx.subject import Subject
-from sensor_msgs.msg import NavSatFix
 from sklearn.linear_model import LinearRegression
-from std_msgs.msg import String
 
 from .ActionState import ActionState
 
@@ -29,18 +28,17 @@ class ReadingPosition:
 
 class GradientAction:
     MAX_VELOCITY = 1.0
-    SAMPLE_RATE = 10
+    SAMPLE_RATE = .01
 
-    def __init__(self, id, log_publisher, local_setvelocity_publisher, drones, node):
+    def __init__(self, id, log_publisher, local_setvelocity_publisher, drones, droneStreamFactory):
         self.id = id
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.drones = set(drones)
         self.commanded = False
         self.status = ActionState.WORKING
-        self.node = node
+        self.droneStreamFactory = droneStreamFactory
 
-        self.ros_subscriptions = []
         self.gradient_subscription = rx.empty().subscribe()
         self.timerSubscription = rx.empty().subscribe()
         self.max_value = None
@@ -51,13 +49,13 @@ class GradientAction:
     def checkForMax(self, readingPosition):
         if self.max_value is None or readingPosition.value > self.max_value.value:
             self.timerSubscription.dispose()
-            self.timerSubscription = rx.timer(10000) \
+            self.timerSubscription = rx.timer(10) \
                 .subscribe(on_next=lambda v: self.complete())
             self.max_value = readingPosition
             print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
 
     def linearRegressionNormal(self, readingPositions):
-
+        print("Calculating normal")
         x = []
         y = []
 
@@ -90,44 +88,31 @@ class GradientAction:
             print("Following Gradient")
             self.commanded = True
 
-            droneReadingSubjects = []
+            droneReadingSubjects = [self.setupSubject(drone) for drone in self.drones]
 
-            for drone in self.drones:
-                droneReadingSubjects.append(self.setupSubject(drone))
-
-            self.gradient_subscription = rx.combine_latest(droneReadingSubjects,
-                                                                   lambda *positionReadings: positionReadings) \
-                .sample(self.SAMPLE_RATE) \
-                .map(lambda readings: self.linearRegressionNormal(readings)) \
-                .subscribe(on_next=lambda vector: self.navigate(vector))
+            self.gradient_subscription = rx.combine_latest(*droneReadingSubjects).pipe(
+                ops.sample(self.SAMPLE_RATE),
+                ops.map(lambda readings: self.linearRegressionNormal(readings))
+            ).subscribe(on_next=lambda vector: self.navigate(vector))
 
         return self.status
 
     def stop(self):
-        for subscription in self.ros_subscriptions:
-            subscription.destroy()
-
-        del self.ros_subscriptions
-
         self.gradient_subscription.dispose()
-
         self.navigate(dotdict({"x": 0, "y": 0}))
 
     def setupSubject(self, drone):
-        position_subject = Subject()
-        co2_subject = Subject()
-        self.ros_subscriptions.append(
-            self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(drone),
-                                          lambda position: position_subject.on_next(position), 10))
-        self.ros_subscriptions.append(
-            self.node.create_subscription(String, "{}/co2".format(drone), lambda value: co2_subject.on_next(value), 10))
+
+        drone_streams = self.droneStreamFactory.get_drone(drone)
+
+        position_subject = drone_streams.get_position()
+        co2_subject = drone_streams.get_co2()
 
         position_value_subject = Subject()
 
-        rx.combine_latest(position_subject, co2_subject,
-                                  lambda position, reading: ReadingPosition(position.latitude, position.longitude,
-                                                                            self.parseReading(reading))) \
-            .subscribe(on_next=lambda v: position_value_subject.on_next(v))
+        rx.combine_latest(position_subject, co2_subject).pipe(
+            ops.map(lambda tuple: ReadingPosition(tuple[0].latitude, tuple[0].longitude, self.parseReading(tuple[1])))
+        ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
 
         return position_value_subject
 

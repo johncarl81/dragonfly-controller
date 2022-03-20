@@ -1,25 +1,24 @@
 #!/usr/bin/env python
 import math
 import rx
+import rx.operators as ops
 
 from geometry_msgs.msg import TwistStamped
-from rx.core import Observable
 from rx.subject import Subject
-from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 
 from .ActionState import ActionState
 
 
 class FlockingAction:
-    SAMPLE_RATE = 100.0
+    SAMPLE_RATE = 0.1
     DAMPENING = 0.6
     REPULSION_COEFFIENT = 4.0
     REPULSION_RADIUS = 4.0
     POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
-    def __init__(self, id, log_publisher, local_setvelocity_publisher, xoffset, yoffset, leader, node):
+    def __init__(self, id, log_publisher, local_setvelocity_publisher, announce_stream, xoffset, yoffset, leader, drone_stream_factory):
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
@@ -28,39 +27,17 @@ class FlockingAction:
         self.leader = leader
         self.started = False
         self.ros_subscriptions = []
-        self.node = node
+        self.announce_stream = announce_stream
+        self.drone_stream_factory = drone_stream_factory
 
         self.flock_coordinates = {}
-        self.leaderposition_subject = Subject()
-        self.selfposition_subject = Subject()
-        self.leadervelocity_subject = Subject()
-        self.selfvelocity_subject = Subject()
+
         self.flock_repulsion = Subject()
 
-        formation_position_attraction = rx.combine_latest(self.leaderposition_subject,
-                                                                  self.selfposition_subject,
-                                                                  lambda leaderposition,
-                                                                         selfposition: self.formation_position(
-                                                                      leaderposition, selfposition))
-
-        # Issue a zero velocity token if nothing has been given for a while
-        self.leadervelocity_subject.debounce(1000) \
-            .subscribe(on_next=lambda v: self.leadervelocity_subject.on_next(TwistStamped()))
-
-        leaderVelocity = self.leadervelocity_subject \
-            .map(lambda twist: self.format_velocities(twist))
-
-        leaderVelocityDampening = rx.combine_latest(self.leadervelocity_subject, self.selfvelocity_subject,
-                                                            lambda leadertwist, selftwist: self.velocity_dampening(
-                                                                leadertwist, selftwist))
-
-        self.navigate_subscription = rx.combine_latest(
-            [leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion],
-            lambda *positions: positions) \
-            .sample(self.SAMPLE_RATE) \
-            .subscribe(lambda vectors: self.navigate(vectors))
-
+        self.zero_velocity_debounce_subscription = rx.empty().subscribe()
+        self.flocking_subscription = rx.empty().subscribe()
         self.flockSubscription = rx.empty().subscribe()
+        self.navigate_subscription = rx.empty().subscribe()
 
     def navigate(self, input):
 
@@ -120,23 +97,22 @@ class FlockingAction:
 
         return vector
 
-    def flock_announce_callback(self, nameString):
-        self.flock_announce(nameString.data)
-
     def subscribe_flock(self):
-        flock_coordinate_subject_list = [self.selfposition_subject]
+        flock_coordinate_subject_list = [self.drone_stream_factory.get_drone(self.id).get_position()]
         flock_coordinate_subject_list.extend(self.flock_coordinates.values())
 
-        self.flockSubscription = rx.combine_latest(flock_coordinate_subject_list,
-                                                           lambda *positions: self.repulsion_vector(positions)) \
-            .sample(self.SAMPLE_RATE) \
-            .subscribe(on_next=lambda v: self.flock_repulsion.on_next(v))
+        self.flockSubscription = rx.combine_latest(*flock_coordinate_subject_list).pipe(
+            ops.map(lambda positions: self.repulsion_vector(positions)),
+            ops.sample(self.SAMPLE_RATE)
+        ).subscribe(on_next=lambda v: self.flock_repulsion.on_next(v))
 
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates:
             self.log_publisher.publish(String(data="Flocking with {}".format(name)))
             print("Registering flock member: {}".format(name))
-            flock_coordinate_subject = Subject()
+
+            flock_coordinate_subject = self.drone_stream_factory.get_drone(name).get_position()
+
             self.flock_coordinates[name] = flock_coordinate_subject
 
             timeoutSubscription = None
@@ -146,16 +122,9 @@ class FlockingAction:
                 self.subscribe_flock()
                 timeoutSubscription.dispose()
 
-            timeoutSubscription = flock_coordinate_subject.debounce(10000) \
-                .subscribe(on_next=lambda v: coordinate_subscription_timeout())
-
-            def flock_coordiante_subject(position):
-                # print("name: {} position: {} {}".format(name, position.latitude, position.longitude))
-                flock_coordinate_subject.on_next(position)
-
-            self.ros_subscriptions.append(
-                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(name),
-                                              flock_coordiante_subject, 10))
+            timeoutSubscription = flock_coordinate_subject.pipe(
+                ops.debounce(10)
+            ).subscribe(on_next=lambda v: coordinate_subscription_timeout())
 
             self.flockSubscription.dispose()
 
@@ -167,30 +136,42 @@ class FlockingAction:
 
             print("Subscribing...")
 
-            self.ros_subscriptions.append(
-                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.leader),
-                                              lambda position: self.leaderposition_subject.on_next(position), 10))
-            self.ros_subscriptions.append(
-                self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),
-                                              lambda position: self.selfposition_subject.on_next(position), 10))
-            self.ros_subscriptions.append(
-                self.node.create_subscription(TwistStamped,
-                                              "{}/mavros/local_position/velocity_local".format(self.leader),
-                                              lambda twist: self.leadervelocity_subject.on_next(twist), 10))
-            self.ros_subscriptions.append(
-                self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id),
-                                              lambda twist: self.selfvelocity_subject.on_next(twist), 10))
-            self.ros_subscriptions.append(
-                self.node.create_subscription(String, "/dragonfly/announce", self.flock_announce_callback, 10))
+            leader_drone = self.drone_stream_factory.get_drone(self.leader)
+            self_drone = self.drone_stream_factory.get_drone(self.id)
+            leaderposition_subject = leader_drone.get_position()
+            selfposition_subject = self_drone.get_position()
+            leadervelocity_subject = leader_drone.get_velocity()
+            selfvelocity_subject = self_drone.get_velocity()
+
+            formation_position_attraction = rx.combine_latest(leaderposition_subject, selfposition_subject).pipe(
+                ops.map(lambda positions: self.formation_position(positions[0], positions[1])))
+
+            # Issue a zero velocity token if nothing has been given for a while
+            self.zero_velocity_debounce_subscription = leadervelocity_subject.pipe(
+                ops.debounce(1)
+            ).subscribe(on_next=lambda v: leadervelocity_subject.on_next(TwistStamped()))
+
+            leaderVelocity = leadervelocity_subject.pipe(
+                ops.map(lambda twist: self.format_velocities(twist)))
+
+            leaderVelocityDampening = rx.combine_latest(leadervelocity_subject, selfvelocity_subject).pipe(
+                ops.map(lambda twists: self.velocity_dampening(twists[0], twists[1])))
+
+            self.navigate_subscription = rx.combine_latest(
+                leaderVelocity, leaderVelocityDampening, formation_position_attraction, self.flock_repulsion).pipe(
+                ops.sample(self.SAMPLE_RATE)
+            ).subscribe(lambda vectors: self.navigate(vectors))
+
+            self.flocking_subscription = self.announce_stream.subscribe(
+                on_next = lambda name: self.flock_announce(name.data)
+            )
 
             self.log_publisher.publish(String(data="Flocking"))
 
         return ActionState.WORKING
 
     def stop(self):
-        for subscription in self.ros_subscriptions:
-            subscription.destroy()
-
-        del self.ros_subscriptions
-
+        self.zero_velocity_debounce_subscription.dispose()
+        self.flocking_subscription.dispose()
         self.navigate_subscription.dispose()
+        self.flockSubscription.dispose()

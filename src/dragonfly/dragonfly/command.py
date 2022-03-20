@@ -17,6 +17,7 @@ from rx.subject import Subject
 
 from dragonfly_messages.msg import MissionStep, SemaphoreToken
 from dragonfly_messages.srv import *
+from .droneStreamFactory import DroneStreamFactory
 from .actions import *
 from .boundaryUtil import *
 from .waypointUtil import *
@@ -48,6 +49,7 @@ class DragonflyCommand:
         self.stateSubject = Subject()
         self.local_position_observable = Subject()
         self.local_velocity_observable = Subject()
+        self.dragonfly_announce_subject = Subject()
         self.semaphore_observable = Subject()
 
     def setmode(self, mode):
@@ -402,14 +404,14 @@ class DragonflyCommand:
             elif step.msg_type == MissionStep.TYPE_FLOCK:
                 print("Flock")
                 self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
-                    .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.flock_step.x,
-                                         step.flock_step.y, step.flock_step.leader, self.node))
+                    .push(FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
+                                         step.flock_step.x, step.flock_step.y, step.flock_step.leader, self.drone_stream_factory))
             elif step.msg_type == MissionStep.TYPE_GRADIENT:
                 print("Gradient")
                 self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
                     .push(
                     GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient_step.drones,
-                                   self.node))
+                                   self.drone_stream_factory))
             elif step.msg_type == MissionStep.TYPE_CURTAIN:
                 print("Curtain")
                 self.actionqueue.push(LogAction(self.logPublisher, "Curtain"))
@@ -538,6 +540,9 @@ class DragonflyCommand:
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.node.create_subscription(String, "/dragonfly/announce".format(self.id),
+                                      lambda name: self.dragonfly_announce_subject.on_next(name),
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
                                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
         def updateStateSubject(state):
@@ -549,7 +554,7 @@ class DragonflyCommand:
                                       lambda velocity: self.local_velocity_observable.on_next(velocity),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
-        self.receive_semaphore_subscription = self.node.create_subscription(SemaphoreToken, "/dragonfly/semaphore",
+        self.node.create_subscription(SemaphoreToken, "/dragonfly/semaphore",
                                       lambda token: self.semaphore_observable.on_next(token),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
@@ -573,6 +578,8 @@ class DragonflyCommand:
 
         self.node.create_service(DDSAWaypoints, "/{}/build/ddsa".format(self.id), self.build_ddsa)
         self.node.create_service(LawnmowerWaypoints, "/{}/build/lawnmower".format(self.id), self.build_lawnmower)
+
+        self.drone_stream_factory = DroneStreamFactory(self.node)
 
         print("Setup complete")
 

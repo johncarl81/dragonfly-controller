@@ -58,10 +58,8 @@ class VirtualCO2Publisher:
     def position_callback(self, data):
 
         co2 = self.calculateCO2(data)
-        # @TODO add this back was getting TypeError: __init__() takes 1 positional argument but 2 were given
-        # [ros2run]: Process exited with failure 1
-        #self.pub.publish(std_msgs.msg._string.String("M 55146 52516 10 55.0 0.0 0.0 800 55.0 55.0 00"))  # String("M 55146 52516 10 55.0 0.0 0.0 800 55.0 55.0 00")
-        # self.pub.publish(String("M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2)))
+
+        self.pub.publish(String(data="M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2)))
 
     def publish(self):
         self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),
