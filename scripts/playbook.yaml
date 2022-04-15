@@ -18,15 +18,14 @@
           - python-pygame 
           - python-wxgtk3.0 
           - python-yaml
-          - vim 
           
-    - name: Add GPG key
+    - name: Add ROS GPG key
       become: true
       ansible.builtin.apt_key:
         url: https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc
         state: present
 
-    - name: Create file
+    - name: Create ros2-latest.list file
       become: true
       file:
         path: /etc/apt/sources.list.d/ros2-latest.list
@@ -40,21 +39,23 @@
         line: "deb [arch=armhf] http://packages.ros.org/ros2/ubuntu {{ansible_distribution_release}} main"
         mode: 0644
     
-    - name: Install packages 
+    - name: Add the ros repo to your sources list
+      ansible.builtin.command: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list
+    
+    - name: Install packages ros-galactic-desktop & ect.
       ansible.builtin.apt:
         update_cache: yes
         cache_valid_time: 3600
         name:
           - ros-galactic-desktop
-          - python-matplotlib 
-          - python-opencv 
-          - python-pip 
-          - python-rosinstall 
-          - python-rosinstall-generator 
-          - python-wstool 
+          - python3-matplotlib 
+          - python3-opencv 
+          - python3-pip 
+          - python3-rosinstall 
+          - python3-rosinstall-generator 
+          - python3-wstool 
           - ros-galactic-mavros 
           - ros-galactic-mavros-extras
-          - vim 
     
     - name: rosdep init
       become: true 
@@ -72,9 +73,9 @@
     - name: pip install pulp rx scikit-learn MAVProxy
       ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy
     
-    - name: Add the user odroid
+    - name: Add the user ubuntu to the dialout group
       ansible.builtin.user:
-        name: odroid
+        name: ubuntu
         group: dialout
     
     - name: add $HOME/.local/bin to the path
