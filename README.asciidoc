@@ -3,7 +3,7 @@
 Steps to setup Dragonfly:
 
 1. Setup network interfaces file:
-`/etc/networks/interfaces` :
+`/etc/network/interfaces` :
 ----
 auto wlan0
 iface wlan0 inet static
