@@ -1,8 +1,13 @@
 ---
-- hosts: dragonfly*.local
+- hosts: dragonflys
   name: dragonfly setup
   become: yes
   tasks:
+    - name: Update & Upgrade
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+        
     - name: Install packages 
       ansible.builtin.apt:
         update_cache: yes
@@ -18,30 +23,36 @@
           - python-pygame 
           - python-wxgtk3.0 
           - python-yaml
+          - curl 
+          - gnupg 
+          - lsb-release
           
-    - name: Add ROS GPG key
+    - name: Adding universe repo
+      ansible.builtin.command: sudo add-apt-repository universe
+      
+    - name: Authorizing GPG key with apt
       become: true
-      ansible.builtin.apt_key:
-        url: https://raw.githubusercontent.com/ros/rosdistro/master/ros.asc
-        state: present
-
-    - name: Create ros2-latest.list file
+      ansible.builtin.command: curl -sSL https://raw.githubusercontent.com/ros/rosdistro/master/ros.key -o /usr/share/keyrings/ros-archive-keyring.gpg
+        
+    - name: Create ros2.list file
       become: true
       file:
-        path: /etc/apt/sources.list.d/ros2-latest.list
+        path: /etc/apt/sources.list.d/ros2.list
         state: touch
         mode: 0644
-
+        
     - name: Add repository to the source list
       become: true
       ansible.builtin.lineinfile:
-        path: /etc/apt/sources.list.d/ros2-latest.list
-        line: "deb [arch=armhf] http://packages.ros.org/ros2/ubuntu {{ansible_distribution_release}} main"
+        path: /etc/apt/sources.list.d/ros2.list
+        line: "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu focal main"
         mode: 0644
     
-    - name: Add the ros repo to your sources list
-      ansible.builtin.command: echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu $(source /etc/os-release && echo $UBUNTU_CODENAME) main" | sudo tee /etc/apt/sources.list.d/ros2.list
-    
+    - name: Update & Upgrade
+      ansible.builtin.apt:
+        update_cache: yes
+        upgrade: yes
+        
     - name: Install packages ros-galactic-desktop & ect.
       ansible.builtin.apt:
         update_cache: yes
@@ -57,14 +68,6 @@
           - ros-galactic-mavros 
           - ros-galactic-mavros-extras
     
-    - name: rosdep init
-      become: true 
-      shell: 'rosdep init'
-
-    - name: rosdep update
-      become: true 
-      shell: 'rosdep update'
-
     - name: Remove ModemManager package
       ansible.builtin.apt:
           name: ModemManager
@@ -83,10 +86,6 @@
         path: ~/.bashrc
         line: export PATH=$PATH:$HOME/.local/bin
 
-    # not sure where this comes from
-    - name: run ./datasets/install_geographiclib_datasets.sh
-      ansible.builtin.command: ./datasets/install_geographiclib_datasets.sh
-      
     - name: Copy rc.local file with owner and permissions
       ansible.builtin.copy:
         src: ../system_config/rc.local
@@ -103,7 +102,23 @@
         content: |
           ACTION=="add", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", SYMLINK+="ttysba5"
           ACTION=="add", ATTRS{idVendor}=="10c4", ATTRS{idProduct}=="ea60", SYMLINK+="ttypixhawk"
+    
+    - name: Create the /home/ubuntu/dev/ directory
+      ansible.builtin.file:
+        path: /home/ubuntu/dev/
+        state: directory
+        mode: '0755'
+    
+    - name: Git clone BCLab-UNM's dragonfly-controller
+      ansible.builtin.git:
+        repo: https://github.com/BCLab-UNM/dragonfly-controller.git
+        dest: /home/ubuntu/dev/dragonfly/
+        single_branch: yes
+        version: master
         
+    - name: Run Install Geographiclib Datasets
+      ansible.builtin.command: /home/ubuntu/dev/dragonfly/datasets/install_geographiclib_datasets.sh
+    
     - name: Cron on boot dragonfly controller startup
       ansible.builtin.cron:
         name: "Cron on boot dragonfly controller startup"
@@ -113,8 +128,29 @@
     - name: Cron 15 minute logrotate
       ansible.builtin.cron:
         name: "Cron 15 minute logrotate"
-        minute: "*/15 * * * * "
+        minute: "*/15"
         job: "/usr/sbin/logrotate -s /tmp/logrotate.tmp /home/ubuntu/dev/dragonfly/logrotate.conf"
+        
+    - name: add dragonflyadhoc network to 50-cloud-init.yaml
+      blockinfile:
+        path: /etc/netplan/50-cloud-init.yaml
+        block: |2
+              wifis:
+                wlan0:
+                 optional: true
+                 access-points:
+                    "dragonflyadhoc":
+                       password: "s:dragonfly"
+                 dhcp4: true
+                wlan1:
+                 optional: true
+                 access-points:
+                    "dragonflyadhoc":
+                       password: "s:dragonfly"
+                 dhcp4: true
+    
+    - name: Apply the dragonflyadhoc netplan
+      ansible.builtin.command: sudo netplan apply
     
     - name: All done rebooting the dragonfly
       reboot:
