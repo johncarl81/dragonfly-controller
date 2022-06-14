@@ -6,10 +6,11 @@ import rclpy
 import serial
 from rclpy.qos import QoSProfile
 from std_msgs.msg import String
+from rclpy.qos import HistoryPolicy
 
 
 def publishco2(id):
-    rclpy.init(args=id)
+    rclpy.init()  # args=id
     node = rclpy.create_node('talker')
     node.get_logger().info("publishing co2 readings on {}/co2".format(id))
     pub = node.create_publisher(String, "{}/co2".format(id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
@@ -26,6 +27,11 @@ def publishco2(id):
                 while rclpy.ok():
                     port.write('M')
                     hello_str = port.readline()
+                    
+                    #@TODO split and put into 
+                    #/home/carter/dfly/dragonfly-controller/src/dragonfly_messages/msg/CO2.msg
+                    
+                    
                     pub.publish(hello_str)
                     rate.sleep()
         except serial.SerialException as ex:
