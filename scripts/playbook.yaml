@@ -74,8 +74,8 @@
           name: ModemManager
           state: absent
           
-    - name: pip install pulp rx scikit-learn MAVProxy
-      ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy
+    - name: pip install pulp rx scikit-learn MAVProxy led
+      ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy led
     
     - name: Add the user ubuntu to the dialout group
       ansible.builtin.user:
