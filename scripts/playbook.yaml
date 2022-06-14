@@ -67,6 +67,7 @@
           - python3-wstool 
           - ros-galactic-mavros 
           - ros-galactic-mavros-extras
+          - python3-colcon-common-extensions
     
     - name: Remove ModemManager package
       ansible.builtin.apt:
@@ -108,13 +109,25 @@
         path: /home/ubuntu/dev/
         state: directory
         mode: '0755'
+      become: yes
+      become_user: ubuntu
     
     - name: Git clone BCLab-UNM's dragonfly-controller
       ansible.builtin.git:
         repo: https://github.com/BCLab-UNM/dragonfly-controller.git
         dest: /home/ubuntu/dev/dragonfly/
         single_branch: yes
-        version: master
+        version: ansible_playbook
+      become: yes
+      become_user: ubuntu
+      
+    - name: Buidling dragonfly controller with colcon build
+      ansible.builtin.shell: source /opt/ros/galactic/setup.bash && colcon build
+      args:
+        chdir: /home/ubuntu/dev/dragonfly/
+        executable: /bin/bash
+      become: yes
+      become_user: ubuntu
         
     - name: Run Install Geographiclib Datasets
       ansible.builtin.command: /home/ubuntu/dev/dragonfly/datasets/install_geographiclib_datasets.sh
@@ -124,12 +137,16 @@
         name: "Cron on boot dragonfly controller startup"
         special_time: reboot
         job: "cd /home/ubuntu/dev/dragonfly/ ; ./startup.sh&"
+      become: yes
+      become_user: ubuntu
         
     - name: Cron 15 minute logrotate
       ansible.builtin.cron:
         name: "Cron 15 minute logrotate"
         minute: "*/15"
         job: "/usr/sbin/logrotate -s /tmp/logrotate.tmp /home/ubuntu/dev/dragonfly/logrotate.conf"
+      become: yes
+      become_user: ubuntu
         
     - name: add dragonflyadhoc network to 50-cloud-init.yaml
       blockinfile:
