@@ -68,14 +68,15 @@
           - ros-galactic-mavros 
           - ros-galactic-mavros-extras
           - python3-colcon-common-extensions
+          - ipython3
     
     - name: Remove ModemManager package
       ansible.builtin.apt:
           name: ModemManager
           state: absent
           
-    - name: pip install pulp rx scikit-learn MAVProxy led
-      ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy led
+    - name: pip install pulp rx scikit-learn MAVProxy led acme
+      ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy led acme
     
     - name: Add the user ubuntu to the dialout group
       ansible.builtin.user:
