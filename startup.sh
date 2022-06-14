@@ -6,14 +6,12 @@ then
     exit 1
 fi
 
-source /opt/ros/kinetic/setup.bash
-source /home/ubuntu/catkin_ws/devel/setup.bash
-source ./devel/setup.bash
+source /opt/ros/galactic/setup.bash
+source /home/ubuntu/dev/dragonfly/install/setup.bash
 
 exec 3>&1 1>>logs/script.log 2>&1
-#roscore&
 sleep 10
-roslaunch config/apm.launch & 
-rosrun dragonfly co2publisher.py $1 &
-rosrun dragonfly logger.py $1 >> logs/output.log &
-rosrun dragonfly command.py $1 $2 $3 $4 &
+ros2 launch config/apm.launch & 
+ros2 run dragonfly co2publisher.py $1 &
+ros2 run dragonfly logger.py $1 >> logs/output.log &
+ros2 run dragonfly command.py $1 $2 $3 $4 &
