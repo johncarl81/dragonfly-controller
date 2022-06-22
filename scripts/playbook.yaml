@@ -57,6 +57,7 @@
       ansible.builtin.apt:
         update_cache: yes
         cache_valid_time: 3600
+        install_recommends: yes
         name:
           - ros-galactic-desktop
           - python3-matplotlib 
@@ -92,6 +93,7 @@
       ansible.builtin.copy:
         src: ../system_config/rc.local
         dest: /etc/rc.local
+        mode: '0755'
 
     - name: Copy interfaces file with owner and permissions
       ansible.builtin.copy:
@@ -148,25 +150,40 @@
         job: "/usr/sbin/logrotate -s /tmp/logrotate.tmp /home/ubuntu/dev/dragonfly/logrotate.conf"
       become: yes
       become_user: ubuntu
-        
-    - name: add dragonflyadhoc network to 50-cloud-init.yaml
-      blockinfile:
-        path: /etc/netplan/50-cloud-init.yaml
-        block: |2
-              wifis:
-                wlan0:
-                 optional: true
-                 access-points:
-                    "dragonflyadhoc":
-                       password: "s:dragonfly"
-                 dhcp4: true
-                wlan1:
-                 optional: true
-                 access-points:
-                    "dragonflyadhoc":
-                       password: "s:dragonfly"
-                 dhcp4: true
     
+    - name: Adding dhclient start up to rc.local
+      ansible.builtin.lineinfile:
+        path: /etc/rc.local
+        regexp: '^sudo dhclient wlan0\n'
+        insertafter: '^sudo dhclient wlan0\n'
+        line: '^sudo dhclient wlan1\n'
+        
+    - name: Create 20-adhoc.yaml file
+      become: true
+      file:
+        path: /etc/netplan/20-adhoc.yaml
+        state: touch
+        mode: 0644
+        
+    - name: add dragonflyadhoc network to 20-adhoc.yaml, !!! Please make sure to edit the address to match the Dragonfly's number !!!
+      blockinfile:
+        path: /etc/netplan/20-adhoc.yaml
+        block: |
+          network:
+            version: 2
+            renderer: NetworkManager
+            wifis:
+              wlan1:
+                access-points:
+                  "dragonflyadhoc":
+                    mode: adhoc
+                    password: "s:dragonfly"
+                dhcp4: no
+                addresses: [10.42.0.1/24]
+                gateway4: 10.42.0.100
+                nameservers:
+                 addresses: [8.8.8.8,8.8.4.4]
+                 
     - name: Apply the dragonflyadhoc netplan
       ansible.builtin.command: sudo netplan apply
     
