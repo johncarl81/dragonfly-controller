@@ -1,20 +1,22 @@
 <launch>
-    <!-- vim: set ft=xml noet : -->
-    <!-- example launch script for ArduPilot based FCU's -->
-
     <arg name="fcu_url" default="/dev/ttypixhawk:921600"/>
     <arg name="gcs_url" default=""/>
-    <arg name="tgt_system"/>
+    <arg name="tgt_system" default=""/>
     <arg name="tgt_component" default="1"/>
     <arg name="log_output" default="screen"/>
     <arg name="fcu_protocol" default="v2.0"/>
     <arg name="respawn_mavros" default="false"/>
-    <arg name="name"/>
+    <arg name="name" default="dragonfly50"/>
 
-    <node name="mavros" pkg="mavros" type="mavros_node" output="$(arg log_output)" ns="$(arg name)" respawn="$(arg respawn_mavros)">
-        <param name="fcu_url" value="$(arg fcu_url)" />
-        <param name="gcs_url" value="$(arg gcs_url)" />
-        <param name="component_id" value="$(arg tgt_component)" />
-        <param name="fcu_protocol" value="$(arg fcu_protocol)" />
+    <!--
+     Including these yields "The launch file may have a syntax error, or its format is unknown"
+     @TODO look into
+     output="$(var log_output)" namespace="$(var name)" respawn="$(var respawn_mavros)"
+    -->
+    <node pkg="mavros" exec="mavros_node">
+        <param name="fcu_url" value="$(var fcu_url)" />
+        <param name="gcs_url" value="$(var gcs_url)" />
+        <param name="component_id" value="$(var tgt_component)" />
+        <param name="fcu_protocol" value="$(var fcu_protocol)" />
     </node>
 </launch>
