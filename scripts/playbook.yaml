@@ -71,11 +71,6 @@
           - python3-colcon-common-extensions
           - ipython3
     
-    - name: Remove ModemManager package
-      ansible.builtin.apt:
-          name: ModemManager
-          state: absent
-          
     - name: pip install pulp rx scikit-learn MAVProxy led acme
       ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy led acme
     
@@ -135,6 +130,11 @@
         
     - name: Run Install Geographiclib Datasets
       ansible.builtin.command: /home/ubuntu/dev/dragonfly/datasets/install_geographiclib_datasets.sh
+    
+    - name: Remove ModemManager package
+      ansible.builtin.apt:
+          name: ModemManager
+          state: absent
     
     - name: Cron on boot dragonfly controller startup
       ansible.builtin.cron:
