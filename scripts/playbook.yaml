@@ -70,6 +70,7 @@
           - ros-galactic-mavros-extras
           - python3-colcon-common-extensions
           - ipython3
+          - python3-gpiozero
     
     - name: pip install pulp rx scikit-learn MAVProxy led acme
       ansible.builtin.command: pip install pulp rx scikit-learn MAVProxy led acme
