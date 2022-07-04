@@ -23,9 +23,9 @@ def publishco2(id):
                 # Publish on demand
                 port.write(str.encode('!')) 
                 # Configure to 2 decimal places
-                port.write('C2\r')
+                port.write(str.encode('C2\r'))
                 while rclpy.ok():
-                    port.write('M')
+                    port.write(str.encode('M'))
                     hello_str = port.readline()
                     
                     #@TODO split and put into 
