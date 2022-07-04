@@ -21,7 +21,7 @@ def publishco2(id):
                                stopbits=serial.STOPBITS_ONE) as port:
                 node.get_logger().info('Connected to /dev/ttysba5')
                 # Publish on demand
-                port.write('!')
+                port.write(str.encode('!')) 
                 # Configure to 2 decimal places
                 port.write('C2\r')
                 while rclpy.ok():
