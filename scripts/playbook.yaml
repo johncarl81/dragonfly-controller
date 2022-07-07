@@ -53,7 +53,7 @@
         update_cache: yes
         upgrade: yes
         
-    - name: Install packages ros-galactic-desktop & ect.
+    - name: Install packages ros-galactic-desktop & etc.
       ansible.builtin.apt:
         update_cache: yes
         cache_valid_time: 3600
@@ -116,7 +116,7 @@
       ansible.builtin.git:
         repo: https://github.com/BCLab-UNM/dragonfly-controller.git
         dest: /home/ubuntu/dev/dragonfly/
-        single_branch: yes
+        update: yes
         version: ansible_playbook
       become: yes
       become_user: ubuntu
@@ -141,7 +141,7 @@
       ansible.builtin.cron:
         name: "Cron on boot dragonfly controller startup"
         special_time: reboot
-        job: "cd /home/ubuntu/dev/dragonfly/ ; ./startup.sh&"
+        job: "cd /home/ubuntu/dev/dragonfly/ ; ./run.sh dragonfly4 4&"
       become: yes
       become_user: ubuntu
         
@@ -181,7 +181,7 @@
                     mode: adhoc
                     password: "s:dragonfly"
                 dhcp4: no
-                addresses: [10.42.0.1/24]
+                addresses: [10.42.0.5/24]
                 gateway4: 10.42.0.100
                 nameservers:
                  addresses: [8.8.8.8,8.8.4.4]
