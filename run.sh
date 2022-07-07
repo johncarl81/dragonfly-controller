@@ -10,7 +10,7 @@ source /opt/ros/galactic/setup.bash
 source /home/ubuntu/dev/dragonfly/install/setup.bash
 
 P2=$!
-ros2 launch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 &
+ros2 launch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 fcu_url:=/dev/ttypixhawk:921600 &
 P3=$!
 ros2 run dragonfly co2publisher $1 &
 P4=$!
