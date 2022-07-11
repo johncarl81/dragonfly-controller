@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 from .ActionQueue import ActionQueue
 from .AltitudeAction import AltitudeAction

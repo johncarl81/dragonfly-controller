@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from mavros_msgs.srv import SetMode
 
 from .ActionState import ActionState

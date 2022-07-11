@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 
 def isInside(point, boundary):
     def isLeft(a, b, c):

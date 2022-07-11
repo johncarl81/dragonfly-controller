@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from rx.subject import Subject
 
 from sensor_msgs.msg import NavSatFix

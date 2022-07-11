@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 from mavros_msgs.srv import CommandTOL
 from std_msgs.msg import String
 
