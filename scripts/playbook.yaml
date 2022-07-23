@@ -101,7 +101,7 @@
         dest: /etc/udev/rules.d/10-dragonfly.rules
         content: |
           ACTION=="add", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", SYMLINK+="ttysba5"
-          ACTION=="add", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ttypixhawk"
+          ACTION=="add", SUBSYSTEMS=="usb", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ttypixhawk"
           ACTION=="add", ATTRS{idVendor}=="148f", ATTRS{idProduct}=="5572", NAME="wlan1"
     
     - name: Create the /home/ubuntu/dev/ directory
