@@ -38,7 +38,7 @@ def publishco2(args):
             sba5_data = str(sba5_str).replace('\\r\\n\'', '').split(" ")
             print("sba5_data: ")
             print(sba5_data)
-            if sba5_data[10].isdigit():
+            if len(sba5_data) > 9 and  sba5_data[10].isdigit():
               status = int(sba5_data[10])
               if status == CO2.NO_ERROR:
                 sba5_pub.publish(CO2(zero_count=int(sba5_data[1]), count=int(sba5_data[2]), ppm=float(sba5_data[3]),
