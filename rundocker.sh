@@ -8,10 +8,11 @@ docker run -it \
     dragonfly-controller:latest \
     /bin/sh -c 'for i in {1..3}
     do
-      rosrun dragonfly announce.py dragonfly$i &
-      rosrun dragonfly command.py dragonfly$i &
-      rosrun dragonfly virtualco2publisher.py dragonfly$i &
+      ros2 run dragonfly announce dragonfly$i &
+      ros2 run dragonfly command dragonfly$i &
+      ros2 run dragonfly virtualco2publisher dragonfly$i &
     done;
-    rosrun dragonfly announce.py dragonfly4 &
-    rosrun dragonfly command.py dragonfly4 &
-    rosrun dragonfly virtualco2publisher.py dragonfly4'
+    ros2 run dragonfly announce dragonfly4 &
+    ros2 run dragonfly command dragonfly4 &
+    ros2 run dragonfly virtualco2publisher dragonfly4'
+    

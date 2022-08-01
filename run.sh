@@ -6,23 +6,22 @@ then
     exit 1
 fi
 
-source /opt/ros/kinetic/setup.bash
-source /etc/ubiquity/env.sh
-source /home/ubuntu/dev/dragonfly/devel/setup.bash
+export CYCLONEDDS_URI=file:///home/ubuntu/dev/dragonfly/cyclonedds.xml
 
-#sudo route add -net 224.0.0.0 netmask 240.0.0.0 wlan0
-rosrun master_discovery_fkie master_discovery _mcast_group:=224.0.0.0 &
-P1=$!
-rosrun master_sync_fkie master_sync &
+source /opt/ros/galactic/setup.bash
+source /home/ubuntu/dev/dragonfly/install/setup.bash
+
+ros2 daemon start
+
 P2=$!
-/opt/ros/kinetic/bin/roslaunch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 &
+ros2 launch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 fcu_url:=/dev/ttypixhawk:921600 &
 P3=$!
-rosrun dragonfly virtualco2publisher.py $1 &
+ros2 run dragonfly co2publisher $1 &
 P4=$!
-rosrun dragonfly logger.py $1 >> /home/ubuntu/dev/dragonfly/logs/run.log &
+ros2 run dragonfly logger $1 >> /home/ubuntu/dev/dragonfly/logs/run.log &
 P5=$!
-rosrun dragonfly command.py $1 >> /home/ubuntu/dev/dragonfly/logs/command.log &
+ros2 run dragonfly command $1 >> /home/ubuntu/dev/dragonfly/logs/command.log &
 P6=$!
-rosrun dragonfly announce.py $1 &
+ros2 run dragonfly announce $1 &
 P7=$!
-wait $P1 $P2 $P3 $P4 $P5 $P6 $P7
+wait $P2 $P3 $P4 $P5 $P6 $P7

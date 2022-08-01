@@ -48,3 +48,6 @@ Thumbs.db
 
 # qtcreator generated files
 *.pro.user*
+
+install/
+log/

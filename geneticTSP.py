@@ -33,7 +33,7 @@ class City:
     def distanceTo(self, city):
         xDistance = abs(self.getX() - city.getX())
         yDistance = abs(self.getY() - city.getY())
-        distance = math.sqrt( (xDistance*xDistance) + (yDistance*yDistance) )
+        distance = math.sqrt((xDistance * xDistance) + (yDistance * yDistance))
         return distance
 
     def __repr__(self):
@@ -95,7 +95,7 @@ class Tour:
 
     def getFitness(self):
         if self.fitness == 0:
-            self.fitness = 1/float(self.getDistance())
+            self.fitness = 1 / float(self.getDistance())
         return self.fitness
 
     def getDistance(self):
@@ -104,8 +104,8 @@ class Tour:
             for cityIndex in range(0, self.tourSize()):
                 fromCity = self.getCity(cityIndex)
                 destinationCity = None
-                if cityIndex+1 < self.tourSize():
-                    destinationCity = self.getCity(cityIndex+1)
+                if cityIndex + 1 < self.tourSize():
+                    destinationCity = self.getCity(cityIndex + 1)
                 else:
                     destinationCity = self.getCity(0)
                 tourDistance += fromCity.distanceTo(destinationCity)
@@ -219,7 +219,6 @@ class GA:
             tournament.saveTour(i, pop.getTour(randomId))
         fittest = tournament.getFittest()
         return fittest
-
 
 
 if __name__ == '__main__':
