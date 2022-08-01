@@ -6,8 +6,12 @@ then
     exit 1
 fi
 
+export CYCLONEDDS_URI=file:///home/ubuntu/dev/dragonfly/cyclonedds.xml
+
 source /opt/ros/galactic/setup.bash
 source /home/ubuntu/dev/dragonfly/install/setup.bash
+
+ros2 daemon start
 
 P2=$!
 ros2 launch /home/ubuntu/dev/dragonfly/config/apm.launch name:=$1 tgt_system:=$2 fcu_url:=/dev/ttypixhawk:921600 &
