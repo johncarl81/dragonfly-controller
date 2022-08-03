@@ -29,7 +29,7 @@ def run(args):
         env['CYCLONEDDS_URI'] = f"file://{cyclone_dds_config.name}"
 
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 launch {dragonfly_dir}/config/apm.launch name:={args.name} tgt_system:={args.sysid_thismav} fcu_url:=/dev/ttyUSB0:921600", env=env, shell=True))
+    processes.append(subprocess.Popen(f"ros2 launch {dragonfly_dir}/config/apm.launch name:={args.name} tgt_system:={args.sysid_thismav} fcu_url:=/dev/ttypixhawk:921600", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name} >> {dragonfly_dir}/logs/run.log", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name} >> {dragonfly_dir}/logs/command.log", env=env, shell=True))

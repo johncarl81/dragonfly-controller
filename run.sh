@@ -10,5 +10,5 @@ source /opt/ros/galactic/setup.bash
 cd /home/ubuntu/dev/dragonfly/
 source ./install/setup.bash
 
-./run.py  --name dragonfly1 --sysid_thismav 1 --cyclone_network wlan1 &
+./run.py  --name $1 --sysid_thismav $2 --cyclone_network wlan1 &
 
