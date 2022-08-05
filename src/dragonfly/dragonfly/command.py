@@ -515,6 +515,7 @@ class DragonflyCommand:
     def setup(self):
         self.rtl_boundary = None
         self.max_altitude = 100
+        self.canceled = False
 
         self.setparam_service = self.create_client_and_wait(ParamSetV2, "/{}/mavros/param/set".format(self.id))
         self.setmode_service = self.create_client_and_wait(SetMode, "/{}/mavros/set_mode".format(self.id))
