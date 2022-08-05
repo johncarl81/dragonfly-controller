@@ -32,7 +32,6 @@ RUN source /opt/ros/galactic/setup.bash && \
 
 # Setup Entrypoint
 COPY ./docker/entrypoint.sh /
-ENTRYPOINT ["/entrypoint.sh"]
+COPY ./docker/entrypoint.py /
 
-
-CMD ["bash"]
+ENTRYPOINT ["/entrypoint.py"]
