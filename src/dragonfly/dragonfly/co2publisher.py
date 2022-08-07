@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
-import time  # temporary measure until rate's timer works
+import threading
 import rclpy
 import serial
 from rclpy.qos import QoSProfile
@@ -11,16 +11,12 @@ from dragonfly_messages.msg import CO2
 
 
 def publishco2(args):
-  rclpy.init()  # args=id
-  node = rclpy.create_node('co2_publisher')
   node.get_logger().info("publishing co2 readings on {}/co2".format(args))
   pub = node.create_publisher(String, "{}/co2".format(args),
                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
-  sba5_pub = node.create_publisher(CO2, "{}/SBA5".format(args),
-                                   qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
-  # Using time's sleep for now until rate timer works correctly
-  # rate = node.create_rate(10, node.get_clock())
+  rate = node.create_rate(10)
+
   while rclpy.ok():
     try:
       with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
@@ -54,21 +50,23 @@ def publishco2(args):
             else:
               node.get_logger().error("co2_publisher: sba5 error: #?")
             pub.publish(sba5_str)
-            # Using time's sleep for now until rate timer works correctly
-            # rate.sleep()
-            time.sleep(.1)
+            rate.sleep()
 
     except serial.SerialException as ex:
       node.get_logger().warn("SerialException: " + str(ex))
-      # Using time's sleep for now until rate timer works correctly
-      # rate.sleep()
-      time.sleep(.1)
+      rate.sleep()
 
 
 def main():
   parser = argparse.ArgumentParser(description='Starts ROS publisher for CO2 sensor.')
   parser.add_argument('id', type=str, help='Name of the drone.')
   args = parser.parse_args()
+
+  rclpy.init(args=sys.argv)
+  node = rclpy.create_node('co2_publisher')
+
+  thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
+  thread.start()
 
   publishco2(args.id)
 
