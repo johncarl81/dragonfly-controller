@@ -7,13 +7,6 @@ int8 LOW_ALARM     = 4 # less than range from L command
 int8 HIGH_HUMIDITY = 5 # greater than 90 mbar
 int8 LOW_VOLTAGE   = 6 # 6 Board voltage less than 4V
 
-# Set the ambient ppm
-# use in python insted of magic numbers
-# from dragonfly_messages.msg import CO2
-# CO2.ambient_ppm # this should yeild the int below
-# CO2.threshold_ppm # this should yeild the int below
-float32 AMBIENT_PPM         = 419
-float32 PLUME_THRESHOLD_PPM = 900 #??????? 
 
 int32 zero_count
 int32 count
@@ -25,3 +18,4 @@ int32 atmospheric_pressure #Atmospheric pressure in IRGA [mbar],
 float32 detector_temp #hh.h IRGA detector temperature [°C],
 float32 source_temp #IRGA source temperature [°C],
 int8 status #Status/Error code. Continuously displayed measurements do not display the j but instead display a text message
+bool zeroing
