@@ -87,22 +87,14 @@
 
     - name: Copy rc.local file with owner and permissions
       ansible.builtin.copy:
-        src: ../system_config/rc.local
+        src: config/rc.local
         dest: /etc/rc.local
         mode: '0755'
 
-    - name: Copy interfaces file with owner and permissions
-      ansible.builtin.copy:
-        src: ../system_config/interfaces
-        dest: /etc/network/interfaces
-    
     - name: Creating udev rules
-      copy:
+      ansible.builtin.copy:
+        src: config/10-dragonfly.rules
         dest: /etc/udev/rules.d/10-dragonfly.rules
-        content: |
-          ACTION=="add", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6015", SYMLINK+="ttysba5"
-          ACTION=="add", SUBSYSTEM=="tty", ATTRS{idVendor}=="0403", ATTRS{idProduct}=="6001", SYMLINK+="ttypixhawk"
-          ACTION=="add", ATTRS{idVendor}=="148f", ATTRS{idProduct}=="5572", NAME="wlan1"
     
     - name: Create the /home/ubuntu/dev/ directory
       ansible.builtin.file:
@@ -117,7 +109,7 @@
         repo: https://github.com/BCLab-UNM/dragonfly-controller.git
         dest: /home/ubuntu/dev/dragonfly/
         update: yes
-        version: ansible_playbook
+        version: master
       become: yes
       become_user: ubuntu
       
@@ -141,7 +133,7 @@
       ansible.builtin.cron:
         name: "Cron on boot dragonfly controller startup"
         special_time: reboot
-        job: "cd /home/ubuntu/dev/dragonfly/ ; ./run.sh dragonfly4 4&"
+        job: "cd /home/ubuntu/dev/dragonfly/ ; ./run.sh {{name}} {{tgt_system}}"
       become: yes
       become_user: ubuntu
         
@@ -152,13 +144,6 @@
         job: "/usr/sbin/logrotate -s /tmp/logrotate.tmp /home/ubuntu/dev/dragonfly/logrotate.conf"
       become: yes
       become_user: ubuntu
-    
-    - name: Adding dhclient start up to rc.local
-      ansible.builtin.lineinfile:
-        path: /etc/rc.local
-        regexp: '^sudo dhclient wlan0\n'
-        insertafter: '^sudo dhclient wlan0\n'
-        line: '^sudo dhclient wlan1\n'
         
     - name: Create 20-adhoc.yaml file
       become: true
@@ -166,8 +151,8 @@
         path: /etc/netplan/20-adhoc.yaml
         state: touch
         mode: 0644
-        
-    - name: add dragonflyadhoc network to 20-adhoc.yaml, !!! Please make sure to edit the address to match the Dragonfly's number !!!
+
+    - name: add dragonflyadhoc network to 20-adhoc.yaml
       blockinfile:
         path: /etc/netplan/20-adhoc.yaml
         block: |
@@ -181,7 +166,7 @@
                     mode: adhoc
                     password: "s:dragonfly"
                 dhcp4: no
-                addresses: [10.42.0.5/24]
+                addresses: [{{wlan_address}}/24]
                 gateway4: 10.42.0.100
                 nameservers:
                  addresses: [8.8.8.8,8.8.4.4]

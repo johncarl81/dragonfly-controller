@@ -1,0 +1,7 @@
+[dragonflys]
+192.168.1.16 name=dragonfly1 tgt_system=1 wlan_address=10.42.0.1 ansible_ssh_user=ubuntu
+192.168.1.22 name=dragonfly2 tgt_system=2 wlan_address=10.42.0.2 ansible_ssh_user=ubuntu
+192.168.1.24 name=dragonfly4 tgt_system=4 wlan_address=10.42.0.4 ansible_ssh_user=ubuntu
+
+[all:vars]
+ansible_python_interpreter=/usr/bin/python3
