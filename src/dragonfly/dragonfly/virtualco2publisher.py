@@ -5,10 +5,9 @@ import math
 import sys
 
 import rclpy
-import std_msgs
 from rclpy.qos import QoSProfile, ReliabilityPolicy
 from sensor_msgs.msg import NavSatFix
-from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 
 
 class dotdict(dict):
@@ -26,7 +25,7 @@ class VirtualCO2Publisher:
 
     def __init__(self, id, node):
         self.id = id
-        self.pub = node.create_publisher(String, "{}/co2".format(id), 10)
+        self.pub = node.create_publisher(CO2, "{}/co2".format(id), 10)
         self.node = node
 
     def differenceInMeters(self, one, two):
@@ -41,7 +40,7 @@ class VirtualCO2Publisher:
         [y, x] = self.differenceInMeters(position, self.VIRTUAL_SOURCE)
 
         if x >= 0:
-            return 420
+            return 420.0
 
         Q = 5000
         K = 2
@@ -51,15 +50,22 @@ class VirtualCO2Publisher:
         value = (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
 
         if value < 0:
-            return 420
+            return 420.0
         else:
-            return 420 + value
+            return 420.0 + value
 
     def position_callback(self, data):
 
-        co2 = self.calculateCO2(data)
+        ppm = self.calculateCO2(data)
 
-        self.pub.publish(String(data="M 55146 52516 {} 55.0 0.0 0.0 800 55.0 55.0 00".format(co2)))
+        self.pub.publish(CO2(ppm=ppm,
+                             average_temp=55.0,
+                             humidity=0.0,
+                             humidity_sensor_temp=0.0,
+                             atmospheric_pressure=800,
+                             detector_temp=55.0,
+                             source_temp=55.0,
+                             status=CO2.NO_ERROR))
 
     def publish(self):
         self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),

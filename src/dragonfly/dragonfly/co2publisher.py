@@ -6,7 +6,6 @@ import rclpy
 import serial
 import sys
 
-from datetime import datetime, timedelta
 from rclpy.qos import QoSProfile
 from std_msgs.msg import String
 from rclpy.qos import HistoryPolicy

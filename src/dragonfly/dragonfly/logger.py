@@ -10,6 +10,7 @@ from .led import LED
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 
 
 class co2Logger:
@@ -34,12 +35,9 @@ class co2Logger:
             self.positionReceived = datetime.now()
         if co2 is not None:
             self.co2Received = datetime.now()
-        if data is not None and (data.data.startswith('W') or data.data.startswith('Z')):
-            self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
-        if not self.zeroing == previous:
-            print("Checking zero: {} {}".format(self.zeroing, previous))
+        if data is not None:
+            self.zeroing = data.warming or data.zeroing
         if self.zeroing and not previous:
             self.led.blink()
         elif not self.zeroing and previous:
@@ -63,16 +61,31 @@ class co2Logger:
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print("{} co2: '{}' @ {} {} {}".format(self.getDate(),
-                                                   data,
-                                                   self.position.latitude,
-                                                   self.position.longitude,
-                                                   self.position.altitude))
+            print("{} co2: {} {} {} {} {} {} {} {} @ {} {} {}".format(self.getDate(),
+                                                                      data.ppm,
+                                                                      data.sensor_temp,
+                                                                      data.humidity,
+                                                                      data.humidity_sensor_temp,
+                                                                      data.atmospheric_pressure,
+                                                                      data.detector_temp,
+                                                                      data.source_temp,
+                                                                      data.status,
+                                                                      self.position.latitude,
+                                                                      self.position.longitude,
+                                                                      self.position.altitude))
         else:
-            print("{} cos: '{}' @ -".format(self.getDate(), data))
+            print("{} co2: {} {} {} {} {} {} {} {} @ -".format(self.getDate(),
+                                                               data.ppm,
+                                                               data.sensor_temp,
+                                                               data.humidity,
+                                                               data.humidity_sensor_temp,
+                                                               data.atmospheric_pressure,
+                                                               data.detector_temp,
+                                                               data.source_temp,
+                                                               data.status))
 
     def logCallback(self, data):
-        print("LOG: {}".format(data))
+        print("{} LOG: {}".format(self.getDate(), data))
 
     def listener(self):
 
@@ -81,7 +94,7 @@ class co2Logger:
 
         self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id), self.callback,
                                       qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
         self.node.create_subscription(String, "/{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
 
         rx.interval(1).subscribe(

@@ -15,7 +15,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from rx.subject import Subject
 
-from dragonfly_messages.msg import MissionStep, SemaphoreToken
+from dragonfly_messages.msg import MissionStep, SemaphoreToken, CO2
 from dragonfly_messages.srv import *
 from .droneStreamFactory import DroneStreamFactory
 from .actions import *
@@ -474,10 +474,8 @@ class DragonflyCommand:
         self.orientation = data.pose.orientation
 
     def co2Callback(self, data):
-        if data.data.startswith('W') or data.data.startswith('Z'):
-            self.sincezero = datetime.now()
         previous = self.zeroing
-        self.zeroing = datetime.now() - self.sincezero < timedelta(seconds=10)
+        self.zeroing = data.warming or data.zeroing
         if self.zeroing and not previous:
             self.logPublisher.publish(String(data='Zeroing'))
         elif not self.zeroing and previous:
@@ -537,7 +535,7 @@ class DragonflyCommand:
         self.node.create_subscription(PoseStamped, "/{}/mavros/local_position/pose".format(self.id),
                                       self.localposition_callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback,
+        self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.node.create_subscription(String, "/dragonfly/announce".format(self.id),
                                       lambda name: self.dragonfly_announce_subject.on_next(name),
