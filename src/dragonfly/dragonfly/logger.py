@@ -1,11 +1,12 @@
 #!/usr/bin/env python3
 import argparse
-import sched
-import time
-from datetime import datetime, timedelta
-
+import sys
+import rx
 import rclpy
-from led import LED
+
+from datetime import datetime, timedelta
+from rclpy.qos import ReliabilityPolicy
+from .led import LED
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
@@ -23,8 +24,7 @@ class co2Logger:
         self.led = LED()
         self.sincezero = datetime.now()
         self.zeroing = False
-        self.s = sched.scheduler(time.time, time.sleep)
-        self.time_offset = 0
+        self.time_offset = timedelta(seconds=0)
 
     def validUpdate(self, inputTime):
         return inputTime is not None and datetime.now() - inputTime < timedelta(seconds=3)
@@ -51,14 +51,14 @@ class co2Logger:
         self.led.setColor([255 if validPosition and not validCo2 else 0,
                            255 if validPosition and validCo2 else 0,
                            255 if not validPosition and validCo2 else 0])
-        self.s.enter(1, 1, self.updateLED, ())
 
     def callback(self, data):
         self.position = data
         self.updateStatus(position=True)
+        self.time_offset = datetime.fromtimestamp(data.header.stamp.sec) - datetime.now()
 
     def getDate(self):
-        return datetime.now() + timedelta(self.time_offset)
+        return datetime.now() + self.time_offset
 
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
@@ -76,30 +76,17 @@ class co2Logger:
 
     def listener(self):
 
-        # In ROS, nodes are uniquely named. If two nodes with the same
-        # name are launched, the previous one is kicked off. The
-        # anonymous=True flag means that rospy will choose a unique
-        # name for our 'listener' node so that multiple listeners can
-        # run simultaneously.
-        rclpy.init(args=self.id)
+        rclpy.init(args=sys.argv)
         self.node = rclpy.create_node('gpslistener')
 
-        # flight_computer_time = rclpy.wait_for_message(,
-        # TimeReference)
-        # flight_computer_time = self.node.create_subscription(TimeReference, "{}/mavros/global_position/global".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
-        # @TODO fix me as the wait_for_message no longer exists at this time
-        # self.time_offset = flight_computer_time.time_ref - datetime.now()
-        self.time_offset = datetime.now()
+        self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id), self.callback,
+                                      qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(String, "/{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(String, "/{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
 
-        self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id), self.callback,
-                                      qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
-        self.node.create_subscription(String, "{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
-        self.node.create_subscription(String, "{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        rx.interval(1).subscribe(
+            on_next=lambda time: self.updateLED())
 
-        self.s.enter(1, 1, self.updateLED, ())
-        self.s.run()
-
-        # spin() simply keeps python from exiting until this node is stopped
         rclpy.spin(self.node)
 
 
