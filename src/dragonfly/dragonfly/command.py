@@ -283,6 +283,8 @@ class DragonflyCommand:
     def setup_drone(self, request, response):
         print("Setup")
 
+        self.canceled = False
+
         params = ParamSetV2.Request(
             param_id = 'RTL_ALT',
             value = ParameterValue(type = ParameterType.PARAMETER_INTEGER, integer_value = request.rtl_altitude))
@@ -513,10 +515,6 @@ class DragonflyCommand:
         self.node.create_service(type, "/{}/command/{}".format(self.id, name), callback)
 
     def setup(self):
-        self.rtl_boundary = None
-        self.max_altitude = 100
-        self.canceled = False
-
         self.setparam_service = self.create_client_and_wait(ParamSetV2, "/{}/mavros/param/set".format(self.id))
         self.setmode_service = self.create_client_and_wait(SetMode, "/{}/mavros/set_mode".format(self.id))
         self.arm_service = self.create_client_and_wait(CommandBool, "/{}/mavros/cmd/arming".format(self.id))
