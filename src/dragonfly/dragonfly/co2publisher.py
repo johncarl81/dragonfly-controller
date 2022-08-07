@@ -4,57 +4,79 @@ import argparse
 import threading
 import rclpy
 import serial
+import sys
+
+from datetime import datetime, timedelta
 from rclpy.qos import QoSProfile
 from std_msgs.msg import String
 from rclpy.qos import HistoryPolicy
 from dragonfly_messages.msg import CO2
 
+class CO2Publisher:
 
-def publishco2(args):
-  node.get_logger().info("publishing co2 readings on {}/co2".format(args))
-  pub = node.create_publisher(String, "{}/co2".format(args),
-                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+  def __init__(self, id, node):
+    self.id = id
+    self.zeroing = False
+    self.logger = node.get_logger()
+    self.pub = node.create_publisher(String, "{}/co2".format(id),
+                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    self.sba5_polling_rate = node.create_rate(10)
+    self.error_retry_rate = node.create_rate(1)
 
-  rate = node.create_rate(10)
+  def parse_sba5_message(self, sba5_str):
+    self.logger.debug("co2_publisher:" + str(sba5_str))
 
-  while rclpy.ok():
-    try:
-      with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-                         stopbits=serial.STOPBITS_ONE) as port:
-        node.get_logger().info('Connected to /dev/ttysba5')
-        port.write(str.encode('!'))  # measurement display off
-        port.write(str.encode('C2\r'))  # Configure to 2 decimal places
-        port.write(str.encode('P1\r'))  # turn on pump
-        while rclpy.ok():
-          port.write(str.encode('M'))  # request measurement
-          sba5_str = port.readline()
-          if sba5_str.startswith(b'M '):  # b'M 54981 52166 0.00 54.0 0.0 0.0 849 54.0 52.8 08\r\n'
-            node.get_logger().info("co2_publisher:" + str(sba5_str))
-            # @TODO might remove this log or throttle it so it does not fill up the logs
-            sba5_data = str(sba5_str).replace('\\r\\n\'', '').split(" ")
-            print("sba5_data: ")
-            print(sba5_data)
-            if len(sba5_data) > 9 and  sba5_data[10].isdigit():
-              status = int(sba5_data[10])
-              if status == CO2.NO_ERROR:
-                sba5_pub.publish(CO2(zero_count=int(sba5_data[1]), count=int(sba5_data[2]), ppm=float(sba5_data[3]),
-                                     average_temp=float(sba5_data[4]),
-                                     humidity=float(sba5_data[5]), humidity_sensor_temp=float(sba5_data[6]),
-                                     atmospheric_pressure=int(sba5_data[7]), detector_temp=float(sba5_data[8]),
-                                     source_temp=float(sba5_data[9]),
-                                     status=status))
-              else:
-                # @TODO print usefull msg CO2.LOW_COUNT, TOO_COLD,TOO_HOT, LOW_ALARM, HIGH_HUMIDITY, LOW_VOLTAGE like
-                #  the var name
-                node.get_logger().error("co2_publisher: sba5 error: #" + str(int(status)))
-            else:
-              node.get_logger().error("co2_publisher: sba5 error: #?")
-            pub.publish(sba5_str)
-            rate.sleep()
+    reading = None
+    sba5_data = sba5_str.strip().split(" ")
+    if sba5_data[0] == 'M' and len(sba5_data) == 11:
+      # M 50885 48094 500.96 55.0 0.0 0.0 829 55.0 55.0 00
+      reading = CO2(ppm=float(sba5_data[3]),
+          average_temp=float(sba5_data[4]),
+          humidity=float(sba5_data[5]),
+          humidity_sensor_temp=float(sba5_data[6]),
+          atmospheric_pressure=int(sba5_data[7]),
+          detector_temp=float(sba5_data[8]),
+          source_temp=float(sba5_data[9]),
+          status=int(sba5_data[10]))
+    elif sba5_data[0].startswith('Z') and len(sba5_data) == 3:
+      # Z,22 of 25\r\n
+      reading = CO2(zeroing=True,
+          zeroing_index=int(sba5_data[1]),
+          zeroing_count=int(sba5_data[2]))
+    elif sba5_data[0].startswith('W') and len(sba5_data) == 1:
+      # W,43.1
+      reading = CO2(warming=True,
+          sensor_temp=float(sba5_data[1]))
+    else:
+      self.logger.error(f"Unable to parse SBA-5 message: {sba5_str}")
 
-    except serial.SerialException as ex:
-      node.get_logger().warn("SerialException: " + str(ex))
-      rate.sleep()
+    return reading
+  def publish(self):
+    self.logger.info("publishing co2 readings on {}/co2".format(self.id))
+
+    while rclpy.ok():
+      try:
+        with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
+                           stopbits=serial.STOPBITS_ONE) as port:
+          self.logger.info('Connected to /dev/ttysba5')
+          port.write(str.encode('!'))  # measurement display off
+          port.write(str.encode('C2\r'))  # Configure to 2 decimal places
+          port.write(str.encode('P1\r'))  # turn on pump
+          while rclpy.ok():
+            if self.zeroing:
+              port.write(str.encode('M'))  # request measurement
+
+            sba5_data = self.parse_sba5_message(port.readline())
+
+            if sba5_data is not None:
+              if sba5_data.status == CO2.NO_ERROR:
+                self.zeroing = sba5_data.warming or (sba5_data.zeroing and sba5_data.zeroing_index < sba5_data.zeroing_count)
+                self.pub.publish(sba5_data)
+            self.sba5_polling_rate.sleep()
+
+      except serial.SerialException as ex:
+        self.logger.warn("SerialException: " + str(ex))
+        self.error_retry_rate.sleep()
 
 
 def main():
@@ -68,8 +90,8 @@ def main():
   thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
   thread.start()
 
-  publishco2(args.id)
-
+  publisher = CO2Publisher(args.id, node)
+  publisher.publish()
 
 if __name__ == '__main__':
   main()

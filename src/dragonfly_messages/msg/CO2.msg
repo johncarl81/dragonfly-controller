@@ -7,8 +7,6 @@ int8 LOW_ALARM     = 4 # less than range from L command
 int8 HIGH_HUMIDITY = 5 # greater than 90 mbar
 int8 LOW_VOLTAGE   = 6 # 6 Board voltage less than 4V
 
-
-int32 zero_count
 int32 count
 float32 ppm
 float32 average_temp # in c
@@ -19,3 +17,6 @@ float32 detector_temp #hh.h IRGA detector temperature [°C],
 float32 source_temp #IRGA source temperature [°C],
 int8 status #Status/Error code. Continuously displayed measurements do not display the j but instead display a text message
 bool zeroing
+int32 zeroing_count
+int32 zeroing_index
+bool warming
