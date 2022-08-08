@@ -1,40 +1,81 @@
 #!/usr/bin/env python3
 
 import argparse
-
+import threading
 import rclpy
 import serial
+import sys
+
 from rclpy.qos import QoSProfile
 from std_msgs.msg import String
 from rclpy.qos import HistoryPolicy
+from dragonfly_messages.msg import CO2
 
+class CO2Publisher:
 
-def publishco2(args):
-  rclpy.init()  # args=id
-  node = rclpy.create_node('co2_publisher')
-  node.get_logger().info("publishing co2 readings on {}/co2".format(args))
-  pub = node.create_publisher(String, "{}/co2".format(args),
-                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
-  rate = node.create_rate(10)
-  while rclpy.ok():
-    try:
-      with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
-                         stopbits=serial.STOPBITS_ONE) as port:
-        node.get_logger().info('Connected to /dev/ttysba5')
-        # Publish on demand
-        port.write(str.encode('!'))
-        # Configure to 2 decimal places
-        port.write(str.encode('C2\r'))
-        while rclpy.ok():
-          port.write(str.encode('M'))
-          hello_str = port.readline()
-          # @TODO split and put into
-          # /home/carter/dfly/dragonfly-controller/src/dragonfly_messages/msg/CO2.msg
-          pub.publish(hello_str)
-          rate.sleep()
-    except serial.SerialException as ex:
-      node.get_logger().warn("SerialException" + str(ex))
-      rate.sleep()
+  def __init__(self, id, node):
+    self.id = id
+    self.zeroing = False
+    self.logger = node.get_logger()
+    self.pub = node.create_publisher(String, "{}/co2".format(id),
+                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    self.sba5_polling_rate = node.create_rate(10)
+    self.error_retry_rate = node.create_rate(1)
+
+  def parse_sba5_message(self, sba5_str):
+    self.logger.debug("co2_publisher:" + str(sba5_str))
+
+    reading = None
+    sba5_data = sba5_str.strip().split(" ")
+    if sba5_data[0] == 'M' and len(sba5_data) == 11:
+      # M 50885 48094 500.96 55.0 0.0 0.0 829 55.0 55.0 00
+      reading = CO2(ppm=float(sba5_data[3]),
+          average_temp=float(sba5_data[4]),
+          humidity=float(sba5_data[5]),
+          humidity_sensor_temp=float(sba5_data[6]),
+          atmospheric_pressure=int(sba5_data[7]),
+          detector_temp=float(sba5_data[8]),
+          source_temp=float(sba5_data[9]),
+          status=int(sba5_data[10]))
+    elif sba5_data[0].startswith('Z') and len(sba5_data) == 3:
+      # Z,22 of 25\r\n
+      reading = CO2(zeroing=True,
+          zeroing_index=int(sba5_data[1]),
+          zeroing_count=int(sba5_data[2]))
+    elif sba5_data[0].startswith('W') and len(sba5_data) == 1:
+      # W,43.1
+      reading = CO2(warming=True,
+          sensor_temp=float(sba5_data[1]))
+    else:
+      self.logger.error(f"Unable to parse SBA-5 message: {sba5_str}")
+
+    return reading
+  def publish(self):
+    self.logger.info("publishing co2 readings on {}/co2".format(self.id))
+
+    while rclpy.ok():
+      try:
+        with serial.Serial("/dev/ttysba5", baudrate=19200, bytesize=serial.EIGHTBITS, parity=serial.PARITY_NONE,
+                           stopbits=serial.STOPBITS_ONE) as port:
+          self.logger.info('Connected to /dev/ttysba5')
+          port.write(str.encode('!'))  # measurement display off
+          port.write(str.encode('C2\r'))  # Configure to 2 decimal places
+          port.write(str.encode('P1\r'))  # turn on pump
+          while rclpy.ok():
+            if self.zeroing:
+              port.write(str.encode('M'))  # request measurement
+
+            sba5_data = self.parse_sba5_message(port.readline())
+
+            if sba5_data is not None:
+              if sba5_data.status == CO2.NO_ERROR:
+                self.zeroing = sba5_data.warming or (sba5_data.zeroing and sba5_data.zeroing_index < sba5_data.zeroing_count)
+                self.pub.publish(sba5_data)
+            self.sba5_polling_rate.sleep()
+
+      except serial.SerialException as ex:
+        self.logger.warn("SerialException: " + str(ex))
+        self.error_retry_rate.sleep()
 
 
 def main():
@@ -42,8 +83,14 @@ def main():
   parser.add_argument('id', type=str, help='Name of the drone.')
   args = parser.parse_args()
 
-  publishco2(args.id)
+  rclpy.init(args=sys.argv)
+  node = rclpy.create_node('co2_publisher')
 
+  thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
+  thread.start()
+
+  publisher = CO2Publisher(args.id, node)
+  publisher.publish()
 
 if __name__ == '__main__':
   main()

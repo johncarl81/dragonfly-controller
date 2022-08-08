@@ -43,9 +43,6 @@ class GradientAction:
         self.timerSubscription = rx.empty().subscribe()
         self.max_value = None
 
-    def parseReading(self, reading):
-        return float(reading.data.split()[3])
-
     def checkForMax(self, readingPosition):
         if self.max_value is None or readingPosition.value > self.max_value.value:
             self.timerSubscription.dispose()
@@ -111,7 +108,7 @@ class GradientAction:
         position_value_subject = Subject()
 
         rx.combine_latest(position_subject, co2_subject).pipe(
-            ops.map(lambda tuple: ReadingPosition(tuple[0].latitude, tuple[0].longitude, self.parseReading(tuple[1])))
+            ops.map(lambda tuple: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm))
         ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
 
         return position_value_subject

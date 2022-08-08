@@ -22,6 +22,7 @@ find_package(rosidl_default_generators REQUIRED)
 
 rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Boundary.msg"
+  "msg/CO2.msg"
   "msg/CO2GradientFollowing.msg"
   "msg/Curtain.msg"
   "msg/DDSAMission.msg"

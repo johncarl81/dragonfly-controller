@@ -3,7 +3,7 @@ from rx.subject import Subject
 
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import TwistStamped
-from std_msgs.msg import String
+from dragonfly_messages.msg import CO2
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
 
 class DroneStream:
@@ -30,7 +30,7 @@ class DroneStream:
 
     def get_co2(self):
         if not self.co2_subject_init:
-            self.node.create_subscription(String, "{}/co2".format(self.name), lambda value: self.co2_subject.on_next(value),
+            self.node.create_subscription(CO2, "{}/co2".format(self.name), lambda value: self.co2_subject.on_next(value),
                                           qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
             self.co2_subject_init = True
 
