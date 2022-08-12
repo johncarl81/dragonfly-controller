@@ -391,8 +391,15 @@ class DragonflyCommand:
                                                                step.lawnmower_step.walk, step.lawnmower_step.altitude,
                                                                step.lawnmower_step.stacks, step.lawnmower_step.step_length,
                                                                self.orientation)
-                    self.runWaypoints("Lawnmower", waypoints, step.lawnmower_step.wait_time,
-                                      step.lawnmower_step.distance_threshold)
+                    boundary_length = len(boundary) if step.lawnmower_step.walk_boundary else 0
+                    self.runPlumeAwareWaypoints("Lawnmower",
+                                                waypoints,
+                                                step.lawnmower_step.wait_time,
+                                                step.lawnmower_step.step_length,
+                                                boundary_length,
+                                                step.lawnmower_step.distance_threshold)
+                    # self.runWaypoints("Lawnmower", waypoints, step.lawnmower_step.wait_time,
+                    #                   step.lawnmower_step.distance_threshold)
             elif step.msg_type == MissionStep.TYPE_NAVIGATION:
                 print("Navigation")
                 self.actionqueue.push(LogAction(self.logPublisher, "Navigation"))
@@ -454,6 +461,11 @@ class DragonflyCommand:
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
 
         return
+
+    def runPlumeAwareWaypoints(self, waypoints_name, waypoints, wait_time, step_length, boundary_length, distance_threshold):
+        self.actionqueue.push(PlumeAwareLawnmowerAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoints,
+                                                  distance_threshold, step_length, boundary_length, self.local_velocity_observable, self.local_position_observable,
+                                                        self.drone_stream_factory.get_drone(self.id).get_co2()))
 
     def flock(self, request, response):
         flockCommand = request.steps[0]  # @TODO: check if this is right
