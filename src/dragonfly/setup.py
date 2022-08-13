@@ -24,7 +24,8 @@ setup(
             'command = dragonfly.command:main',
             'virtualco2publisher = dragonfly.virtualco2publisher:main',
             'logger = dragonfly.logger:main',
-            'co2publisher = dragonfly.co2publisher:main'
+            'co2publisher = dragonfly.co2publisher:main',
+            'pump = dragonfly.pump:main'
         ],
     },
 )
