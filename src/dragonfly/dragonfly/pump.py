@@ -38,7 +38,7 @@ class BagInflateService(Node):
 
 
 def main(args=None):
-  parser = argparse.ArgumentParser(description='Log the given drone\'s GPS And CO2.')
+  parser = argparse.ArgumentParser(description='Sample Bag Collection Service')
   parser.add_argument('id', type=str, help='Name of the drone.')
   args = parser.parse_args()
   rclpy.init(args=args)
