@@ -46,6 +46,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/Navigation.srv"
   "srv/Setup.srv"
   "srv/Simple.srv"
+  "srv/Pump.srv"
  )
 
 if(BUILD_TESTING)
