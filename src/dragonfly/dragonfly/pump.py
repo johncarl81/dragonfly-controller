@@ -20,12 +20,12 @@ class BagInflateService(Node):
     self.inflate = self.create_service(Pump, "/{}/pump".format(self.id), self.bag_inflate_callback)
     #self.swap = self.create_service(BagSwap, "/{}/bagswap".format(self.id), self.bag_swap_callback)
 
-  def bag_swap_callback(self, request):
+  def bag_swap_callback(self, request, response):
     self.get_logger().info("Bags swapped")
     self.bag_full = [False] * len(self.bag_gpio_pins)
     return Bool(True)
 
-  def bag_inflate_callback(self, request):
+  def bag_inflate_callback(self, request, response):
     # @TODO add timestamp and id ect
     self.get_logger().info("Bag inflate request received")
     if not self.bag_full[request.pump_num]:
@@ -33,9 +33,11 @@ class BagInflateService(Node):
       GPIO.output(self.bag_gpio_pins[request.pump_num], 1)
       time.sleep(60)
       GPIO.output(self.bag_gpio_pins[request.pump_num], 0)
-      return Bool(True)
+      response.done = Bool(True)
+      return response
     self.get_logger().warn("Bag already inflated")
-    return Bool(False)
+    response.done = Bool(False)
+    return response
 
 
 def main(args=None):
