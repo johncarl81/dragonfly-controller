@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import sys
 import argparse
 import time
 import rclpy
@@ -41,7 +42,7 @@ def main(args=None):
   parser = argparse.ArgumentParser(description='Sample Bag Collection Service')
   parser.add_argument('id', type=str, help='Name of the drone.')
   args = parser.parse_args()
-  rclpy.init(args=args)
+  rclpy.init(args=sys.argv)
   bag_inflate_service = BagInflateService(args.id)
   rclpy.spin(bag_inflate_service)
   rclpy.shutdown()
@@ -49,4 +50,4 @@ def main(args=None):
 
 
 if __name__ == '__main__':
-  main()
+  main(args=sys.argv)
