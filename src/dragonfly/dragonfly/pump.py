@@ -18,7 +18,7 @@ class BagInflateService(Node):
     GPIO.setwarnings(False)
     GPIO.setup(self.bag_gpio_pins, GPIO.OUT)
     self.inflate = self.create_service(Pump, "/{}/pump".format(self.id), self.bag_inflate_callback)
-    self.swap = self.create_service(Bool, "/{}/bagswap".format(self.id), self.bag_swap_callback)
+    #self.swap = self.create_service(BagSwap, "/{}/bagswap".format(self.id), self.bag_swap_callback)
 
   def bag_swap_callback(self, request):
     self.get_logger().info("Bags swapped")
