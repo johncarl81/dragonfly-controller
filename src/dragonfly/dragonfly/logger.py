@@ -63,7 +63,7 @@ class co2Logger:
         if self.position is not None:
             print("{} co2: {} {} {} {} {} {} {} {} @ {} {} {}".format(self.getDate(),
                                                                       data.ppm,
-                                                                      data.sensor_temp,
+                                                                      data.average_temp,
                                                                       data.humidity,
                                                                       data.humidity_sensor_temp,
                                                                       data.atmospheric_pressure,
@@ -76,7 +76,7 @@ class co2Logger:
         else:
             print("{} co2: {} {} {} {} {} {} {} {} @ -".format(self.getDate(),
                                                                data.ppm,
-                                                               data.sensor_temp,
+                                                               data.average_temp,
                                                                data.humidity,
                                                                data.humidity_sensor_temp,
                                                                data.atmospheric_pressure,
