@@ -15,9 +15,9 @@ class BagInflateService(Node):
         super().__init__('bag_inflate_service')
         self.id = arg_id
         self.sim = sim
+        self.bag_gpio_pins = [16, 19, 20, 21]
         if not self.sim:
             import RPi.GPIO as GPIO
-            self.bag_gpio_pins = [16, 19, 20, 21]
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
             GPIO.setup(self.bag_gpio_pins, GPIO.OUT)
