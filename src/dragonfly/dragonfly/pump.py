@@ -32,18 +32,17 @@ class BagInflateService(Node):
 
     def bag_inflate_callback(self, request, response):
         # @TODO add timestamp and id ect
-        self.get_logger().info("Bag inflate request received")
+        response.done = False
+        self.get_logger().info("Bag {} inflate request received".format(request.pump_num))
         if not self.bag_full[request.pump_num]:
             self.bag_full[request.pump_num] = True
+            response.done = True
             if not self.sim:
                 rx.just(self.bag_gpio_pins[request.pump_num]).pipe(
                     ops.observe_on(NewThreadScheduler())) \
                     .subscribe(on_next=lambda pin: self.pump(pin))
-
-            response.done = True
-            return response
-        self.get_logger().warn("Bag already inflated")
-        response.done = False
+        else:
+            self.get_logger().warn("Bag {} already inflated".format(request.pump_num))
         return response
 
     def pump(self, pin):
