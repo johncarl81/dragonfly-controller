@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
 import math
-
 import rx
 import rx.operators as ops
-
-from rx.subject import Subject
 from std_msgs.msg import String
 from .ActionState import ActionState
 
@@ -23,20 +20,13 @@ class PlumeAwareLawnmowerAction:
     WAIT_FOR_WAYPOINT = 10
     WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z': 0}
 
-    def __init__(self, id, logPublisher, local_setposition_publisher, waypoints, distance_threshold, step_length, boundary_length, local_velocity_observable, local_pose_observable, co2_observable):
+    def __init__(self, id, logPublisher, local_setposition_publisher, waypoints, distance_threshold, step_length, boundary_length, local_pose_observable, co2_observable):
         self.id = id
         self.logPublisher = logPublisher
         self.waypoints = waypoints
         self.distance_threshold = distance_threshold
         self.local_setposition_publisher = local_setposition_publisher
-        self.status = ActionState.WORKING
-        self.commanded = False
-        self.position_update = None
-        self.velocity_update = None
-        self.velocity_subject = Subject()
-        self.pose_subject = Subject()
         self.waypointAcceptanceSubscription = rx.empty().subscribe()
-        self.local_velocity_observable = local_velocity_observable
         self.local_pose_observable = local_pose_observable
         self.co2_observable = co2_observable
         self.step_length = step_length
@@ -47,6 +37,19 @@ class PlumeAwareLawnmowerAction:
         self.above_ambient_last = None
         self.ambient_threshold = 425
         self.status = ActionState.WORKING
+        self.commanded = False
+
+    def is_pass(self):
+        return self.current_waypoint_index > self.boundary_length and \
+               (self.current_waypoint_index - self.boundary_length) % 2 == 0
+
+    def is_between(self, x, current_waypoint, next_waypoint):
+        cur_waypoint_x = current_waypoint.pose.position.x
+        next_waypoint_x = next_waypoint.pose.position.x
+        if cur_waypoint_x < next_waypoint_x:
+            cur_waypoint_x, next_waypoint_x = next_waypoint_x, cur_waypoint_x
+
+        return cur_waypoint_x > x > next_waypoint_x
 
     def step(self):
         if self.current_waypoint_index < len(self.waypoints) :
@@ -54,19 +57,22 @@ class PlumeAwareLawnmowerAction:
                 self.commanded = True
 
                 def updatePosition(pose, ppm):
-                    if self.current_waypoint_index > self.boundary_length:
+                    if self.is_pass():
                         if ppm > self.ambient_threshold:
                             self.above_ambient_last = pose
 
-                        if self.above_ambient_last and distance(pose, self.above_ambient_last) > self.step_length:
+                        if self.above_ambient_last and \
+                                distance(pose, self.above_ambient_last) > self.step_length and \
+                                self.current_waypoint_index < len(self.waypoints) - 2:
                             # Turn, below ambient
-                            if self.current_waypoint_index < len(self.waypoints) - 1:
-                                # Skip the next waypoint
+                            self.current_waypoint = self.waypoints[self.current_waypoint_index + 1]
+                            self.next_waypoint = self.waypoints[self.current_waypoint_index + 2]
+                            if self.is_between(pose.x, self.current_waypoint, self.next_waypoint):
                                 self.current_waypoint_index = self.current_waypoint_index + 1
-                                self.current_waypoint = self.waypoints[self.current_waypoint_index]
                                 self.current_waypoint.pose.position.x = pose.x
-                                self.local_setposition_publisher.publish(self.current_waypoint)
                                 self.logPublisher.publish(String(data="Exited plume, pruning..."))
+                                self.local_setposition_publisher.publish(self.current_waypoint)
+
                             self.above_ambient_last = None
 
                     if distance(self.current_waypoint.pose.position, pose) < self.distance_threshold:
@@ -90,5 +96,4 @@ class PlumeAwareLawnmowerAction:
         return self.status
 
     def stop(self):
-        print("Called stop")
         self.waypointAcceptanceSubscription.dispose()

@@ -464,7 +464,7 @@ class DragonflyCommand:
 
     def runPlumeAwareWaypoints(self, waypoints_name, waypoints, wait_time, step_length, boundary_length, distance_threshold):
         self.actionqueue.push(PlumeAwareLawnmowerAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoints,
-                                                  distance_threshold, step_length, boundary_length, self.local_velocity_observable, self.local_position_observable,
+                                                  distance_threshold, step_length, boundary_length, self.local_position_observable,
                                                         self.drone_stream_factory.get_drone(self.id).get_co2()))
 
     def flock(self, request, response):
