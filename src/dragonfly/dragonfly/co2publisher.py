@@ -45,7 +45,7 @@ class CO2Publisher:
     elif sba5_data[0].startswith('W') and len(sba5_data) == 1:
       # W,43.1
       reading = CO2(warming=True,
-          sensor_temp=float(sba5_data[1]))
+          average_temp=float(sba5_data[1]))
     else:
       self.logger.error(f"Unable to parse SBA-5 message: {sba5_str}")
 
