@@ -41,15 +41,15 @@ class PlumeAwareLawnmowerAction:
 
     def is_pass(self):
         return self.current_waypoint_index > self.boundary_length and \
-               (self.current_waypoint_index - self.boundary_length) % 2 == 0
+               (self.current_waypoint_index - self.boundary_length) % 2 == 1
 
-    def is_between(self, x, current_waypoint, next_waypoint):
-        cur_waypoint_x = current_waypoint.pose.position.x
-        next_waypoint_x = next_waypoint.pose.position.x
-        if cur_waypoint_x < next_waypoint_x:
-            cur_waypoint_x, next_waypoint_x = next_waypoint_x, cur_waypoint_x
+    def is_between_next_pass(self, x):
+        pass_start_x = self.waypoints[self.current_waypoint_index + 1].pose.position.x
+        pass_end_x = self.waypoints[self.current_waypoint_index + 2].pose.position.x
+        if pass_start_x > pass_end_x:
+            pass_start_x, pass_end_x = pass_end_x, pass_start_x
 
-        return cur_waypoint_x > x > next_waypoint_x
+        return pass_start_x < x < pass_end_x
 
     def step(self):
         if self.current_waypoint_index < len(self.waypoints) :
@@ -61,19 +61,17 @@ class PlumeAwareLawnmowerAction:
                         if ppm > self.ambient_threshold:
                             self.above_ambient_last = pose
 
-                        if self.above_ambient_last and \
+                        if self.above_ambient_last is not None and \
                                 distance(pose, self.above_ambient_last) > self.step_length and \
                                 self.current_waypoint_index < len(self.waypoints) - 2:
                             # Turn, below ambient
-                            self.current_waypoint = self.waypoints[self.current_waypoint_index + 1]
-                            self.next_waypoint = self.waypoints[self.current_waypoint_index + 2]
-                            if self.is_between(pose.x, self.current_waypoint, self.next_waypoint):
+                            if self.is_between_next_pass(pose.x):
                                 self.current_waypoint_index = self.current_waypoint_index + 1
+                                self.current_waypoint = self.waypoints[self.current_waypoint_index]
                                 self.current_waypoint.pose.position.x = pose.x
                                 self.logPublisher.publish(String(data="Exited plume, pruning..."))
                                 self.local_setposition_publisher.publish(self.current_waypoint)
-
-                            self.above_ambient_last = None
+                                self.above_ambient_last = None
 
                     if distance(self.current_waypoint.pose.position, pose) < self.distance_threshold:
                         if self.current_waypoint_index < len(self.waypoints) - 1:
