@@ -19,4 +19,5 @@ from .TakeoffAction import TakeoffAction
 from .WaitForDisarmAction import WaitForDisarmAction
 from .WaitForZeroAction import WaitForZeroAction
 from .WaypointAction import WaypointAction
+from .PlumeAwareLawnmowerAction import PlumeAwareLawnmowerAction
 from std_msgs.msg import String
