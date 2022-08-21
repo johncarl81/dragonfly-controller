@@ -252,17 +252,17 @@ class DragonflyCommand:
 
         return Navigation.Response(success=True, message="Commanded {} to navigate.".format(self.id))
 
-    def build_curtain_waypoints(self, startWaypoint, endWaypoint, altitude, stacks, orientation):
+    def build_curtain_waypoints(self, startWaypoint, endWaypoint, altitude, stacks, stack_height, orientation):
         waypoints = []
 
         reverse = False
         for stack in range(stacks):
             if reverse:
-                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + stack, orientation))
-                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + stack, orientation))
+                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + (stack_height * stack), orientation))
+                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + (stack_height * stack), orientation))
             else:
-                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + stack, orientation))
-                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + stack, orientation))
+                waypoints.append(createWaypoint(startWaypoint.x, startWaypoint.y, altitude + (stack_height * stack), orientation))
+                waypoints.append(createWaypoint(endWaypoint.x, endWaypoint.y, altitude + (stack_height * stack), orientation))
             reverse = not reverse
 
         return waypoints
@@ -394,12 +394,8 @@ class DragonflyCommand:
                     boundary_length = len(boundary) if step.lawnmower_step.walk_boundary else 0
                     self.runPlumeAwareWaypoints("Lawnmower",
                                                 waypoints,
-                                                step.lawnmower_step.wait_time,
-                                                step.lawnmower_step.step_length,
                                                 boundary_length,
-                                                step.lawnmower_step.distance_threshold)
-                    # self.runWaypoints("Lawnmower", waypoints, step.lawnmower_step.wait_time,
-                    #                   step.lawnmower_step.distance_threshold)
+                                                step.lawnmower_step)
             elif step.msg_type == MissionStep.TYPE_NAVIGATION:
                 print("Navigation")
                 self.actionqueue.push(LogAction(self.logPublisher, "Navigation"))
@@ -432,8 +428,12 @@ class DragonflyCommand:
                                                                   endWaypoint.pose.position,
                                                                   step.curtain_step.altitude,
                                                                   step.curtain_step.stacks,
+                                                                  step.curtain_step.stack_height,
                                                                   self.orientation)
-                    self.runWaypoints("Curtain", localWaypoints, 0, step.curtain_step.distance_threshold)
+                    self.runPlumeAwareWaypoints("Lawnmower",
+                                                localWaypoints,
+                                                0,
+                                                step.curtain_step)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish(String(data="Mission with {} steps setup".format(len(request.steps))))
@@ -462,9 +462,9 @@ class DragonflyCommand:
 
         return
 
-    def runPlumeAwareWaypoints(self, waypoints_name, waypoints, wait_time, step_length, boundary_length, distance_threshold):
-        self.actionqueue.push(PlumeAwareLawnmowerAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoints,
-                                                  distance_threshold, step_length, boundary_length, self.local_position_observable,
+    def runPlumeAwareWaypoints(self, name, waypoints, boundary_length, parameters):
+        self.actionqueue.push(PlumeAwareLawnmowerAction(name, self.id, self.logPublisher, waypoints, boundary_length, parameters,
+                                                        self.local_setposition_publisher, self.local_position_observable,
                                                         self.drone_stream_factory.get_drone(self.id).get_co2()))
 
     def flock(self, request, response):
