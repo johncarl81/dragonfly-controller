@@ -19,6 +19,7 @@ class BagInflateService(Node):
         self.sim = sim
         self.bag_gpio_pins = [16, 19, 20, 21]
         if not self.sim:
+            global GPIO
             import RPi.GPIO as GPIO
             GPIO.setmode(GPIO.BCM)
             GPIO.setwarnings(False)
@@ -34,7 +35,6 @@ class BagInflateService(Node):
         return True
 
     def bag_inflate_callback(self, request, response):
-        # @TODO add timestamp and id ect
         response.done = False
         self.get_logger().info(f"Bag {request.pump_num} inflate request received")
         if not self.bag_full[request.pump_num]:
@@ -64,7 +64,6 @@ def main(args=None):
     parser.add_argument('--sim', help='Is the sim running', action='store_true')
     parser.set_defaults(sim=False)
     args = parser.parse_args()
-    print(f"STARTING PUMP {args.sim}")
     rclpy.init(args=sys.argv)
     bag_inflate_service = BagInflateService(args.id, args.sim)
     rclpy.spin(bag_inflate_service)
