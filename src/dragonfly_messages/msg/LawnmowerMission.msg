@@ -6,3 +6,6 @@ int32 stacks
 float32 altitude
 float32 wait_time
 float32 distance_threshold
+bool co2_limit
+float32 co2_threshold
+float32 co2_limit_margin

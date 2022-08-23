@@ -1,5 +1,9 @@
 string start_waypoint
 string end_waypoint
 int32 stacks
+float32 stack_height
 float32 altitude
 float32 distance_threshold
+bool co2_limit
+float32 co2_threshold
+float32 co2_limit_margin
