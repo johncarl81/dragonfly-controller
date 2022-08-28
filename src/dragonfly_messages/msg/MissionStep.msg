@@ -11,6 +11,7 @@ int8 TYPE_NAVIGATION=9
 int8 TYPE_FLOCK=10
 int8 TYPE_GRADIENT=11
 int8 TYPE_CURTAIN=12
+int8 TYPE_PUMP=13
 
 int8 msg_type
 
@@ -24,3 +25,4 @@ NavigationMission navigation_step
 FlockMission flock_step
 CO2GradientFollowing gradient_step
 Curtain curtain_step
+PumpMission pump_step
