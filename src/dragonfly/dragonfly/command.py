@@ -434,6 +434,12 @@ class DragonflyCommand:
                                                 localWaypoints,
                                                 0,
                                                 step.curtain_step)
+            elif step.msg_type == MissionStep.TYPE_PUMP:
+                print("Pump")
+                self.actionqueue.push(LogAction(self.logPublisher, "Pump")) \
+                    .push(PumpAction(step.pump_step.pump_num, self.pump_service))
+            else:
+                Print("Mission step not recognized: " + step.msg_type)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish(String(data="Mission with {} steps setup".format(len(request.steps))))
@@ -530,6 +536,7 @@ class DragonflyCommand:
         self.arm_service = self.create_client_and_wait(CommandBool, "/{}/mavros/cmd/arming".format(self.id))
         self.takeoff_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/takeoff".format(self.id))
         self.land_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/land".format(self.id))
+        self.pump_service = self.create_client_and_wait(Pump, "/{}/pump".format(self.id))
         self.local_setposition_publisher = self.node.create_publisher(PoseStamped,
                                                                       "/{}/mavros/setpoint_position/local".format(
                                                                           self.id), qos_profile=QoSProfile(

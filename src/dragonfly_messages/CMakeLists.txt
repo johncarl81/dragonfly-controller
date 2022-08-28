@@ -32,6 +32,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/LawnmowerMission.msg"
   "msg/MissionStep.msg"
   "msg/NavigationMission.msg"
+  "msg/PumpMission.msg"
   "msg/Semaphore.msg"
   "msg/SemaphoreToken.msg"
   "msg/Sleep.msg"
