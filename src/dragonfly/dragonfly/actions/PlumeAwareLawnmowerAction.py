@@ -20,7 +20,7 @@ class PlumeAwareLawnmowerAction:
     WAIT_FOR_WAYPOINT = 10
     WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z': 0}
 
-    def __init__(self, name, id, logPublisher, waypoints, boundary_length, parameters, local_setposition_publisher, local_pose_observable, co2_observable):
+    def __init__(self, name, id, logPublisher, waypoints, boundary_length, parameters, local_setposition_publisher, local_pose_observable, local_velocity_observable, co2_observable):
         self.name = name
         self.id = id
         self.logPublisher = logPublisher
@@ -29,6 +29,7 @@ class PlumeAwareLawnmowerAction:
         self.local_setposition_publisher = local_setposition_publisher
         self.waypointAcceptanceSubscription = rx.empty().subscribe()
         self.local_pose_observable = local_pose_observable
+        self.local_velocity_observable = local_velocity_observable
         self.co2_observable = co2_observable
         self.boundary_length = boundary_length
 
@@ -37,6 +38,7 @@ class PlumeAwareLawnmowerAction:
         self.above_ambient_last = None
         self.status = ActionState.WORKING
         self.commanded = False
+        self.last_waypoint_time = 0
 
     def is_pass(self):
         return self.current_waypoint_index > self.boundary_length and \
@@ -63,20 +65,26 @@ class PlumeAwareLawnmowerAction:
             if not self.commanded:
                 self.commanded = True
 
-                def updatePosition(pose, ppm):
+                def updatePosition(pose, velocity, ppm, time):
+                    alteredposition = pose
+
+                    alteredposition.x += PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x']
+                    alteredposition.y += PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y']
+                    alteredposition.z += PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z']
+
                     if self.parameters.co2_limit and self.is_pass():
                         if ppm > self.parameters.co2_threshold:
-                            self.above_ambient_last = pose
+                            self.above_ambient_last = alteredposition
 
                         if self.above_ambient_last is not None and \
-                                distance(pose, self.above_ambient_last) > self.parameters.co2_limit_margin and \
+                                distance(alteredposition, self.above_ambient_last) > self.parameters.co2_limit_margin and \
                                 self.current_waypoint_index < len(self.waypoints) - 2:
                             # Turn, below ambient
-                            if self.is_between_next_pass(pose.x):
+                            if self.is_between_next_pass(alteredposition.x):
                                 self.current_waypoint_index = self.current_waypoint_index + 1
                                 self.current_waypoint = self.waypoints[self.current_waypoint_index]
-                                self.current_waypoint.pose.position.x = pose.x
-                                y = self.interpolate_y(pose.x,
+                                self.current_waypoint.pose.position.x = alteredposition.x
+                                y = self.interpolate_y(alteredposition.x,
                                                        self.waypoints[self.current_waypoint_index],
                                                        self.waypoints[self.current_waypoint_index + 1])
                                 self.current_waypoint.pose.position.y = y
@@ -84,11 +92,15 @@ class PlumeAwareLawnmowerAction:
                                 self.local_setposition_publisher.publish(self.current_waypoint)
                                 self.above_ambient_last = None
 
-                    if distance(self.current_waypoint.pose.position, pose) < self.parameters.distance_threshold:
+
+                    magnitude = math.sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y) + (velocity.z * velocity.z))
+
+                    if distance(self.current_waypoint.pose.position, alteredposition) < self.parameters.distance_threshold:
                         if self.current_waypoint_index < len(self.waypoints) - 1:
                             self.current_waypoint_index = self.current_waypoint_index + 1
                             self.current_waypoint = self.waypoints[self.current_waypoint_index]
                             self.local_setposition_publisher.publish(self.current_waypoint)
+                            self.last_waypoint_time = time
                             self.logPublisher.publish(String(data="Goto {} {}/{}".format(
                                 self.name,
                                 self.current_waypoint_index + 1,
@@ -96,10 +108,19 @@ class PlumeAwareLawnmowerAction:
                         else:
                             self.status = ActionState.SUCCESS
                             self.stop()
+                    elif (time - self.last_waypoint_time) > self.WAIT_FOR_WAYPOINT and magnitude < self.STOP_VELOCITY_THRESHOLD:
+                        PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.current_waypoint.pose.position.x - pose.x
+                        PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.current_waypoint.pose.position.y - pose.y
+                        PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.current_waypoint.pose.position.z - pose.z
+                        self.logPublisher.publish(
+                        String(data="Adjusted waypoint acceptance: {}".format(PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT)))
 
-                self.waypointAcceptanceSubscription = rx.combine_latest(self.local_pose_observable, self.co2_observable).pipe(
+                self.waypointAcceptanceSubscription = rx.combine_latest(self.local_pose_observable,
+                                                                        self.local_velocity_observable,
+                                                                        self.co2_observable,
+                                                                        rx.interval(1)).pipe(
                     ops.sample(self.SAMPLE_RATE)
-                ).subscribe(on_next=lambda values: updatePosition(values[0].pose.position, values[1].ppm))
+                ).subscribe(on_next=lambda values: updatePosition(values[0].pose.position, values[1].twist.linear, values[2].ppm, values[3]))
 
                 self.local_setposition_publisher.publish(self.current_waypoint)
         return self.status
