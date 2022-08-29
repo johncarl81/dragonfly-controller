@@ -3,6 +3,7 @@ import math
 
 import rx
 import rx.operators as ops
+from std_msgs.msg import String
 
 from rx.subject import Subject
 
