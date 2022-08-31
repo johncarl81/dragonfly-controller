@@ -2,6 +2,7 @@
 dragonfly1.local name=dragonfly1 tgt_system=1 wlan_address=10.42.0.1
 dragonfly2.local name=dragonfly2 tgt_system=2 wlan_address=10.42.0.2
 dragonfly4.local name=dragonfly4 tgt_system=4 wlan_address=10.42.0.4
+dragonfly5.local name=dragonfly5 tgt_system=5 wlan_address=10.42.0.5
 
 [all:vars]
 ansible_python_interpreter=/usr/bin/python3

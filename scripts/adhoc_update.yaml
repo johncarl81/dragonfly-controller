@@ -1,0 +1,35 @@
+---
+- hosts: dragonflys
+  name: dragonfly setup
+  become: yes
+  tasks:
+    - name: Git clone local dragonfly-controller
+      ansible.builtin.git:
+        repo: john@10.42.0.20:/home/john/dev/dragonfly-controller
+        dest: /home/ubuntu/dev/dragonfly/
+        update: yes
+        version: master
+      become: yes
+      become_user: ubuntu
+
+    - name: Recursively remove build directory
+      ansible.builtin.file:
+        path: /home/ubuntu/dev/dragonfly/build
+        state: absent
+
+    - name: Recursively remove build directory
+      ansible.builtin.file:
+        path: /home/ubuntu/dev/dragonfly/install
+        state: absent
+      
+    - name: Buidling dragonfly controller with colcon build
+      ansible.builtin.shell: source /opt/ros/galactic/setup.bash && colcon build
+      args:
+        chdir: /home/ubuntu/dev/dragonfly/
+        executable: /bin/bash
+      become: yes
+      become_user: ubuntu
+    
+    - name: All done rebooting the dragonfly
+      reboot:
+
