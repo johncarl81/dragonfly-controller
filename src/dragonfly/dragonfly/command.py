@@ -9,7 +9,7 @@ import rclpy
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2
-from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
+from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy, DurabilityPolicy
 from rcl_interfaces.msg import ParameterValue, ParameterType
 from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
@@ -562,6 +562,15 @@ class DragonflyCommand:
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
                                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+
+        # Proactively create mavros publishers for dashboard rosbride avoid default RELIABLE, when it needs to be BEST_EFFORT
+        self.node.create_publisher(NavSatFix, "/{}/mavros/global_position/global".format(self.id),
+                                   qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_publisher(PoseStamped, "/{}/mavros/local_position/pose".format(self.id),
+                                   qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_publisher(State, "/{}/mavros/gmavros/state".format(self.id),
+                                   qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+
         def updateStateSubject(state):
             self.stateSubject.on_next(state)
 
