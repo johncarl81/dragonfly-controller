@@ -16,6 +16,7 @@ class CO2Publisher:
   def __init__(self, id, node):
     self.id = id
     self.zeroing = False
+    self.init_zeroing_count = 2
     self.logger = node.get_logger()
     self.pub = node.create_publisher(CO2, "{}/co2".format(id),
                                 qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
@@ -61,6 +62,9 @@ class CO2Publisher:
           port.write(str.encode('!'))  # measurement display off
           port.write(str.encode('C2\r'))  # Configure to 2 decimal places
           port.write(str.encode('P1\r'))  # turn on pump
+          port.write(str.encode('A40\r')) #Time [minutes] between zero operations
+          for _ in range(self.init_zeroing_count):
+             port.write(str.encode('Z')) # Perform a zero operation.
           while rclpy.ok():
             if not self.zeroing:
               port.write(str.encode('M'))  # request measurement
