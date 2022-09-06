@@ -16,6 +16,7 @@ class CO2Publisher:
   def __init__(self, id, node):
     self.id = id
     self.zeroing = False
+    self.init_zeroing_current_count = 0
     self.init_zeroing_count = 2
     self.logger = node.get_logger()
     self.pub = node.create_publisher(CO2, "{}/co2".format(id),
@@ -62,9 +63,8 @@ class CO2Publisher:
           port.write(str.encode('!'))  # measurement display off
           port.write(str.encode('C2\r'))  # Configure to 2 decimal places
           port.write(str.encode('P1\r'))  # turn on pump
-          port.write(str.encode('A40\r')) #Time [minutes] between zero operations
-          for _ in range(self.init_zeroing_count):
-             port.write(str.encode('Z')) # Perform a zero operation.
+          port.write(str.encode('A2\r')) #Time [minutes] between zero operations
+          port.write(str.encode('Z')) # Perform a zero operation.
           while rclpy.ok():
             if not self.zeroing:
               port.write(str.encode('M'))  # request measurement
@@ -73,7 +73,12 @@ class CO2Publisher:
 
             if sba5_data is not None:
               if sba5_data.status == CO2.NO_ERROR:
+                pre_zeroing = self.zeroing
                 self.zeroing = sba5_data.warming or (sba5_data.zeroing and sba5_data.zeroing_index < sba5_data.zeroing_count)
+                if (not pre_zeroing == self.zeroing) and not self.zeroing:
+                  self.zeroing_current_count = self.zeroing_current_count + 1
+                  if self.init_zeroing_count == self.zeroing_current_count:
+                    port.write(str.encode('A120\r')) #Time [minutes] between zero operations
                 self.pub.publish(sba5_data)
             self.sba5_polling_rate.sleep()
 
