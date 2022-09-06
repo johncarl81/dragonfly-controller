@@ -5,7 +5,6 @@ import numpy as np
 from std_msgs.msg import String
 
 from .ActionState import ActionState
-from rx.scheduler import NewThreadScheduler
 
 
 class CalibrateAction:
@@ -30,22 +29,19 @@ class CalibrateAction:
         self.log_publisher.publish(String(data="Average for {}: {}".format(drone.name, np.average(data))))
         self.log_publisher.publish(String(data="Stddev for {}: {}".format(drone.name, np.std(data))))
 
+        drone.set_co2_statistics(np.average(data), np.std(data))
+
     def step(self):
         if not self.commanded:
-            print("Calibrating CO2")
+            print("Calibrating")
             self.commanded = True
-            
+
             for drone in self.drones:
-                print("calculating stats for {}".format(drone))
-
-                drone_factory = self.droneStreamFactory.get_drone(drone)
-
-                drone_factory.get_co2().pipe(
-                    ops.observe_on(NewThreadScheduler()),
+                drone.get_co2().pipe(
                     ops.map(lambda reading: reading.ppm),
-                    ops.buffer_with_time(timespan=self.AVERAGE_TIME)
+                    ops.buffer(timespan=self.AVERAGE_TIME)
                 ).subscribe(
-                    on_next=lambda data, drone_factory=drone_factory: self.average(drone_factory, data))
+                    on_next=lambda data, drone=drone: self.average(drone, data))
 
         return self.status
 
