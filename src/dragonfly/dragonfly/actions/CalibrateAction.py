@@ -44,7 +44,7 @@ class CalibrateAction:
                     ops.map(lambda reading: reading.ppm),
                     ops.buffer(timespan=self.AVERAGE_TIME)
                 ).subscribe(
-                    on_next=lambda data, drone=drone: self.average(drone, data))
+                    on_next=lambda data, drone=drone_stream: self.average(drone, data))
 
         return ActionState.SUCCESS
 
