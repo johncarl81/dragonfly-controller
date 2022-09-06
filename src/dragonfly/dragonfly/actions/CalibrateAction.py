@@ -37,7 +37,10 @@ class CalibrateAction:
             self.commanded = True
 
             for drone in self.drones:
-                drone.get_co2().pipe(
+
+                drone_stream = self.droneStreamFactory.get_drone(drone)
+
+                drone_stream.get_co2().pipe(
                     ops.map(lambda reading: reading.ppm),
                     ops.buffer(timespan=self.AVERAGE_TIME)
                 ).subscribe(
