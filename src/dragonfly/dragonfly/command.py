@@ -418,7 +418,7 @@ class DragonflyCommand:
                     GradientAction(self.id, self.logPublisher, self.local_setvelocity_publisher, step.gradient_step.drones,
                                    self.drone_stream_factory))
             elif step.msg_type == MissionStep.TYPE_CALIBRATE:
-                print("Gradient")
+                print("Calibration")
                 self.actionqueue.push(LogAction(self.logPublisher, "Calibrating CO2")) \
                     .push(
                     CalibrateAction(self.id, self.logPublisher, step.gradient_step.drones, self.drone_stream_factory))

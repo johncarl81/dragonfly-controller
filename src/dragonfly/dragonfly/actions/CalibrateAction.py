@@ -5,6 +5,7 @@ import numpy as np
 from std_msgs.msg import String
 
 from .ActionState import ActionState
+from rx.scheduler import NewThreadScheduler
 
 
 class CalibrateAction:
@@ -31,11 +32,14 @@ class CalibrateAction:
 
     def step(self):
         if not self.commanded:
-            print("Following Gradient")
+            print("Calibrating CO2")
             self.commanded = True
 
             for drone in self.drones:
+                print("calculating stats for {}".format(drone.name))
+
                 drone.get_co2().pipe(
+                    ops.observe_on(NewThreadScheduler()),
                     ops.map(lambda reading: reading.ppm),
                     ops.buffer(timespan=self.AVERAGE_TIME)
                 ).subscribe(
