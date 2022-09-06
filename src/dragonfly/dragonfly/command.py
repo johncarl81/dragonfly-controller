@@ -421,7 +421,7 @@ class DragonflyCommand:
                 print("Calibration")
                 self.actionqueue.push(LogAction(self.logPublisher, "Calibrating CO2")) \
                     .push(
-                    CalibrateAction(self.id, self.logPublisher, step.gradient_step.drones, self.drone_stream_factory))
+                    CalibrateAction(self.id, self.logPublisher, step.calibrate_step.drones, self.drone_stream_factory))
             elif step.msg_type == MissionStep.TYPE_CURTAIN:
                 print("Curtain")
                 self.actionqueue.push(LogAction(self.logPublisher, "Curtain"))

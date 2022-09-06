@@ -34,16 +34,18 @@ class CalibrateAction:
         if not self.commanded:
             print("Calibrating CO2")
             self.commanded = True
-
+            
             for drone in self.drones:
-                print("calculating stats for {}".format(drone.name))
+                print("calculating stats for {}".format(drone))
 
-                drone.get_co2().pipe(
+                drone_factory = self.droneStreamFactory.get_drone(drone)
+
+                drone_factory.get_co2().pipe(
                     ops.observe_on(NewThreadScheduler()),
                     ops.map(lambda reading: reading.ppm),
-                    ops.buffer(timespan=self.AVERAGE_TIME)
+                    ops.buffer_with_time(timespan=self.AVERAGE_TIME)
                 ).subscribe(
-                    on_next=lambda data, drone=drone: self.average(drone, data))
+                    on_next=lambda data, drone_factory=drone_factory: self.average(drone_factory, data))
 
         return self.status
 
