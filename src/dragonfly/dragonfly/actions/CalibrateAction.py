@@ -43,7 +43,11 @@ class CalibrateAction:
                 ).subscribe(
                     on_next=lambda data, drone=drone: self.average(drone, data))
 
-        return self.status
+            rx.interval(self.AVERAGE_TIME).subscribe(
+                on_next=lambda time: self.status = ActionState.SUCCESS,
+                                                   on_error=lambda e: self.printError(e))
+
+            return self.status
 
     def stop(self):
         #self.gradient_subscription.dispose()
