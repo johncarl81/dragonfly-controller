@@ -42,7 +42,7 @@ class CalibrateAction:
 
                 drone_stream.get_co2().pipe(
                     ops.map(lambda reading: reading.ppm),
-                    ops.buffer(timespan=self.AVERAGE_TIME)
+                    ops.buffer_with_time(timespan=self.AVERAGE_TIME)
                 ).subscribe(
                     on_next=lambda data, drone=drone_stream: self.average(drone, data))
 
