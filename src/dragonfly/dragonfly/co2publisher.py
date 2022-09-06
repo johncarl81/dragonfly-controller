@@ -16,7 +16,7 @@ class CO2Publisher:
   def __init__(self, id, node):
     self.id = id
     self.zeroing = False
-    self.init_zeroing_current_count = 0
+    self.zeroing_current_count = 0
     self.init_zeroing_count = 2
     self.logger = node.get_logger()
     self.pub = node.create_publisher(CO2, "{}/co2".format(id),
