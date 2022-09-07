@@ -108,7 +108,7 @@ class GradientAction:
         position_value_subject = Subject()
 
         rx.combine_latest(position_subject, co2_subject).pipe(
-            ops.map(lambda tuple: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm))
+            ops.map(lambda tuple, offset=drone_streams.mean: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm - offset))
         ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
 
         return position_value_subject
