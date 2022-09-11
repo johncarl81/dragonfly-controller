@@ -18,6 +18,12 @@ class DroneStream:
         self.co2_subject_init = False
         self.velocity_subject = Subject()
         self.velocity_subject_init = False
+        self.mean = 0
+        self.std_dev = 1
+
+    def set_co2_statistics(self, mean, std_dev):
+        self.mean = mean
+        self.std_dev = std_dev
 
     def get_position(self):
         if not self.position_subject_init:
