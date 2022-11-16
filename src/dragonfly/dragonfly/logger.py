@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from rclpy.qos import ReliabilityPolicy
 from .led import LED
 from rclpy.qos import QoSProfile
-from sensor_msgs.msg import NavSatFix
+from sensor_msgs.msg import NavSatFix, TimeReference
 from std_msgs.msg import String
 from dragonfly_messages.msg import CO2
 
@@ -18,23 +18,21 @@ class co2Logger:
     def __init__(self, id):
         self.node = None
         self.id = id
-
         self.position = None
         self.positionReceived = None
         self.co2Received = None
         self.led = LED()
-        self.sincezero = datetime.now()
         self.zeroing = False
         self.time_offset = timedelta(seconds=0)
 
     def validUpdate(self, inputTime):
-        return inputTime is not None and datetime.now() - inputTime < timedelta(seconds=3)
+        return inputTime is not None and self.getDate() - inputTime < timedelta(seconds=3)
 
     def updateStatus(self, position=None, co2=None, data=None):
         if position is not None:
-            self.positionReceived = datetime.now()
+            self.positionReceived = self.getDate()
         if co2 is not None:
-            self.co2Received = datetime.now()
+            self.co2Received = self.getDate()
         previous = self.zeroing
         if data is not None:
             self.zeroing = data.warming or data.zeroing
@@ -53,7 +51,9 @@ class co2Logger:
     def callback(self, data):
         self.position = data
         self.updateStatus(position=True)
-        self.time_offset = datetime.fromtimestamp(data.header.stamp.sec) - datetime.now()
+
+    def timeCallback(self, data):
+        self.time_offset = datetime.fromtimestamp(data.time_ref.sec) - datetime.now()
 
     def getDate(self):
         return datetime.now() + self.time_offset
@@ -93,6 +93,8 @@ class co2Logger:
         self.node = rclpy.create_node('gpslistener')
 
         self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id), self.callback,
+                                      qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(TimeReference, "/{}/mavros/time_reference".format(self.id), self.timeCallback,
                                       qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
         self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
         self.node.create_subscription(String, "/{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
