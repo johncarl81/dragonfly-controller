@@ -3,6 +3,11 @@
   name: dragonfly setup
   become: yes
   tasks:
+    - name: Remove/Disable unattended-upgrades
+      ansible.builtin.apt:
+        name: unattended-upgrades
+        state: absent
+        
     - name: Update & Upgrade
       ansible.builtin.apt:
         update_cache: yes
