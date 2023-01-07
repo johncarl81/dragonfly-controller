@@ -23,7 +23,7 @@
         state: absent
       
     - name: Buidling dragonfly controller with colcon build
-      ansible.builtin.shell: source /opt/ros/galactic/setup.bash && colcon build
+      ansible.builtin.shell: source /opt/ros/humble/setup.bash && colcon build
       args:
         chdir: /home/ubuntu/dev/dragonfly/
         executable: /bin/bash

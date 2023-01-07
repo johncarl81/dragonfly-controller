@@ -6,7 +6,7 @@ then
     exit 1
 fi
 
-source /opt/ros/galactic/setup.bash
+source /opt/ros/humble/setup.bash
 cd /home/ubuntu/dev/dragonfly/
 source ./install/setup.bash
 
