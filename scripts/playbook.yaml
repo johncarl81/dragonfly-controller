@@ -40,6 +40,12 @@
           - gnupg
           - lsb-release
           - linux-modules-extra-raspi
+          
+    - name: Install network-manager
+      community.general.snap:
+        name:
+          - network-manager
+      
     - name: Rebooting the dragonfly to load new drivers
       reboot:
       
@@ -187,6 +193,8 @@
         path: /etc/netplan/20-adhoc.yaml
         block: |
           network:
+            version: 2
+            renderer: NetworkManager
             wifis:
               wlan1:
                 access-points:
