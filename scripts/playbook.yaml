@@ -8,6 +8,14 @@
         name: unattended-upgrades
         state: absent
         
+    - name: Disabling bluetooth
+      become: true
+      ansible.builtin.command: systemctl disable bluetooth
+      
+    - name: Stopping bluetooth
+      become: true
+      ansible.builtin.command: systemctl stop bluetooth
+        
     - name: Update & Upgrade
       ansible.builtin.apt:
         update_cache: yes
@@ -18,22 +26,27 @@
         update_cache: yes
         cache_valid_time: 3600
         name:
-          - apt-utils 
-          - build-essential 
-          - glpk-utils 
+          - apt-utils
+          - build-essential
+          - glpk-utils
           - openssh-server
           - python3-pip
-          - python-dev 
-          - python-lxml 
-          - python-pygame 
-          - python-wxgtk3.0 
-          - python-yaml
-          - curl 
-          - gnupg 
+          - python3-dev
+          - python3-lxml
+          - python3-pygame
+          - python3-wxgtk4.0
+          - python3-yaml
+          - curl
+          - gnupg
           - lsb-release
-          
+          - linux-modules-extra-raspi
+    - name: Rebooting the dragonfly to load new drivers
+      reboot:
+      
+    #ansible.builtin.apt_repository when it matures some more
     - name: Adding universe repo
-      ansible.builtin.command: sudo add-apt-repository universe
+      become: true
+      ansible.builtin.command: add-apt-repository universe -y
       
     - name: Authorizing GPG key with apt
       become: true
@@ -50,7 +63,7 @@
       become: true
       ansible.builtin.lineinfile:
         path: /etc/apt/sources.list.d/ros2.list
-        line: "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu focal main"
+        line: "deb [arch=arm64 signed-by=/usr/share/keyrings/ros-archive-keyring.gpg] http://packages.ros.org/ros2/ubuntu jammy main"
         mode: 0644
     
     - name: Update & Upgrade
