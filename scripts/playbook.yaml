@@ -187,8 +187,6 @@
         path: /etc/netplan/20-adhoc.yaml
         block: |
           network:
-            version: 2
-            renderer: NetworkManager
             wifis:
               wlan1:
                 access-points:
@@ -197,7 +195,10 @@
                     password: "s:dragonfly"
                 dhcp4: no
                 addresses: [{{wlan_address}}/24]
-                gateway4: 10.42.0.100
+                routes:
+                  - to: default
+                    via: 10.42.0.100
+                    metric: 200
                 nameservers:
                  addresses: [8.8.8.8,8.8.4.4]
                  
