@@ -14,7 +14,7 @@ class DisarmAction:
         print("Disarming")
         result = self.arm_service.call(CommandBool.Request(value=False))
 
-        print("Disarming result {}".format(result))
+        print(f"Disarming result {result}")
 
         if result.success:
             self.log_publisher.publish(String(data="Disarmed"))

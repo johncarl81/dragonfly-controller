@@ -26,8 +26,8 @@ class CalibrateAction:
 
     def average(self, drone, data):
 
-        self.log_publisher.publish(String(data="Average for {}: {}".format(drone.name, np.average(data))))
-        self.log_publisher.publish(String(data="Stddev for {}: {}".format(drone.name, np.std(data))))
+        self.log_publisher.publish(String(data=f"Average for {drone.name}: {np.average(data)}"))
+        self.log_publisher.publish(String(data=f"Stddev for {drone.name}: {np.std(data)}"))
 
         drone.set_co2_statistics(np.average(data), np.std(data))
 

@@ -23,7 +23,7 @@ def listener(id):
     # run simultaneously.
     rclpy.init(args=id)
     node = rclpy.create_node('gpslistener')
-    node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), callback,
+    node.create_subscription(NavSatFix, f"{id}/mavros/global_position/global", callback,
                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     # spin() simply keeps python from exiting until this node is stopped

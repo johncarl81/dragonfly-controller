@@ -61,43 +61,26 @@ class co2Logger:
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print("{} co2: {} {} {} {} {} {} {} {} @ {} {} {}".format(self.getDate(),
-                                                                      data.ppm,
-                                                                      data.average_temp,
-                                                                      data.humidity,
-                                                                      data.humidity_sensor_temp,
-                                                                      data.atmospheric_pressure,
-                                                                      data.detector_temp,
-                                                                      data.source_temp,
-                                                                      data.status,
-                                                                      self.position.latitude,
-                                                                      self.position.longitude,
-                                                                      self.position.altitude))
+            print(
+                f"{self.getDate()} co2: {data.ppm} {data.average_temp} {data.humidity} {data.humidity_sensor_temp} {data.atmospheric_pressure} {data.detector_temp} {data.source_temp} {data.status} @ {self.position.latitude} {self.position.longitude} {self.position.altitude}")
         else:
-            print("{} co2: {} {} {} {} {} {} {} {} @ -".format(self.getDate(),
-                                                               data.ppm,
-                                                               data.average_temp,
-                                                               data.humidity,
-                                                               data.humidity_sensor_temp,
-                                                               data.atmospheric_pressure,
-                                                               data.detector_temp,
-                                                               data.source_temp,
-                                                               data.status))
+            print(
+                f"{self.getDate()} co2: {data.ppm} {data.average_temp} {data.humidity} {data.humidity_sensor_temp} {data.atmospheric_pressure} {data.detector_temp} {data.source_temp} {data.status} @ -")
 
     def logCallback(self, data):
-        print("{} LOG: {}".format(self.getDate(), data))
+        print(f"{self.getDate()} LOG: {data}")
 
     def listener(self):
 
         rclpy.init(args=sys.argv)
         self.node = rclpy.create_node('gpslistener')
 
-        self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id), self.callback,
+        self.node.create_subscription(NavSatFix, f"/{self.id}/mavros/global_position/global", self.callback,
                                       qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_subscription(TimeReference, "/{}/mavros/time_reference".format(self.id), self.timeCallback,
+        self.node.create_subscription(TimeReference, f"/{self.id}/mavros/time_reference", self.timeCallback,
                                       qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_subscription(String, "/{}/log".format(self.id), self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(CO2, f"/{self.id}/co2", self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
+        self.node.create_subscription(String, f"/{self.id}/log", self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
 
         rx.interval(1).subscribe(
             on_next=lambda time: self.updateLED())

@@ -13,7 +13,7 @@ class SleepAction:
     def step(self):
         if self.start is None:
             self.start = time.time()
-            print("Sleeping for {}".format(self.duration))
+            print(f"Sleeping for {self.duration}")
 
         if time.time() - self.start > self.duration:
             return ActionState.SUCCESS

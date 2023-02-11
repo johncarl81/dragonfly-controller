@@ -23,14 +23,14 @@ class SemaphoreAction:
         self.responded = {id}
 
     def publishSemaphore(self, time):
-        print("{}: Publishing semaphore".format(self.id))
+        print(f"{self.id}: Publishing semaphore")
         token = SemaphoreToken()
         token.drone = self.id
         token.id = self.semaphore_id
         self.semaphore_publisher.publish(token)  # @TODO this is wrong
 
     def handleToken(self, token):
-        print("{}: Received token".format(self.id))
+        print(f"{self.id}: Received token")
         if token.id == self.semaphore_id:
             self.responded.add(token.drone)
 
@@ -44,7 +44,7 @@ class SemaphoreAction:
                 on_error=lambda e: self.printError(e))
 
     def printError(self, e):
-        print("Error while subscribing to semaphore: {}".format(e))
+        print(f"Error while subscribing to semaphore: {e}")
 
     def step(self):
         if not self.commanded:

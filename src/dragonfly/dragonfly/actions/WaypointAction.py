@@ -45,8 +45,9 @@ class WaypointAction:
             self.commanded = True
 
             def updatePosition(pose, velocity, time):
-                # print("Distance to point:{} {} {}".format(self.waypoint.pose.position.x, self.waypoint.pose.position.y, self.waypoint.pose.position.z), \
-                #       distance(self.waypoint.pose.position, localposition.pose.position))
+                # print(f"Distance to point:{self.waypoint.pose.position.x} "
+                #       f"{self.waypoint.pose.position.y} {self.waypoint.pose.position.z} - "
+                #       f"{distance(self.waypoint.pose.position, localposition.pose.position)}")
                 alteredposition = pose
 
                 alteredposition.x += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x']
@@ -54,7 +55,7 @@ class WaypointAction:
                 alteredposition.z += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z']
 
                 magnitude = math.sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y) + (velocity.z * velocity.z))
-                # print("{} - {} @ {}".format(magnitude, distance(self.waypoint.pose.position, alteredposition), time))
+                # print(f"{magnitude} - {distance(self.waypoint.pose.position, alteredposition)} @ {time}")
 
                 if distance(self.waypoint.pose.position, alteredposition) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
@@ -65,7 +66,7 @@ class WaypointAction:
                     WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.waypoint.pose.position.y - pose.y
                     WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.waypoint.pose.position.z - pose.z
                     self.logPublisher.publish(
-                        String(data="Adjusted waypoint acceptance: {}".format(WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT)))
+                        String(data=f"Adjusted waypoint acceptance: {WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT}"))
 
             self.waypointAcceptanceSubscription = rx.combine_latest(
                 self.local_pose_observable, self.local_velocity_observable, rx.interval(1)).pipe(

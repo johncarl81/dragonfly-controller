@@ -27,7 +27,7 @@ class DroneStream:
 
     def get_position(self):
         if not self.position_subject_init:
-            self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.name),
+            self.node.create_subscription(NavSatFix, f"{self.name}/mavros/global_position/global",
                                           lambda position: self.position_subject.on_next(position),
                                           qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
             self.position_subject_init = True
@@ -36,7 +36,7 @@ class DroneStream:
 
     def get_co2(self):
         if not self.co2_subject_init:
-            self.node.create_subscription(CO2, "{}/co2".format(self.name), lambda value: self.co2_subject.on_next(value),
+            self.node.create_subscription(CO2, f"{self.name}/co2", lambda value: self.co2_subject.on_next(value),
                                           qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
             self.co2_subject_init = True
 
@@ -44,7 +44,7 @@ class DroneStream:
 
     def get_velocity(self):
         if not self.velocity_subject_init:
-            self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.name),
+            self.node.create_subscription(TwistStamped, f"{self.name}/mavros/local_position/velocity_local",
                                           lambda value: self.velocity_subject.on_next(value),
                                           qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
             self.velocity_subject_init = True

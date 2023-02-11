@@ -12,7 +12,7 @@ class ArmAction:
     def step(self):
         print("Arming")
         result = self.arm_service.call(CommandBool.Request(value=True))
-        print("Arming result {}".format(result))
+        print(f"Arming result {result}")
         if result and result.success:
             self.log_publisher.publish(String(data="Armed"))
         else:

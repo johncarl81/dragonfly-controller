@@ -53,7 +53,7 @@ class DragonflyCommand:
         self.semaphore_observable = Subject()
 
     def setmode(self, mode):
-        print("Set Mode {}".format(mode))
+        print(f"Set Mode {mode}")
         future = self.setmode_service.call_async(SetMode.Request(custom_mode=mode))
 
         def mode_finished(msg):
@@ -181,7 +181,7 @@ class DragonflyCommand:
 
         self.actionqueue.push(LogAction(self.logPublisher, "DDSA Finished"))
 
-        return DDSA.Response(success=True, message="Commanded {} to DDSA.".format(self.id))
+        return DDSA.Response(success=True, message=f"Commanded {self.id} to DDSA.")
 
     def build_lawnmower_waypoints(self, walk_boundary, boundary, walk, altitude, stacks, step_length, orientation):
         lawnmowerLocalWaypoints = []
@@ -219,7 +219,7 @@ class DragonflyCommand:
 
         self.canceled = False
 
-        print("Position: {} {} {}".format(self.localposition.x, self.localposition.y, self.localposition.z))
+        print(f"Position: {self.localposition.x} {self.localposition.y} {self.localposition.z}")
 
         waypoints = self.build_lawnmower_waypoints(request.walk_boundary, request.boundary, request.walk,
                                                    request.altitude, request.stacks, request.step_length,
@@ -228,7 +228,7 @@ class DragonflyCommand:
         self.runWaypoints("Lawnmower", waypoints, request.wait_time, request.distance_threshold)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Lawnmower Finished"))
-        return Lawnmower.Response(success=True, message="Commanded {} to lawnmower.".format(self.id))
+        return Lawnmower.Response(success=True, message=f"Commanded {self.id} to lawnmower.")
 
     def navigate(self, request, response):
         print("Commanded to navigate")
@@ -237,11 +237,11 @@ class DragonflyCommand:
 
         self.canceled = False
 
-        print("{} {}".format(self.localposition.z, self.position.altitude))
+        print(f"{self.localposition.z} {self.position.altitude}")
 
         localWaypoints = []
         for waypoint in request.waypoints:
-            print("{} {} {}".format(self.localposition.z, self.position.altitude, waypoint.relative_altitude))
+            print(f"{self.localposition.z} {self.position.altitude} {waypoint.relative_altitude}")
             localWaypoints.append(
                 buildRelativeWaypoint(self.localposition, self.position, waypoint, waypoint.relative_altitude,
                                       self.orientation))
@@ -250,7 +250,7 @@ class DragonflyCommand:
 
         self.actionqueue.push(LogAction(self.logPublisher, "Navigation Finished"))
 
-        return Navigation.Response(success=True, message="Commanded {} to navigate.".format(self.id))
+        return Navigation.Response(success=True, message=f"Commanded {self.id} to navigate.")
 
     def build_curtain_waypoints(self, startWaypoint, endWaypoint, altitude, stacks, stack_height, orientation):
         waypoints = []
@@ -294,25 +294,25 @@ class DragonflyCommand:
         def mode_finished(msg):
             result = future.result()
             print("Set param result", result, msg)
-            self.logPublisher.publish(String(data="Setup Success: {}".format(result.success)))
+            self.logPublisher.publish(String(data=f"Setup Success: {result.success}"))
 
         future.add_done_callback(mode_finished)
 
         self.rtl_boundary = request.rtl_boundary
         self.max_altitude = request.max_altitude
 
-        return Setup.Response(success=True, message="Setup {}".format(self.id))
+        return Setup.Response(success=True, message=f"Setup {self.id}")
 
     def rtl_boundary_check(self):
         rate = self.node.create_rate(10)
         while rclpy.ok():
             if self.localposition is not None and self.position is not None and not self.canceled:
                 if self.localposition.z > self.max_altitude:
-                    self.logPublisher.publish(String(data="Exceeded maximum altitude of {}m".format(self.max_altitude)))
+                    self.logPublisher.publish(String(data=f"Exceeded maximum altitude of {self.max_altitude}m"))
                     self.rtl()
                 if self.rtl_boundary is not None and not isInside(self.position, self.rtl_boundary.points):
                     self.logPublisher.publish(String(data=
-                        "Exceeded RTL Boundary at {}, {}".format(self.position.longitude, self.position.latitude)))
+                        f"Exceeded RTL Boundary at {self.position.longitude}, {self.position.latitude}"))
                     self.rtl()
 
             rate.sleep()
@@ -345,7 +345,7 @@ class DragonflyCommand:
                 print("Waypoint")
                 [waypoint, distance_threshold] = self.findWaypoint(step.goto_step.waypoint, request.waypoints)
                 if waypoint is not None:
-                    self.actionqueue.push(LogAction(self.logPublisher, "Goto {}".format(step.goto_step.waypoint))) \
+                    self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.goto_step.waypoint}")) \
                         .push(WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
                                              distance_threshold, self.local_velocity_observable, self.local_position_observable))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
@@ -355,7 +355,7 @@ class DragonflyCommand:
                     .push(LogAction(self.logPublisher, "Semaphore reached"))
             elif step.msg_type == MissionStep.TYPE_RTL:
                 print("RTL")
-                self.actionqueue.push(LogAction(self.logPublisher, "RTL".format(step.goto_step.waypoint))) \
+                self.actionqueue.push(LogAction(self.logPublisher, "RTL")) \
                     .push(ModeAction(self.setmode_service, 'RTL')) \
                     .push(WaitForDisarmAction(self.id, self.logPublisher, self.stateSubject))
             elif step.msg_type == MissionStep.TYPE_DDSA:
@@ -447,9 +447,9 @@ class DragonflyCommand:
                 Print("Mission step not recognized: " + step.msg_type)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
-        self.logPublisher.publish(String(data="Mission with {} steps setup".format(len(request.steps))))
+        self.logPublisher.publish(String(data=f"Mission with {len(request.steps)} steps setup"))
 
-        return Mission.Response(success=True, message="{} mission received.".format(self.id))
+        return Mission.Response(success=True, message=f"{self.id} mission received.")
 
     def start_mission(self, request, response):
         print("Commanded to start mission")
@@ -463,7 +463,7 @@ class DragonflyCommand:
 
         for i, waypoint in enumerate(waypoints):
             self.actionqueue.push(
-                LogAction(self.logPublisher, "Goto {} {}/{}".format(waypoints_name, i + 1, len(waypoints))))
+                LogAction(self.logPublisher, f"Goto {waypoints_name} {i + 1}/{len(waypoints)}"))
             self.actionqueue.push(
                 WaypointAction(self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
                                distance_threshold, self.local_velocity_observable, self.local_position_observable))
@@ -486,7 +486,7 @@ class DragonflyCommand:
             FlockingAction(self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
                            flockCommand.leader, self.node))
 
-        return Flock.Response(success=True, message="Flocking {} with {}.".format(self.id, flockCommand.leader))
+        return Flock.Response(success=True, message=f"Flocking {self.id} with {flockCommand.leader}.")
 
     def position_callback(self, data):
         # print data
@@ -530,58 +530,56 @@ class DragonflyCommand:
     def create_client_and_wait(self, type, name):
         client = self.node.create_client(type, name)
         # while not client.wait_for_service(timeout_sec=1.0):
-        #    self.node.get_logger().info("{} service not available, waiting again...".format(name))
+        #    self.node.get_logger().info(f"{name} service not available, waiting again...")
         return client
 
     def create_command(self, name, callback, type=Simple):
-        self.node.create_service(type, "/{}/command/{}".format(self.id, name), callback)
+        self.node.create_service(type, f"/{self.id}/command/{name}", callback)
 
     def setup(self):
-        self.setparam_service = self.create_client_and_wait(ParamSetV2, "/{}/mavros/param/set".format(self.id))
-        self.setmode_service = self.create_client_and_wait(SetMode, "/{}/mavros/set_mode".format(self.id))
-        self.arm_service = self.create_client_and_wait(CommandBool, "/{}/mavros/cmd/arming".format(self.id))
-        self.takeoff_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/takeoff".format(self.id))
-        self.land_service = self.create_client_and_wait(CommandTOL, "/{}/mavros/cmd/land".format(self.id))
-        self.pump_service = self.create_client_and_wait(Pump, "/{}/pump".format(self.id))
+        self.setparam_service = self.create_client_and_wait(ParamSetV2, f"/{self.id}/mavros/param/set")
+        self.setmode_service = self.create_client_and_wait(SetMode, f"/{self.id}/mavros/set_mode")
+        self.arm_service = self.create_client_and_wait(CommandBool, f"/{self.id}/mavros/cmd/arming")
+        self.takeoff_service = self.create_client_and_wait(CommandTOL, f"/{self.id}/mavros/cmd/takeoff")
+        self.land_service = self.create_client_and_wait(CommandTOL, f"/{self.id}/mavros/cmd/land")
+        self.pump_service = self.create_client_and_wait(Pump, f"/{self.id}/pump")
         self.local_setposition_publisher = self.node.create_publisher(PoseStamped,
-                                                                      "/{}/mavros/setpoint_position/local".format(
-                                                                          self.id), qos_profile=QoSProfile(
+                                                                      f"/{self.id}/mavros/setpoint_position/local", qos_profile=QoSProfile(
                 history=HistoryPolicy.KEEP_LAST, depth=10))
         self.local_setvelocity_publisher = self.node.create_publisher(TwistStamped,
-                                                                      "/{}/mavros/setpoint_velocity/cmd_vel".format(
-                                                                          self.id), qos_profile=QoSProfile(
+                                                                      f"/{self.id}/mavros/setpoint_velocity/cmd_vel", qos_profile=QoSProfile(
                 history=HistoryPolicy.KEEP_LAST, depth=10))
-        # self.global_setpoint_publisher = self.node.create_publisher(GlobalPositionTarget, "/{}/mavros/setpoint_position/global".format(self.id), 10)
+        # self.global_setpoint_publisher = self.node.create_publisher(GlobalPositionTarget, f"/{self.id}/mavros/setpoint_position/global", 10)
 
-        # self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/raw/fix".format(self.id), self.position_callback, 10)
-        self.node.create_subscription(NavSatFix, "/{}/mavros/global_position/global".format(self.id),
+        # self.node.create_subscription(NavSatFix, f"/{self.id}/mavros/global_position/raw/fix", self.position_callback, 10)
+        self.node.create_subscription(NavSatFix, f"/{self.id}/mavros/global_position/global",
                                       self.position_callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.node.create_subscription(PoseStamped, "/{}/mavros/local_position/pose".format(self.id),
+        self.node.create_subscription(PoseStamped, f"/{self.id}/mavros/local_position/pose",
                                       self.localposition_callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback,
+        self.node.create_subscription(CO2, f"/{self.id}/co2", self.co2Callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.node.create_subscription(String, "/dragonfly/announce".format(self.id),
+        self.node.create_subscription(String, "/dragonfly/announce",
                                       lambda name: self.dragonfly_announce_subject.on_next(name),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
                                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
         # Proactively create mavros publishers for dashboard rosbride avoid default RELIABLE, when it needs to be BEST_EFFORT
-        self.node.create_publisher(NavSatFix, "/{}/mavros/global_position/global".format(self.id),
+        self.node.create_publisher(NavSatFix, f"/{self.id}/mavros/global_position/global",
                                    qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_publisher(PoseStamped, "/{}/mavros/local_position/pose".format(self.id),
+        self.node.create_publisher(PoseStamped, f"/{self.id}/mavros/local_position/pose",
                                    qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
-        self.node.create_publisher(State, "/{}/mavros/gmavros/state".format(self.id),
+        self.node.create_publisher(State, f"/{self.id}/mavros/gmavros/state",
                                    qos_profile=QoSProfile(durability=DurabilityPolicy.VOLATILE, reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
 
         def updateStateSubject(state):
             self.stateSubject.on_next(state)
 
-        self.node.create_subscription(State, "{}/mavros/state".format(self.id), updateStateSubject, 10)
+        self.node.create_subscription(State, f"{self.id}/mavros/state", updateStateSubject, 10)
 
-        self.node.create_subscription(TwistStamped, "{}/mavros/local_position/velocity_local".format(self.id),
+        self.node.create_subscription(TwistStamped, f"{self.id}/mavros/local_position/velocity_local",
                                       lambda velocity: self.local_velocity_observable.on_next(velocity),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
@@ -589,7 +587,7 @@ class DragonflyCommand:
                                       lambda token: self.semaphore_observable.on_next(token),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 
-        self.logPublisher = self.node.create_publisher(String, "{}/log".format(self.id), qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+        self.logPublisher = self.node.create_publisher(String, f"{self.id}/log", qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
         self.create_command("arm", self.armcommand)
         self.create_command("takeoff", self.takeoff)
@@ -607,8 +605,8 @@ class DragonflyCommand:
         self.create_command("cancel", self.cancelCommand)
         self.create_command("hello", self.hello)
 
-        self.node.create_service(DDSAWaypoints, "/{}/build/ddsa".format(self.id), self.build_ddsa)
-        self.node.create_service(LawnmowerWaypoints, "/{}/build/lawnmower".format(self.id), self.build_lawnmower)
+        self.node.create_service(DDSAWaypoints, f"/{self.id}/build/ddsa", self.build_ddsa)
+        self.node.create_service(LawnmowerWaypoints, f"/{self.id}/build/lawnmower", self.build_lawnmower)
 
         self.drone_stream_factory = DroneStreamFactory(self.node)
 
@@ -625,7 +623,7 @@ def main():
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 
-    node = rclpy.create_node("{}_remote_service".format(args.id))
+    node = rclpy.create_node(f"{args.id}_remote_service")
 
     command = DragonflyCommand(args.id, node)
 

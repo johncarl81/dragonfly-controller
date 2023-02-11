@@ -15,7 +15,7 @@ class ModeAction:
     def step(self):
         if not self.commanded:
             self.commanded = True
-            print("Set Mode {}".format(self.mode))
+            print(f"Set Mode {self.mode}")
             future = self.setmode_service.call_async(SetMode.Request(custom_mode=self.mode))
 
             def mode_finished(msg):

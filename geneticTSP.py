@@ -230,19 +230,19 @@ if __name__ == '__main__':
 
     # Initialize population
     pop = Population(tourmanager, 50, True)
-    print("Initial distance: {}".format(pop.getFittest().getDistance()))
+    print(f"Initial distance: {pop.getFittest().getDistance()}")
 
     # Evolve population for 50 generations
     ga = GA(tourmanager)
     pop = ga.evolvePopulation(pop)
     for i in range(0, 100):
-        print("Evolve: {}".format(i))
+        print(f"Evolve: {i}")
         beg_ts = time.time()
         pop = ga.evolvePopulation(pop)
-        print("Took: {} distance: {}".format(time.time() - beg_ts, pop.getFittest().getDistance()))
+        print(f"Took: {time.time() - beg_ts} distance: {pop.getFittest().getDistance()}")
 
     # Print final results
     print("Finished")
-    print("Final distance: {}".format(pop.getFittest().getDistance()))
+    print(f"Final distance: {pop.getFittest().getDistance()}")
     print("Solution:")
     print(pop.getFittest())

@@ -11,7 +11,7 @@ class Announcer:
     def __init__(self, id, node):
         self.id = id
         self.node = node
-
+        
         self.node.get_logger().info("publishing name {} on /dragonfly/announce".format(self.id))
         self.pub = self.node.create_publisher(String, "/dragonfly/announce", 10)
 

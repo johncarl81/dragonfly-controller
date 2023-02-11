@@ -108,8 +108,8 @@ class FlockingAction:
 
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates:
-            self.log_publisher.publish(String(data="Flocking with {}".format(name)))
-            print("Registering flock member: {}".format(name))
+            self.log_publisher.publish(String(data=f"Flocking with {name}"))
+            print(f"Registering flock member: {name}")
 
             flock_coordinate_subject = self.drone_stream_factory.get_drone(name).get_position()
 

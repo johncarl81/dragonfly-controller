@@ -74,15 +74,15 @@ def ddsa(id):
     rclpy.init(args=id)
     node = rclpy.create_node('ddsa_service')
 
-    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    setmode_service = node.create_client(SetMode, f"{id}/mavros/set_mode")
     while not setmode_service.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('set_mode service not available, waiting again...')
 
-    wp_clear_srv = node.create_client(WaypointClear, "{}/mavros/mission/clear".format(id))
+    wp_clear_srv = node.create_client(WaypointClear, f"{id}/mavros/mission/clear")
     while not wp_clear_srv.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('clear service not available, waiting again...')
 
-    wp_push_srv = node.create_client(WaypointPush, "{}/mavros/mission/push".format(id))
+    wp_push_srv = node.create_client(WaypointPush, f"{id}/mavros/mission/push")
     while not wp_push_srv.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('push service not available, waiting again...')
 
@@ -94,15 +94,15 @@ def ddsa(id):
     time.sleep(5)
 
     def logWaypoint(waypoint):
-        print("Waypoint: {}".format(waypoint.wp_seq))
-        node.create_subscription(WaypointReached, "{}/mavros/mission/reached".format(id), logWaypoint,
+        print(f"Waypoint: {waypoint.wp_seq}")
+        node.create_subscription(WaypointReached, f"{id}/mavros/mission/reached", logWaypoint,
                                  qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     def updatePosition(position):
         global setmode_service, wp_clear_srv, wp_push_srv
         position_update.destroy()
 
-        print("Position: {} {}".format(position.latitude, position.longitude))
+        print(f"Position: {position.latitude} {position.longitude}")
 
         altitude = 3
 
@@ -123,7 +123,7 @@ def ddsa(id):
 
         print("Commanded")
 
-    position_update = node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), updatePosition,
+    position_update = node.create_subscription(NavSatFix, f"{id}/mavros/global_position/global", updatePosition,
                                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
     rclpy.spin(node)
 

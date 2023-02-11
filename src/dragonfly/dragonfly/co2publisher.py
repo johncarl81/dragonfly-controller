@@ -19,8 +19,8 @@ class CO2Publisher:
     self.zeroing_current_count = 0
     self.init_zeroing_count = 2
     self.logger = node.get_logger()
-    self.pub = node.create_publisher(CO2, "{}/co2".format(id),
-                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
+    self.pub = node.create_publisher(CO2, f"{id}/co2",
+                                     qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
     self.sba5_polling_rate = node.create_rate(10)
     self.error_retry_rate = node.create_rate(1)
 
@@ -53,7 +53,7 @@ class CO2Publisher:
 
     return reading
   def publish(self):
-    self.logger.info("publishing co2 readings on {}/co2".format(self.id))
+    self.logger.info(f"publishing co2 readings on {self.id}/co2")
 
     while rclpy.ok():
       try:

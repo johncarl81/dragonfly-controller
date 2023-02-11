@@ -16,14 +16,14 @@ def land(id):
     rclpy.init(args=id)
     node = rclpy.create_node('land_service')
 
-    land_service = node.create_client(CommandTOL, '"{}/mavros/cmd/land".format(id)')
+    land_service = node.create_client(CommandTOL, f"{id}/mavros/cmd/land")
     while not land_service.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('service not available, waiting again...')
     print("Landing")
     resp = land_service.call_async(CommandTOL.Request(altitude=0))
     rclpy.spin_until_future_complete(node, resp)
     print(resp)
-    position_update = node.create_subscription(State, "{}/mavros/state".format(id), updateState,
+    position_update = node.create_subscription(State, f"{id}/mavros/state", updateState,
                                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
 
@@ -32,16 +32,16 @@ def updateState(state):
     node = rclpy.create_node('land_service')
     if not state.armed:
         print("Landed.")
-        print("State: {}".format(state))
+        print(f"State: {state}")
 
-        setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+        setmode_service = node.create_client(SetMode, f"{id}/mavros/set_mode")
         print("Set Mode")
         print(setmode_service.call(SetMode.Request(custom_mode="STABILIZE")))
 
         position_update.destroy()
 
     print("Waiting for landing...")
-    position_update = node.create_subscription(State, "{}/mavros/state".format(id), updateState,
+    position_update = node.create_subscription(State, f"{id}/mavros/state", updateState,
                                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     rclpy.spin(node)

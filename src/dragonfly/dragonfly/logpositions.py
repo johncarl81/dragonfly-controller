@@ -54,7 +54,7 @@ def calculateCO2(position):
 
 def log_vectors(vectors):
     for vector in vectors:
-        print("{},{},{},{}".format(vector.longitude, vector.latitude, vector.altitude, calculateCO2(vector)), end=''),
+        print(f"{vector.longitude},{vector.latitude},{vector.altitude},{calculateCO2(vector)}", end=''),
     print()
 
 

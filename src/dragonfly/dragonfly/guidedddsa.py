@@ -67,20 +67,20 @@ def setpoint(id):
     node = rclpy.create_node('guide_service')
 
     def logWaypoint(waypoint):
-        print("Waypoint: {}".format(waypoint.wp_seq))
+        print(f"Waypoint: {waypoint.wp_seq}")
 
-    node.create_subscription(WaypointReached, "{}/mavros/mission/reached".format(id), logWaypoint,
+    node.create_subscription(WaypointReached, f"{id}/mavros/mission/reached", logWaypoint,
                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     print("Change to Guided")
-    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    setmode_service = node.create_client(SetMode, f"{id}/mavros/set_mode")
     print(setmode_service.call(SetMode.Request(custom_mode="GUIDED")))
 
     def updatePosition(position):
         position_update.destroy()
-        print("Position: {} {}".format(position.latitude, position.longitude))
+        print(f"Position: {position.latitude} {position.longitude}")
 
-        setposition_publisher = node.create_publisher(PoseStamped, "{}/mavros/setpoint_position/local".format(id),
+        setposition_publisher = node.create_publisher(PoseStamped, f"{id}/mavros/setpoint_position/local",
                                                       qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
         time.sleep(.5)  # @TODO fix rostime.wallsleep(0.5)
         waypoints = buildDDSAWaypoints(0, 0, 10, 1, 0, 5, 1)
@@ -93,13 +93,13 @@ def setpoint(id):
             goalPos.pose.position.y = waypoint.y_long
             goalPos.pose.position.z = 5
 
-            print("Going to: {}".format(goalPos))
+            print(f"Going to: {goalPos}")
 
             print(setposition_publisher.publish(goalPos))
 
             print("Commanded")
 
-    position_update = node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(id), updatePosition,
+    position_update = node.create_subscription(NavSatFix, f"{id}/mavros/global_position/global", updatePosition,
                                                qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     rclpy.spin(node)

@@ -26,7 +26,7 @@ class BagInflateService(Node):
             GPIO.setup(self.bag_gpio_pins, GPIO.OUT)
         self.bag_full = [False] * len(self.bag_gpio_pins)
         self.inflate = self.create_service(Pump, f"/{self.id}/pump", self.bag_inflate_callback)
-        # self.swap = self.create_service(BagSwap, "/{}/bagswap".format(self.id), self.bag_swap_callback)
+        # self.swap = self.create_service(BagSwap, f"/{self.id}/bagswap", self.bag_swap_callback)
         self.logPublisher = self.create_publisher(String, f"{self.id}/log", qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
     def bag_swap_callback(self, request, response):

@@ -49,10 +49,9 @@ class GradientAction:
             self.timerSubscription = rx.timer(10) \
                 .subscribe(on_next=lambda v: self.complete())
             self.max_value = readingPosition
-            print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
+            print(f"Max: {self.max_value.value} at {self.max_value.latitude} {self.max_value.longitude}")
 
     def linearRegressionNormal(self, readingPositions):
-        print("Calculating normal")
         x = []
         y = []
 
@@ -115,6 +114,5 @@ class GradientAction:
 
     def complete(self):
         self.log_publisher.publish(
-            "Maximum CO2 of {} found at {}, {}".format(self.max_value.value, self.max_value.latitude,
-                                                       self.max_value.longitude))
+            f"Maximum CO2 of {self.max_value.value} found at {self.max_value.latitude}, {self.max_value.longitude}")
         self.status = ActionState.SUCCESS

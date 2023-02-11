@@ -11,11 +11,11 @@ def arm(id):
     rclpy.init(args=id)
     node = rclpy.create_node('arm_test_service')
 
-    setmode_service = node.create_client(SetMode, "{}/mavros/set_mode".format(id))
+    setmode_service = node.create_client(SetMode, f"{id}/mavros/set_mode")
     while not setmode_service.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('service not available, waiting again...')
 
-    arm_service = node.create_client(CommandBool, "{}/mavros/cmd/arming".format(id))
+    arm_service = node.create_client(CommandBool, f"{id}/mavros/cmd/arming")
     while not arm_service.wait_for_service(timeout_sec=1.0):
         node.get_logger().info('service not available, waiting again...')
 
