@@ -5,14 +5,15 @@ from std_msgs.msg import String
 
 class ArmAction:
 
-    def __init__(self, log_publisher, arm_service):
+    def __init__(self, logger, log_publisher, arm_service):
+        self.logger = logger
         self.log_publisher = log_publisher
         self.arm_service = arm_service
 
     def step(self):
-        print("Arming")
+        self.logger.info("Arming")
         result = self.arm_service.call(CommandBool.Request(value=True))
-        print(f"Arming result {result}")
+        self.logger.info(f"Arming result {result}")
         if result and result.success:
             self.log_publisher.publish(String(data="Armed"))
         else:

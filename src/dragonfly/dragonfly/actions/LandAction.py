@@ -6,12 +6,13 @@ from .ActionState import ActionState
 
 class LandAction:
 
-    def __init__(self, log_publisher, land_service):
+    def __init__(self, logger, log_publisher, land_service):
+        self.logger = logger
         self.log_publisher = log_publisher
         self.land_service = land_service
 
     def step(self):
-        print("Land action")
+        self.logger.info("Land action")
         result = self.land_service.call(CommandTOL.Request(altitude=0.0))
 
         if result.success:

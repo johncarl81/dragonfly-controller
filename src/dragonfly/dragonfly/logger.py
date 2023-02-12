@@ -61,14 +61,14 @@ class co2Logger:
     def co2Callback(self, data):
         self.updateStatus(co2=True, data=data)
         if self.position is not None:
-            print(
+            self.node.get_logger().info(
                 f"{self.getDate()} co2: {data.ppm} {data.average_temp} {data.humidity} {data.humidity_sensor_temp} {data.atmospheric_pressure} {data.detector_temp} {data.source_temp} {data.status} @ {self.position.latitude} {self.position.longitude} {self.position.altitude}")
         else:
-            print(
+            self.node.get_logger().info(
                 f"{self.getDate()} co2: {data.ppm} {data.average_temp} {data.humidity} {data.humidity_sensor_temp} {data.atmospheric_pressure} {data.detector_temp} {data.source_temp} {data.status} @ -")
 
     def logCallback(self, data):
-        print(f"{self.getDate()} LOG: {data}")
+        self.node.get_logger().info(f"{self.getDate()} LOG: {data}")
 
     def listener(self):
 

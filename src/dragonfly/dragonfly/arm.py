@@ -10,31 +10,32 @@ from mavros_msgs.srv import SetMode
 def arm(id):
     rclpy.init(args=id)
     node = rclpy.create_node('arm_test_service')
+    logger = node.get_logger()
 
     setmode_service = node.create_client(SetMode, f"{id}/mavros/set_mode")
     while not setmode_service.wait_for_service(timeout_sec=1.0):
-        node.get_logger().info('service not available, waiting again...')
+        logger.info('service not available, waiting again...')
 
     arm_service = node.create_client(CommandBool, f"{id}/mavros/cmd/arming")
     while not arm_service.wait_for_service(timeout_sec=1.0):
-        node.get_logger().info('service not available, waiting again...')
+        logger.info('service not available, waiting again...')
 
-    print("Setup complete")
+    logger.info("Setup complete")
 
-    print("Set Mode")
-    print(setmode_service.call(SetMode.Request(custom_mode="STABILIZE")))
+    logger.info("Set Mode")
+    logger.info(setmode_service.call(SetMode.Request(custom_mode="STABILIZE")))
 
     time.sleep(1)
 
-    print("Arming")
-    print(arm_service.call(True))
+    logger.info("Arming")
+    logger.info(arm_service.call(True))
 
     time.sleep(5)
 
-    print("Disarming")
-    print(arm_service.call(False))
+    logger.info("Disarming")
+    logger.info(arm_service.call(False))
 
-    print("Commanded")
+    logger.info("Commanded")
 
 
 if __name__ == '__main__':

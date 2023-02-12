@@ -9,7 +9,8 @@ from std_msgs.msg import String
 
 class ArmedStateAction:
 
-    def __init__(self, log_publisher, id, status_observable):
+    def __init__(self, logger, log_publisher, id, status_observable):
+        self.logger = logger
         self.status_observable = status_observable
         self.log_publisher = log_publisher
         self.id = id
@@ -21,17 +22,17 @@ class ArmedStateAction:
 
     def step(self):
         if not self.commanded:
-            print("Verifying disarmed...")
+            self.logger.info("Verifying disarmed...")
             self.commanded = True
 
             def updateState(state):
 
                 if state.armed:
-                    print("Is already armed, failed")
+                    self.logger.info("Is already armed, failed")
                     self.status = ActionState.FAILURE
                     self.log_publisher.publish(String(data="Arming failed, already armed"))
                 else:
-                    print("Is not armed, continue")
+                    self.logger.info("Is not armed, continue")
                     self.status = ActionState.SUCCESS
 
                     self.stop()

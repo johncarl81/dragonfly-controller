@@ -12,7 +12,8 @@ class CalibrateAction:
     SAMPLE_RATE = .01
     AVERAGE_TIME = 60
 
-    def __init__(self, id, log_publisher, drones, droneStreamFactory):
+    def __init__(self, logger, id, log_publisher, drones, droneStreamFactory):
+        self.logger = logger
         self.id = id
         self.log_publisher = log_publisher
         self.drones = set(drones)
@@ -33,7 +34,7 @@ class CalibrateAction:
 
     def step(self):
         if not self.commanded:
-            print("Calibrating")
+            self.logger.info("Calibrating")
             self.commanded = True
 
             for drone in self.drones:

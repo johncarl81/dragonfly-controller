@@ -24,7 +24,8 @@ class WaypointAction:
     WAIT_FOR_WAYPOINT = 10
     WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z': 0}
 
-    def __init__(self, id, logPublisher, local_setposition_publisher, waypoint, distance_threshold, local_velocity_observable, local_pose_observable):
+    def __init__(self, logger, id, logPublisher, local_setposition_publisher, waypoint, distance_threshold, local_velocity_observable, local_pose_observable):
+        self.logger = logger
         self.id = id
         self.logPublisher = logPublisher
         self.waypoint = waypoint
@@ -45,9 +46,9 @@ class WaypointAction:
             self.commanded = True
 
             def updatePosition(pose, velocity, time):
-                # print(f"Distance to point:{self.waypoint.pose.position.x} "
-                #       f"{self.waypoint.pose.position.y} {self.waypoint.pose.position.z} - "
-                #       f"{distance(self.waypoint.pose.position, localposition.pose.position)}")
+                self.logger.debug(f"Distance to point:{self.waypoint.pose.position.x} "
+                         f"{self.waypoint.pose.position.y} {self.waypoint.pose.position.z} - "
+                         f"{distance(self.waypoint.pose.position, pose)}")
                 alteredposition = pose
 
                 alteredposition.x += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x']
@@ -55,7 +56,7 @@ class WaypointAction:
                 alteredposition.z += WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z']
 
                 magnitude = math.sqrt((velocity.x * velocity.x) + (velocity.y * velocity.y) + (velocity.z * velocity.z))
-                # print(f"{magnitude} - {distance(self.waypoint.pose.position, alteredposition)} @ {time}")
+                self.logger.debug(f"{magnitude} - {distance(self.waypoint.pose.position, alteredposition)} @ {time}")
 
                 if distance(self.waypoint.pose.position, alteredposition) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
