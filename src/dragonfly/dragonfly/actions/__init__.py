@@ -22,3 +22,4 @@ from .WaypointAction import WaypointAction
 from .PlumeAwareLawnmowerAction import PlumeAwareLawnmowerAction
 from .PumpAction import PumpAction
 from .CalibrateAction import CalibrateAction
+from .SketchAction import SketchAction
