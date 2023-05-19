@@ -42,10 +42,12 @@ class VirtualCO2Publisher:
         if x >= 0:
             return 420.0
 
-        Q = 5000
-        K = 2
-        H = 2
-        u = 1
+        # Simple gaussian plume model adapted from: https://epubs.siam.org/doi/pdf/10.1137/10080991X
+        # See equation 3.10, page 358.
+        Q = 5000 # kg/s Emission Rate
+        K = 2 # Diffusion Constant
+        H = 2 # m Height
+        u = 1 # m/s Wind Speed
 
         value = (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
 
