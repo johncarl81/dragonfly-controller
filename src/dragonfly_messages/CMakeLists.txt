@@ -39,6 +39,8 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Takeoff.msg"
   "msg/Waypoint.msg"
   "msg/Calibrate.msg"
+  "msg/Sketch.msg"
+  "msg/PositionVector.msg"
   "srv/DDSA.srv"
   "srv/DDSAWaypoints.srv"
   "srv/Flock.srv"
