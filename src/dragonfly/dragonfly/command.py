@@ -15,7 +15,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from rx.subject import Subject
 
-from dragonfly_messages.msg import MissionStep, SemaphoreToken, CO2
+from dragonfly_messages.msg import MissionStep, SemaphoreToken, CO2, PositionVector
 from dragonfly_messages.srv import *
 from .droneStreamFactory import DroneStreamFactory
 from .actions import *
@@ -51,6 +51,7 @@ class DragonflyCommand:
         self.local_velocity_observable = Subject()
         self.dragonfly_announce_subject = Subject()
         self.semaphore_observable = Subject()
+        self.dragonfly_sketch_subject = Subject()
 
     def setmode(self, mode):
         print("Set Mode {}".format(mode))
@@ -443,8 +444,17 @@ class DragonflyCommand:
                 print("Pump")
                 self.actionqueue.push(LogAction(self.logPublisher, "Pump")) \
                     .push(PumpAction(step.pump_step.pump_num, self.pump_service))
+            elif step.msg_type == MissionStep.TYPE_SKETCH:
+                print("Sketch")
+                self.actionqueue.push(LogAction(self.logPublisher, "Sketch")) \
+                    .push(SketchAction(self.id, self.logPublisher, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
+                                       step.sketch_step.offset, step.sketch_step.partner, step.sketch_step.leader, self.drone_stream_factory,
+                                       self.dragonfly_sketch_subject, self.position_vector_publisher))
+
+
+
             else:
-                Print("Mission step not recognized: " + step.msg_type)
+                print("Mission step not recognized: " + step.msg_type)
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))
         self.logPublisher.publish(String(data="Mission with {} steps setup".format(len(request.steps))))
@@ -562,9 +572,14 @@ class DragonflyCommand:
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
         self.node.create_subscription(CO2, "/{}/co2".format(self.id), self.co2Callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
-        self.node.create_subscription(String, "/dragonfly/announce".format(self.id),
+        self.node.create_subscription(String, "/dragonfly/announce",
                                       lambda name: self.dragonfly_announce_subject.on_next(name),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.node.create_subscription(PositionVector, "/dragonfly/sketch",
+                                      lambda positionVector: self.dragonfly_sketch_subject.on_next(positionVector),
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.position_vector_publisher = self.node.create_publisher(PositionVector, "/dragonfly/sketch",
+                                                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
                                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 
