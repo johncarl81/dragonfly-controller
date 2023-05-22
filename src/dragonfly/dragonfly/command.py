@@ -3,9 +3,9 @@ import argparse
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
-
 import rclpy
+
+from datetime import datetime, timedelta
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2

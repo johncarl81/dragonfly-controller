@@ -50,7 +50,6 @@ def buildRelativeWaypoint(localposition, position, waypoint, altitude, orientati
         orientation
     )
 
-
 def createLatLon(localwaypoint, localposition, position):
     earthCircumference = 40008000
     latitude = position.latitude - (localposition.y - localwaypoint.y) * 360 / earthCircumference

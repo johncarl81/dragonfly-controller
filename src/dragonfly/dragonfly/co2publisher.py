@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import argparse
-import threading
 import rclpy
 import serial
 import sys
