@@ -118,7 +118,6 @@ def linearXRange(points, setY, type):
         a = -(points[index2][1] - points[index1][1])
         b = points[index2][0] - points[index1][0]
         c = (a * points[index1][0]) + (b * points[index1][1])
-        # print('(', a, 'x+',b,'y >=',c,'),')
         return (a * x) + (b * y) >= c
 
     for i in range(1, len(points)):
@@ -147,7 +146,6 @@ def linearYRange(points, type):
         a = -(points[index2][1] - points[index1][1])
         b = points[index2][0] - points[index1][0]
         c = (a * points[index1][0]) + (b * points[index1][1])
-        # print('(', a, 'x+',b,'y >=',c,'),')
         return (a * x) + (b * y) >= c
 
     for i in range(1, len(points)):
@@ -161,12 +159,12 @@ def linearYRange(points, type):
     return y.value()
 
 
-def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stacks, boundary, step_length, orientation):
+def build3DLawnmowerWaypoints(logger, rangeType, altitude, localPosition, position, stacks, boundary, step_length, orientation):
     waypoints = []
     toggleReverse = False
     for stack in range(0, stacks):
 
-        lawnmowerWaypoints = buildLawnmowerWaypoints(rangeType, altitude + stack, localPosition, position, boundary,
+        lawnmowerWaypoints = buildLawnmowerWaypoints(logger, rangeType, altitude + stack, localPosition, position, boundary,
                                                      step_length, orientation)
         if toggleReverse:
             lawnmowerWaypoints = lawnmowerWaypoints[::-1]
@@ -177,7 +175,7 @@ def build3DLawnmowerWaypoints(rangeType, altitude, localPosition, position, stac
     return waypoints
 
 
-def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, boundary, step_length, orientation):
+def buildLawnmowerWaypoints(logger, rangeType, altitude, localposition, position, boundary, step_length, orientation):
     boundary_meters = []
     altitude = float(altitude)
     waypoints = []
@@ -192,21 +190,21 @@ def buildLawnmowerWaypoints(rangeType, altitude, localposition, position, bounda
     # Get maximum in Y dimension
     maxy = linearYRange(boundary_meters, pulp.LpMaximize)
 
-    print("miny:{} maxy:{} ".format(miny, maxy))
+    logger.debug(f"miny:{miny} maxy:{maxy} ")
 
     stepdirection = 1 if miny < maxy else -1
 
     for y in range(int(math.ceil(miny)), int(math.floor(maxy)), int(2 * step_length)):
         minx = float(linearXRange(boundary_meters, y, pulp.LpMinimize))
         maxx = float(linearXRange(boundary_meters, y, pulp.LpMaximize))
-        print("minx:{} maxx:{} ".format(minx, maxx))
+        logger.debug(f"minx:{minx} maxx:{maxx} ")
         waypoints.append(createWaypoint(minx, y, altitude, orientation))
         for point in calculateRange(rangeType, Point(x=float(minx), y=float(y), z=float(altitude)), Point(x=float(maxx), y=float(y), z=float(altitude)),
                                     step_length):
             waypoints.append(createWaypoint(point.x, point.y, point.z, orientation))
         minx = float(linearXRange(boundary_meters, y + step_length, pulp.LpMinimize))
         maxx = float(linearXRange(boundary_meters, y + step_length, pulp.LpMaximize))
-        print("minx:{} maxx:{} ".format(minx, maxx))
+        logger.debug(f"minx:{minx} maxx:{maxx} ")
         waypoints.append(createWaypoint(maxx, y + step_length, altitude, orientation))
         for point in calculateRange(rangeType, Point(x=float(maxx), y=float(y + (stepdirection * step_length)), z=float(altitude)),
                                     Point(x=float(minx), y=float(y + (stepdirection * step_length)), z=float(altitude)), step_length):

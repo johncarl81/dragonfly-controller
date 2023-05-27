@@ -6,14 +6,15 @@ from .ActionState import ActionState
 
 class SleepAction:
 
-    def __init__(self, duration):
+    def __init__(self, logger, duration):
+        self.logger = logger
         self.duration = duration
         self.start = None
 
     def step(self):
         if self.start is None:
             self.start = time.time()
-            print("Sleeping for {}".format(self.duration))
+            self.logger.info(f"Sleeping for {self.duration}")
 
         if time.time() - self.start > self.duration:
             return ActionState.SUCCESS

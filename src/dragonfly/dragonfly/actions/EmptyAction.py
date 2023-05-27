@@ -4,8 +4,11 @@ from .ActionState import ActionState
 
 class EmptyAction:
 
+    def __init__(self, logger):
+        self.logger = logger
+
     def step(self):
-        print("Empty Step")
+        self.logger.info("Empty Step")
         return ActionState.SUCCESS
 
     def stop(self):

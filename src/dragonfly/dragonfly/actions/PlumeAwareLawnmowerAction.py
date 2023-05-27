@@ -101,10 +101,7 @@ class PlumeAwareLawnmowerAction:
                             self.current_waypoint = self.waypoints[self.current_waypoint_index]
                             self.local_setposition_publisher.publish(self.current_waypoint)
                             self.last_waypoint_time = time
-                            self.logPublisher.publish(String(data="Goto {} {}/{}".format(
-                                self.name,
-                                self.current_waypoint_index + 1,
-                                len(self.waypoints))))
+                            self.logPublisher.publish(String(data=f"Goto {self.name} {self.current_waypoint_index + 1}/{len(self.waypoints)}"))
                         else:
                             self.status = ActionState.SUCCESS
                             self.stop()
@@ -113,7 +110,7 @@ class PlumeAwareLawnmowerAction:
                         PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.current_waypoint.pose.position.y - pose.y
                         PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['z'] += self.current_waypoint.pose.position.z - pose.z
                         self.logPublisher.publish(
-                        String(data="Adjusted waypoint acceptance: {}".format(PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT)))
+                        String(data=f"Adjusted waypoint acceptance: {PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT}"))
 
                 self.waypointAcceptanceSubscription = rx.combine_latest(self.local_pose_observable,
                                                                         self.local_velocity_observable,

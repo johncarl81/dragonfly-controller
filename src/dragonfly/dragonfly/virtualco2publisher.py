@@ -25,7 +25,7 @@ class VirtualCO2Publisher:
 
     def __init__(self, id, node):
         self.id = id
-        self.pub = node.create_publisher(CO2, "{}/co2".format(id), 10)
+        self.pub = node.create_publisher(CO2, f"{id}/co2", 10)
         self.node = node
 
     def differenceInMeters(self, one, two):
@@ -70,7 +70,7 @@ class VirtualCO2Publisher:
                              status=CO2.NO_ERROR))
 
     def publish(self):
-        self.node.create_subscription(NavSatFix, "{}/mavros/global_position/global".format(self.id),
+        self.node.create_subscription(NavSatFix, f"{self.id}/mavros/global_position/global",
                                       self.position_callback,
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
 

@@ -8,7 +8,6 @@ class ActionQueue:
         self.queue = []
 
     def step(self):
-        # print("Step {}".format(len(self.queue))
         if len(self.queue) > 0:
             action = self.queue[0]
 

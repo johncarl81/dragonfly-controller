@@ -6,8 +6,9 @@ from .ActionState import ActionState
 
 class WaitForDisarmAction:
 
-    def __init__(self, id, log_publisher, status_observable):
+    def __init__(self, logger, id, log_publisher, status_observable):
         self.status_observable = status_observable
+        self.logger = logger
         self.id = id
         self.log_publisher = log_publisher
         self.status = ActionState.WORKING
@@ -16,7 +17,7 @@ class WaitForDisarmAction:
 
     def step(self):
         if not self.commanded:
-            print("Waiting for disarm...")
+            self.logger.info("Waiting for disarm...")
             self.commanded = True
 
             def updateState(state):

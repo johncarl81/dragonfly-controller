@@ -6,15 +6,16 @@ from std_msgs.msg import String
 
 class DisarmAction:
 
-    def __init__(self, log_publisher, arm_service):
+    def __init__(self, logger, log_publisher, arm_service):
+        self.logger = logger
         self.log_publisher = log_publisher
         self.arm_service = arm_service
 
     def step(self):
-        print("Disarming")
+        self.logger.info("Disarming")
         result = self.arm_service.call(CommandBool.Request(value=False))
 
-        print("Disarming result {}".format(result))
+        self.logger.info(f"Disarming result {result}")
 
         if result.success:
             self.log_publisher.publish(String(data="Disarmed"))

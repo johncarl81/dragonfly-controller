@@ -18,7 +18,8 @@ class FlockingAction:
     POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
-    def __init__(self, id, log_publisher, local_setvelocity_publisher, announce_stream, xoffset, yoffset, leader, drone_stream_factory):
+    def __init__(self, logger, id, log_publisher, local_setvelocity_publisher, announce_stream, xoffset, yoffset, leader, drone_stream_factory):
+        self.logger = logger
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
@@ -108,8 +109,8 @@ class FlockingAction:
 
     def flock_announce(self, name):
         if name != self.id and name not in self.flock_coordinates:
-            self.log_publisher.publish(String(data="Flocking with {}".format(name)))
-            print("Registering flock member: {}".format(name))
+            self.log_publisher.publish(String(data=f"Flocking with {name}"))
+            self.logger.info(f"Registering flock member: {name}")
 
             flock_coordinate_subject = self.drone_stream_factory.get_drone(name).get_position()
 
@@ -134,7 +135,7 @@ class FlockingAction:
         if not self.started:
             self.started = True
 
-            print("Subscribing...")
+            self.logger.info("Subscribing...")
 
             leader_drone = self.drone_stream_factory.get_drone(self.leader)
             self_drone = self.drone_stream_factory.get_drone(self.id)

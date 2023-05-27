@@ -7,7 +7,8 @@ from std_msgs.msg import String
 
 class StopInPlaceAction:
 
-    def __init__(self, id, log_publisher, local_setposition_publisher, local_position_observable):
+    def __init__(self, logger, id, log_publisher, local_setposition_publisher, local_position_observable):
+        self.logger = logger
         self.id = id
         self.log_publisher = log_publisher
         self.local_setposition_publisher = local_setposition_publisher
@@ -26,7 +27,7 @@ class StopInPlaceAction:
 
                 self.stop()
 
-                print("Stop in place")
+                self.logger.info("Stop in place")
                 self.log_publisher.publish(String(data="Stopped"))
 
             self.position_update = self.local_position_observable.pipe(

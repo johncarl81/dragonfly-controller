@@ -5,7 +5,8 @@ from .ActionState import ActionState
 
 class ModeAction:
 
-    def __init__(self, setmode_service, mode):
+    def __init__(self, logger, setmode_service, mode):
+        self.logger = logger
         self.queue = []
         self.mode = mode
         self.setmode_service = setmode_service
@@ -15,12 +16,12 @@ class ModeAction:
     def step(self):
         if not self.commanded:
             self.commanded = True
-            print("Set Mode {}".format(self.mode))
+            self.logger.info(f"Set Mode {self.mode}")
             future = self.setmode_service.call_async(SetMode.Request(custom_mode=self.mode))
 
             def mode_finished(msg):
                 result = future.result()
-                print("Set mode result", result, msg)
+                self.logger.info(f"Set mode result: {result} {msg}")
                 self.status = ActionState.mapSuccess(result.mode_sent)
 
             future.add_done_callback(mode_finished)

@@ -5,6 +5,7 @@ import rx.operators as ops
 
 import numpy as np
 from geometry_msgs.msg import TwistStamped
+from std_msgs.msg import String
 from rx.subject import Subject
 from sklearn.linear_model import LinearRegression
 
@@ -30,7 +31,8 @@ class GradientAction:
     MAX_VELOCITY = 1.0
     SAMPLE_RATE = .01
 
-    def __init__(self, id, log_publisher, local_setvelocity_publisher, drones, droneStreamFactory):
+    def __init__(self, logger, id, log_publisher, local_setvelocity_publisher, drones, droneStreamFactory):
+        self.logger = logger
         self.id = id
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
@@ -49,10 +51,9 @@ class GradientAction:
             self.timerSubscription = rx.timer(10) \
                 .subscribe(on_next=lambda v: self.complete())
             self.max_value = readingPosition
-            print("Max: {} at {} {}".format(self.max_value.value, self.max_value.latitude, self.max_value.longitude))
+            self.logger.info(f"Max: {self.max_value.value} at {self.max_value.latitude} {self.max_value.longitude}")
 
     def linearRegressionNormal(self, readingPositions):
-        print("Calculating normal")
         x = []
         y = []
 
@@ -82,7 +83,7 @@ class GradientAction:
 
     def step(self):
         if not self.commanded:
-            print("Following Gradient")
+            self.logger.info("Following Gradient")
             self.commanded = True
 
             droneReadingSubjects = [self.setupSubject(drone) for drone in self.drones]
@@ -114,7 +115,6 @@ class GradientAction:
         return position_value_subject
 
     def complete(self):
-        self.log_publisher.publish(
-            "Maximum CO2 of {} found at {}, {}".format(self.max_value.value, self.max_value.latitude,
-                                                       self.max_value.longitude))
+        self.log_publisher.publish(String(data=
+            f"Maximum CO2 of {self.max_value.value} found at {self.max_value.latitude}, {self.max_value.longitude}"))
         self.status = ActionState.SUCCESS

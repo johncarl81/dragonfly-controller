@@ -8,7 +8,8 @@ from .ActionState import ActionState
 
 class SemaphoreAction:
 
-    def __init__(self, id, semaphore_id, drones, semaphore_publisher, semaphore_observable):
+    def __init__(self, logger, id, semaphore_id, drones, semaphore_publisher, semaphore_observable):
+        self.logger = logger
         self.id = id
         self.semaphore_id = semaphore_id
         self.drones = set(drones)
@@ -23,14 +24,14 @@ class SemaphoreAction:
         self.responded = {id}
 
     def publishSemaphore(self, time):
-        print("{}: Publishing semaphore".format(self.id))
+        self.logger.info(f"{self.id}: Publishing semaphore")
         token = SemaphoreToken()
         token.drone = self.id
         token.id = self.semaphore_id
         self.semaphore_publisher.publish(token)  # @TODO this is wrong
 
     def handleToken(self, token):
-        print("{}: Received token".format(self.id))
+        self.logger.info(f"{self.id}: Received token")
         if token.id == self.semaphore_id:
             self.responded.add(token.drone)
 
@@ -44,11 +45,11 @@ class SemaphoreAction:
                 on_error=lambda e: self.printError(e))
 
     def printError(self, e):
-        print("Error while subscribing to semaphore: {}".format(e))
+        self.logger.error(f"Error while subscribing to semaphore: {e}")
 
     def step(self):
         if not self.commanded:
-            print("Semaphore commanded")
+            self.logger.info("Semaphore commanded")
             self.commanded = True
 
             # Publish semaphore until finished

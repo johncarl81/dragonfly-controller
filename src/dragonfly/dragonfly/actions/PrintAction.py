@@ -4,11 +4,12 @@ from .ActionState import ActionState
 
 class PrintAction:
 
-    def __init__(self, message):
+    def __init__(self, logger, message):
+        self.logger = logger
         self.message = message
 
     def step(self):
-        print(self.message)
+        self.logger.info(self.message)
 
         return ActionState.SUCCESS
 
