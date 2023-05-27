@@ -2,22 +2,23 @@
 
 import argparse
 import sys
-import threading
 
 import rclpy
 from std_msgs.msg import String
 
+class Announcer:
 
-def publishco2(id, node):
-    node.get_logger().info("publishing name {} on /dragonfly/announce".format(id))
-    pub = node.create_publisher(String, "/dragonfly/announce", 10)
+    def __init__(self, id, node):
+        self.id = id
+        self.node = node
 
-    rate = node.create_rate(1)
-    while rclpy.ok():
+        self.node.get_logger().info("publishing name {} on /dragonfly/announce".format(self.id))
+        self.pub = self.node.create_publisher(String, "/dragonfly/announce", 10)
+
+    def announce(self):
         msg = String()
-        msg.data = id
-        pub.publish(msg)
-        rate.sleep()
+        msg.data = self.id
+        self.pub.publish(msg)
 
 
 def main():
@@ -28,18 +29,11 @@ def main():
     parser.add_argument('id', type=str, help='Name of the drone.')
     args = parser.parse_args()
 
-    # Spin in a separate thread
-    thread = threading.Thread(target=rclpy.spin, args=(node,), daemon=True)
-    thread.start()
+    announcer = Announcer(args.id, node)
 
-    try:
-        publishco2(args.id, node)
-    except KeyboardInterrupt:
-        pass
+    node.create_timer(1, announcer.announce)
 
-    rclpy.shutdown()
-    thread.join()
-
+    rclpy.spin(node)
 
 if __name__ == '__main__':
     main()
