@@ -1,30 +1,27 @@
 <?xml version="1.0"?>
-<package format="2">
-    <name>dragonfly</name>
-    <version>0.0.0</version>
-    <description>The dragonfly package</description>
+<package format="3">
+  <name>dragonfly</name>
+  <version>1.0.0</version>
+  <description>The dragonfly package</description>
 
-    <maintainer email="john@todo.todo">john</maintainer>
+  <maintainer email="john@todo.todo">john</maintainer>
 
-    <license>TODO</license>
+  <license>TODO</license>
 
-    <build_depend>mavros</build_depend>
-    <build_depend>std_msgs</build_depend>
-    <build_depend>dragonfly_messages</build_depend>
-    <build_depend>builtin_interfaces</build_depend>
+  <buildtool_depend>ament_cmake</buildtool_depend>
 
-    <exec_depend>mavros</exec_depend>
-    <exec_depend>std_msgs</exec_depend>
-    <exec_depend>dragonfly_messages</exec_depend>
-    <exec_depend>builtin_interfaces</exec_depend>
-    <exec_depend>rosidl_default_runtime</exec_depend>
+  <depend>mavros</depend>
+  <depend>std_msgs</depend>
+  <depend>dragonfly_messages</depend>
+  <depend>builtin_interfaces</depend>
 
-    <test_depend>ament_copyright</test_depend>
-    <test_depend>ament_flake8</test_depend>
-    <test_depend>ament_pep257</test_depend>
-    <test_depend>python3-pytest</test_depend>
+  <test_depend>ament_copyright</test_depend>
+  <test_depend>ament_flake8</test_depend>
+  <test_depend>ament_pep257</test_depend>
+  <test_depend>python3-pytest</test_depend>
 
-    <export>
-        <build_type>ament_python</build_type>
-    </export>
+  <export>
+    <build_type>ament_cmake</build_type>
+  </export>
 </package>
+
