@@ -7,7 +7,7 @@ exec 3>&1 1>>logs/script.log 2>&1
 cd /home/ubuntu/dev/dragonfly
 
 ros2 launch config/apm.launch & 
-ros2 run dragonfly co2publisher.py $HOSTNAME &
+ros2 run dragonfly co2publisher $HOSTNAME &
 #logger node is looking for led_logging.json
 #ros2 run dragonfly logger $HOSTNAME >> logs/output.log &
-ros2 run dragonfly command.py $HOSTNAME
+ros2 run dragonfly command $HOSTNAME
