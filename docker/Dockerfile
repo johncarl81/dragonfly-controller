@@ -12,6 +12,10 @@ RUN rm /bin/sh && ln -s /bin/bash /bin/sh
 
 RUN pip install pulp rx scikit-learn
 
+# Fix the setuptools version to remove the "SetuptoolsDeprecationWarning: setup.py install is deprecated. \
+# Use build and pip and other standards-based tools." Warning print out
+RUN pip install setuptools==58.2.0
+
 # Clear apt cache to save on space
 RUN rm -rf /var/lib/apt/lists/*
 
