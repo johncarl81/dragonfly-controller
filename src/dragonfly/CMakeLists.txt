@@ -4,22 +4,18 @@ project(dragonfly)
 # Find dependencies
 find_package(ament_cmake REQUIRED)
 
-# Define a list of Python scripts
-set(PYTHON_SCRIPTS
-  dragonfly/announce.py
-  dragonfly/command.py
-  dragonfly/virtualco2publisher.py
-  dragonfly/logger.py
-  dragonfly/co2publisher.py
-  dragonfly/pump.py
-)
+# Define the source directory
+set(SOURCE_DIR ${CMAKE_CURRENT_SOURCE_DIR}/dragonfly)
 
-# Install Python scripts as executables with renamed targets
+# Collect all .py files recursively
+file(GLOB_RECURSE PYTHON_SCRIPTS "${SOURCE_DIR}/*.py")
+
+# Install Python scripts while maintaining directory structure
 foreach(script ${PYTHON_SCRIPTS})
-  get_filename_component(script_name ${script} NAME_WE)
-  install(PROGRAMS ${script}
-    DESTINATION lib/${PROJECT_NAME}
-    RENAME ${script_name}
+  file(RELATIVE_PATH relative_path ${SOURCE_DIR} ${script})
+  get_filename_component(relative_dir ${relative_path} DIRECTORY)
+  install(FILES ${script}
+    DESTINATION lib/${PROJECT_NAME}/${relative_dir}
   )
 endforeach()
 
