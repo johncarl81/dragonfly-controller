@@ -147,12 +147,15 @@ class SketchAction:
         return tandem_distance
 
     def calculate_tandem_angle(self, partner_position, self_position, positionVector):
-        distance_m = self.differenceInMeters(self_position, partner_position)
-        offset_unitary = self.unitary(distance_m)
+        if positionVector.movement == PositionVector.FORWARD:
+            distance_m = self.differenceInMeters(self_position, partner_position)
+            offset_unitary = self.unitary(distance_m)
 
-        direction_vector = [positionVector.x, positionVector.y]
+            direction_vector = [positionVector.x, positionVector.y]
 
-        return -2 * (np.dot(offset_unitary, direction_vector)) * np.array(direction_vector)
+            return -2 * (np.dot(offset_unitary, direction_vector)) * np.array(direction_vector)
+        else:
+            return [0, 0]
 
     def calculate_straight_line(self, positionVector):
         if positionVector.movement == PositionVector.FORWARD:
@@ -160,13 +163,18 @@ class SketchAction:
         else:
             return [0, 0]
 
+    def rotate_vector(self, vector, angle):
+        rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],
+                                    [np.sin(angle), np.cos(angle)]])
+        return np.dot(rotation_matrix, vector)
+
+
     def calculate_turn(self, partner_position, self_position, positionVector):
         if positionVector.movement == PositionVector.TURN:
 
-            self_center = self.differenceInMeters(self_position, positionVector.center)
+            self_center = self.differenceInMeters(positionVector.center, self_position)
             self_center_distance = self.magnitude(self_center)
-            partner_center_distance = self.magnitude(self.differenceInMeters(partner_position, positionVector.center))
-            print(f"self_center_distance: {self_center_distance} self_center: {self_center}")
+            partner_center_distance = self.magnitude(self.differenceInMeters(positionVector.center, partner_position))
 
             if self_center_distance > partner_center_distance:
                 velocity = 3
@@ -175,10 +183,19 @@ class SketchAction:
 
             vector_to_center = self.unitary(self_center)
 
-            print(f"velocity: {velocity} vector_to_center: {vector_to_center}")
+            starting_position = self.differenceInMeters(positionVector.center, positionVector.position)
+            # print(f"{self_center} {starting_position}")
+            angle = math.atan2(self_center[1], self_center[0]) - math.atan2(starting_position[1], starting_position[0])
 
-            forward_force = np.array([vector_to_center[1] * velocity, vector_to_center[0] * velocity])
-            centripedal_force = np.array([vector_to_center[0] * velocity, -vector_to_center[1] * velocity])
+            rotated_vector = self.rotate_vector([positionVector.x, positionVector.y], angle)
+
+            # print(f"Angle: {angle}, rotated_vector: {rotated_vector}")
+
+            forward_force = np.array([rotated_vector[0] * velocity, rotated_vector[1] * velocity])
+            centripedal_force = np.array([vector_to_center[0] * (velocity / self_center_distance), vector_to_center[1] * (velocity / self_center_distance)])
+
+            # print(f"forward_force: {forward_force}, centripedal_force: {centripedal_force}")
+            # print(f"hyp: {hyp} target_offset: {target_offset}")
 
             return forward_force + centripedal_force
         else:
@@ -235,7 +252,7 @@ class SketchAction:
 
         if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
             self.encountered = True
-            print(f"Encountered plume: {partner_position.value} {self_position.value}")
+            # print(f"Encountered plume: {partner_position.value} {self_position.value}")
 
         if self.encountered and self.passed(average_position):
             # print(f"PASSED! {positionVector} | {self.target_position_vector}")
@@ -309,10 +326,20 @@ class SketchAction:
             a = math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
 
+    def calculate_direction(self):
+        if self.target_position_vector.movement == PositionVector.FORWARD:
+            direction = [self.target_position_vector.x, self.target_position_vector.y]
+            print(f"forward: {direction}")
+            return direction
+        if self.target_position_vector.movement == PositionVector.TURN:
+            prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
+            angle =  self.target_position_vector.a * self.target_position_vector.p + (math.pi / 2)
+            direction = self.rotate_vector(prev_vector, angle)
+            print(f"turn {angle}: {direction}")
+            return direction
+
     def forward(self, d1, d2):
         average_position = self.average(d1, d2)
-        distance_m = self.differenceInMeters(d1, d2)
-        offset_unitary = self.unitary(distance_m)
 
         positionVector = PositionVector()
         positionVector.movement = PositionVector.FORWARD
@@ -320,14 +347,16 @@ class SketchAction:
         position.longitude = average_position[0]
         position.latitude = average_position[1]
         positionVector.position = position
-        positionVector.x = offset_unitary[1]
-        positionVector.y = -offset_unitary[0]
+        [positionVector.x, positionVector.y] = self.calculate_direction()
         positionVector.position = position
         positionVector.distance = 10.0
 
         return positionVector
 
     def turn(self, d1, d2, a):
+        if a == self.target_position_vector.a:
+            self.target_position_vector.p += 1
+            return self.target_position_vector
         average_position = self.average(d1, d2)
         distance_m = self.differenceInMeters(d1, d2)
         offset_unitary = self.unitary(distance_m)
@@ -338,21 +367,22 @@ class SketchAction:
         position.longitude = average_position[0]
         position.latitude = average_position[1]
         positionVector.position = position
-        positionVector.x = offset_unitary[1]
-        positionVector.y = -offset_unitary[0]
+        [positionVector.x, positionVector.y] = self.calculate_direction()
         positionVector.position = position
         positionVector.radius = 10.0
+        positionVector.a = a
+        positionVector.p = 1
 
         hyp = 1 / np.arcsin(a)
+        print(hyp)
 
         center = LatLon()
-        center.longitude = average_position[0] + ((offset_unitary[1] * hyp) / (math.cos(average_position[1] * 0.01745) * (EARTH_CIRCUMFRENCE / 360)))
-        center.latitude = average_position[1] - ((offset_unitary[0] * hyp) / (EARTH_CIRCUMFRENCE / 360))
+        center.longitude = average_position[0] + ((offset_unitary[0] * hyp) / (math.cos(average_position[1] * 0.01745) * (EARTH_CIRCUMFRENCE / 360)))
+        center.latitude = average_position[1] - ((offset_unitary[1] * hyp) / (EARTH_CIRCUMFRENCE / 360))
+
+        print(f"center lon: {center.longitude} lat: {center.latitude}")
 
         positionVector.center = center
-
-        print(f"hyp: {hyp}")
-        print(f"center: {center}")
 
         return positionVector
 
@@ -363,9 +393,18 @@ class SketchAction:
         if self.target_position_vector is None:
             return True
 
-        target_offset = self.differenceInMeters(average_position, self.target_position_vector.position)
+        if self.target_position_vector.movement == PositionVector.FORWARD:
 
-        return np.dot(target_offset, [self.target_position_vector.x, self.target_position_vector.y]) > self.target_position_vector.distance
+            target_offset = self.differenceInMeters(average_position, self.target_position_vector.position)
+
+            return np.dot(target_offset, [self.target_position_vector.x, self.target_position_vector.y]) > self.target_position_vector.distance
+        else:
+            target_offset = self.magnitude(self.differenceInMeters(average_position, self.target_position_vector.position))
+            hyp = self.magnitude(self.differenceInMeters(average_position, self.target_position_vector.center))
+
+            # print(f"({target_offset} / {hyp}) > math.sin({self.target_position_vector.a} * {self.target_position_vector.p}) = {(target_offset / hyp) > math.sin(self.target_position_vector.a * self.target_position_vector.p)}")
+            return (target_offset / hyp) > math.sin(self.target_position_vector.a * self.target_position_vector.p)
+            # return False
 
     def stop(self):
         self.navigate_subscription.dispose()

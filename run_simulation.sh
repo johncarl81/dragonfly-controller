@@ -5,5 +5,5 @@ docker network inspect ros-net >/dev/null 2>&1 || \
 
 docker run -it \
     --network ros-net \
-    dragonfly-controller:latest --drones 4
+    dragonfly-controller:latest --drones 2
     
