@@ -264,6 +264,7 @@ class SketchAction:
 # Algorithm 1 Ensures the robots are at distance √
 #
 # λ from each other and are oriented in the same direction.
+    #be sure to normalized this λ or else the turn will not work properly.
 # Additional discussion with illustrative diagrams of this synchronization is in Appendix D.
 #
 # procedure SYNCHRONIZE(D1, D2)
