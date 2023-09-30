@@ -91,7 +91,10 @@ VIRTUAL_SOURCE = dotdict({
     "longitude": -106.59625
 })
 
-def calculateCO2( position):
+def calculateCO2xy(latitude, longitude):
+    return calculateCO2(LatLon(latitude, longitude))
+
+def calculateCO2(position):
 
     [y, x] = differenceInMeters(position, VIRTUAL_SOURCE)
 
@@ -524,18 +527,26 @@ def gaussian_value(x, y, gaussian):
 
 def plot_plume(plt):
     ax = plt.gca()
-    color = 'k'
 
-    # if gaussian_list:
-    #     x, y = np.ogrid[-10:10:0.1, -10:10:0.1]
-    #     r = gaussians(y, x, gaussian_list)
-    #
-    #     contours = measure.find_contours(r, math.exp (-0.75*0.75))
-    #
-    #     for contour in contours:
-    #         ax.plot(contour[:, 1] / 10 - 10, contour[:, 0] / 10 - 10, linewidth=4, color="lightgreen",zorder=-1, label="Plume boundary")
+    scale = 1000.0
+
+    lon = [-106.6, -106.585]
+    lat = [35.190, 35.220]
+
+    lonRes = ((lon[1] - lon[0]) / scale)
+    latRes = ((lat[1] - lat[0]) / scale)
+    x, y = np.ogrid[lon[0]:lon[1]:lonRes, lat[0]:lat[1]:latRes]
+
+    calculateCO2xyvect = np.vectorize(calculateCO2xy)
+
+    r = calculateCO2xyvect(y, x)
+
+    contour = measure.find_contours(r, 421)
+
+    ax.plot(contour[0][:, 0] * lonRes + lon[0], contour[0][:, 1] * latRes + lat[0], linewidth=3, color="lightgreen",zorder=-1, label="Plume boundary")
 
 def main():
+
 
     streamFactory = DroneStreamFactory()
     announceStream = Subject()
@@ -573,17 +584,28 @@ def main():
     df1longitudes = []
     df2longitudes = []
 
+    def addAlgorithmDetails(token):
+        if (token.movement == FORWARD):
+            pass
+        if (token.movement == TURN):
+            plt.scatter(token.center.longitude, token.center.latitude, color='b', s=3)
 
-    plt.figure()
+    sketchSubject.subscribe(on_next = lambda value: addAlgorithmDetails(value))
+
+
+    plt.figure(figsize=(6, 10))
+    plt.ticklabel_format(style='plain', useOffset=False)
 
     plot_plume(plt)
 
-    for i in range(400):
+    for i in range(160):
         # print(i)
+        df1co2v = calculateCO2(df1p)
+        df2co2v = calculateCO2(df2p)
         df1Position.on_next(df1p)
-        df1co2.on_next(dotdict({'ppm': calculateCO2(df1p)}))
+        df1co2.on_next(dotdict({'ppm': df1co2v}))
         df2Position.on_next(df2p)
-        df2co2.on_next(dotdict({'ppm': calculateCO2(df2p)}))
+        df2co2.on_next(dotdict({'ppm': df2co2v}))
 
         df1velocity = df1SetVelocity.pipe(ops.first()).run()
         df2velocity = df2SetVelocity.pipe(ops.first()).run()
@@ -591,20 +613,26 @@ def main():
         df1p = addOffset(df1p, df1velocity)
         df2p = addOffset(df2p, df2velocity)
 
+
+        # print(f"df1 co2: {df1co2v}")
+        # print(f"df2 co2: {df2co2v}")
         # print(f"df1 v: {df1velocity}")
         # print(f"df2 v: {df2velocity}")
         #
         # print(f"df1 p: {df1p.latitude}, {df1p.longitude}")
         # print(f"df2 p: {df2p.latitude}, {df2p.longitude}")
+        #
+        # print()
 
         df1latitudes.append(df1p.latitude)
         df1longitudes.append(df1p.longitude)
         df2latitudes.append(df2p.latitude)
         df2longitudes.append(df2p.longitude)
 
-    plt.scatter(df1longitudes, df1latitudes)
-    plt.scatter(df2longitudes, df2latitudes)
-    plt.show()
+    plt.scatter(df1longitudes, df1latitudes, s=4)
+    plt.scatter(df2longitudes, df2latitudes, s=4)
+    plt.axis('equal')
+    plt.savefig('sketch.png', format="png", dpi=300)
 
 
 
