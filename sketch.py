@@ -12,17 +12,16 @@ EARTH_CIRCUMFERENCE = 40008000
 FORWARD = "forward"
 TURN = "turn"
 
-class dotdict(dict):
-    """dot.notation access to dictionary attributes"""
-    __getattr__ = dict.get
-    __setattr__ = dict.__setitem__
-    __delattr__ = dict.__delitem__
-
 class LatLon:
 
     def __init__(self, latitude, longitude):
         self.latitude = latitude
         self.longitude = longitude
+
+class CO2:
+
+    def __init__(self, ppm):
+        self.ppm = ppm
 
 class ReadingPosition:
 
@@ -86,10 +85,7 @@ def differenceInMeters(one, two):
         ((one.longitude - two.longitude) * (earthCircumference / 360) * math.cos(one.latitude * 0.01745)),
         ((one.latitude - two.latitude) * (earthCircumference / 360))
     ]
-VIRTUAL_SOURCE = dotdict({
-    "latitude": 35.19465,
-    "longitude": -106.59625
-})
+VIRTUAL_SOURCE = LatLon(35.19465, -106.59625)
 
 def calculateCO2xy(latitude, longitude):
     return calculateCO2(LatLon(latitude, longitude))
@@ -302,7 +298,7 @@ class SketchAction:
             lat_ave = (self_position.latitude + partner_position.latitude) / 2
             lon_ave = (self_position.longitude + partner_position.longitude) / 2
 
-            vector_to_target =  self.differenceInMeters(dotdict({'latitude': lat_ave, 'longitude': lon_ave}), positionVector.position)
+            vector_to_target =  self.differenceInMeters(LatLon(lat_ave, lon_ave), positionVector.position)
 
             dot_product = np.dot([positionVector.x, positionVector.y], vector_to_target)
 
@@ -329,8 +325,7 @@ class SketchAction:
 
     def broadcast_target(self, partner_position, self_position):
 
-        average_position =  dotdict({'latitude':  (self_position.latitude + partner_position.latitude) / 2,
-                                     'longitude': (self_position.longitude + partner_position.longitude) / 2})
+        average_position =  LatLon((self_position.latitude + partner_position.latitude) / 2, (self_position.longitude + partner_position.longitude) / 2)
 
         if not self.target_position_vector:
             positionVector = PositionVector()
@@ -547,7 +542,6 @@ def plot_plume(plt):
 
 def main():
 
-
     streamFactory = DroneStreamFactory()
     announceStream = Subject()
     df1SetVelocity = BehaviorSubject([0,1])
@@ -603,9 +597,9 @@ def main():
         df1co2v = calculateCO2(df1p)
         df2co2v = calculateCO2(df2p)
         df1Position.on_next(df1p)
-        df1co2.on_next(dotdict({'ppm': df1co2v}))
+        df1co2.on_next(CO2(df1co2v))
         df2Position.on_next(df2p)
-        df2co2.on_next(dotdict({'ppm': df2co2v}))
+        df2co2.on_next(CO2(df2co2v))
 
         df1velocity = df1SetVelocity.pipe(ops.first()).run()
         df2velocity = df2SetVelocity.pipe(ops.first()).run()
