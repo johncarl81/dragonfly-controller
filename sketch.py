@@ -510,10 +510,10 @@ class SketchAction:
             return distance > self.target_position_vector.distance
         else:
             center = calculateTurnCenter(self.target_position_vector)
-            target_offset = self.difference_in_meters(self.target_position_vector.position, center)
+            target_offset = rotate_vector(self.difference_in_meters(self.target_position_vector.position, center), (self.target_position_vector.a * (self.target_position_vector.p - 1)))
             hyp = self.difference_in_meters(average_position, center)
 
-            target_angle = math.fabs(self.target_position_vector.a * self.target_position_vector.p)
+            target_angle = math.fabs(self.target_position_vector.a)
 
             intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (self.magnitude(target_offset) * self.magnitude(hyp))
             if intermediate > 1:
