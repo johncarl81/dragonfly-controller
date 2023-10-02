@@ -18,6 +18,9 @@ class LatLon:
         self.latitude = latitude
         self.longitude = longitude
 
+    def __str__(self):
+        return f"lat: {self.latitude}, lon: {self.longitude}"
+
 class CO2:
 
     def __init__(self, ppm):
@@ -111,6 +114,37 @@ def calculateCO2(position):
     else:
         return 420.0 + value
 
+def unitary(vector):
+    magnitude = np.linalg.norm(vector)
+    return [vector[0] / magnitude, vector[1] / magnitude]
+
+def rotate_vector(vector, angle):
+    rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],
+                                [np.sin(angle), np.cos(angle)]])
+    return np.dot(rotation_matrix, vector)
+
+def calculateTurnCenter(token):
+    direction_vector = [token.x, token.y]
+    rotated_direction_vector = rotate_vector(direction_vector, token.a)
+
+    opposite = np.array(unitary(rotated_direction_vector)) * (10 / 2) # lambda / 2
+
+
+    hypotenuse = np.array(unitary(rotate_vector(rotated_direction_vector, math.pi / 2))) * ((10 / 2) / math.tan(token.a / 2))
+
+    # print(f"op: {opposite} hyp: {hypotenuse}")
+
+    # hyp = 2 / np.arcsin(token.a)
+    #
+    # center_offset = rotate_vector([token.x, token.y], math.pi / 2)
+    center_offset = opposite + hypotenuse
+
+    longitude = token.position.longitude + ((center_offset[0]) / (math.cos(token.position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
+    latitude = token.position.latitude + ((center_offset[1]) / (EARTH_CIRCUMFERENCE / 360))
+    center = LatLon(latitude, longitude)
+
+    return center
+
 class SketchAction:
     SAMPLE_RATE = 0.1
 
@@ -145,7 +179,7 @@ class SketchAction:
 
         self.local_setvelocity_publisher.on_next(twist)
 
-    def differenceInMeters(self, one, two):
+    def difference_in_meters(self, one, two):
         return [
             ((one.longitude - two.longitude) * (EARTH_CIRCUMFERENCE / 360) * math.cos(one.latitude * 0.01745)),
             ((one.latitude - two.latitude) * (EARTH_CIRCUMFERENCE / 360))
@@ -207,14 +241,15 @@ class SketchAction:
         tandem_angle = self.calculate_tandem_angle(partner_position, self_position, positionVector)
         straight_line = self.calculate_straight_line(positionVector)
         turning = self.calculate_turn(partner_position, self_position, positionVector)
-        offset_error_correction = self.calculate_error_correction(partner_position, self_position, positionVector)
+        offset_error_correction = [0,0]#self.calculate_error_correction(partner_position, self_position, positionVector)
+        # offset_error_correction = self.calculate_error_correction(partner_position, self_position, positionVector)
 
         # print(f"{self.id} tandem_offset: {tandem_offset} tandem_angle: {tandem_angle} straight_line: {straight_line}")
 
         return [tandem_offset, tandem_angle, straight_line, turning, offset_error_correction]
 
     def caculate_tandem_offset(self, partner_position, self_position):
-        distance_m = self.differenceInMeters(partner_position, self_position)
+        distance_m = self.difference_in_meters(partner_position, self_position)
         offset_unitary = self.unitary(distance_m)
 
         possition_offset = [distance_m[0] - (offset_unitary[0] * self.offset),
@@ -229,13 +264,10 @@ class SketchAction:
 
     def calculate_tandem_angle(self, partner_position, self_position, positionVector):
         if positionVector.movement == FORWARD:
-            distance_m = self.differenceInMeters(self_position, partner_position)
+            distance_m = self.difference_in_meters(self_position, partner_position)
             offset_unitary = self.unitary(distance_m)
 
             direction_vector = [positionVector.x, positionVector.y]
-
-            # print (offset_unitary)
-            # print(direction_vector)
 
             return -2 * (np.dot(offset_unitary, direction_vector)) * np.array(direction_vector)
         else:
@@ -264,9 +296,11 @@ class SketchAction:
     def calculate_turn(self, partner_position, self_position, positionVector):
         if positionVector.movement == TURN:
 
-            self_center = self.differenceInMeters(positionVector.center, self_position)
+            center = calculateTurnCenter(positionVector)
+
+            self_center = self.difference_in_meters(center, self_position)
             self_center_distance = self.magnitude(self_center)
-            partner_center_distance = self.magnitude(self.differenceInMeters(positionVector.center, partner_position))
+            partner_center_distance = self.magnitude(self.difference_in_meters(center, partner_position))
 
             if self_center_distance > partner_center_distance:
                 velocity = 3
@@ -275,7 +309,7 @@ class SketchAction:
 
             vector_to_center = self.unitary(self_center)
 
-            starting_position = self.differenceInMeters(positionVector.center, positionVector.position)
+            starting_position = self.difference_in_meters(center, positionVector.position)
             # print(f"{self_center} {starting_position}")
             angle = math.atan2(self_center[1], self_center[0]) - math.atan2(starting_position[1], starting_position[0])
 
@@ -298,7 +332,7 @@ class SketchAction:
             lat_ave = (self_position.latitude + partner_position.latitude) / 2
             lon_ave = (self_position.longitude + partner_position.longitude) / 2
 
-            vector_to_target =  self.differenceInMeters(LatLon(lat_ave, lon_ave), positionVector.position)
+            vector_to_target =  self.difference_in_meters(LatLon(lat_ave, lon_ave), positionVector.position)
 
             dot_product = np.dot([positionVector.x, positionVector.y], vector_to_target)
 
@@ -321,7 +355,7 @@ class SketchAction:
         return [vector[0] / magnitude, vector[1] / magnitude]
 
     def average(self, one, two):
-        return [(one.longitude + two.longitude)/2, (one.latitude + two.latitude) / 2]
+        return LatLon((one.latitude + two.latitude) / 2, (one.longitude + two.longitude)/2)
 
     def broadcast_target(self, partner_position, self_position):
 
@@ -330,7 +364,7 @@ class SketchAction:
         if not self.target_position_vector:
             positionVector = PositionVector()
             positionVector.movement = FORWARD
-            position = LatLon(average_position.longitude, average_position.latitude)
+            position = LatLon(average_position.latitude, average_position.longitude)
 
             positionVector.x = 0.0
             positionVector.y = 1.0
@@ -400,7 +434,7 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.01
+        lambda_value = 0.05
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
@@ -415,7 +449,7 @@ class SketchAction:
             a = math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
 
-    def calculate_direction(self):
+    def calculate_prev_direction(self):
         if self.target_position_vector.movement == FORWARD:
             direction = [self.target_position_vector.x, self.target_position_vector.y]
             print(f"forward: {direction}")
@@ -428,14 +462,15 @@ class SketchAction:
             return direction
 
     def forward(self, d1, d2):
-        average_position = self.average(d1, d2)
 
         positionVector = PositionVector()
         positionVector.movement = FORWARD
-        position = LatLon(average_position[0], average_position[1])
+        position = self.average(d1, d2)
         positionVector.position = position
-        [positionVector.x, positionVector.y] = self.calculate_direction()
+
+        [positionVector.x, positionVector.y] = self.calculate_prev_direction()
         positionVector.position = position
+
         positionVector.distance = 10.0
 
         return positionVector
@@ -445,33 +480,18 @@ class SketchAction:
             self.target_position_vector.p += 1
             print(f"p : {self.target_position_vector.p}")
             return self.target_position_vector
-        average_position = self.average(d1, d2)
-        distance_m = self.differenceInMeters(d1, d2)
-        offset_unitary = self.unitary(distance_m)
 
         positionVector = PositionVector()
         positionVector.movement = TURN
 
-        position = LatLon(average_position[1], average_position[0])
+        position = self.average(d1, d2)
         positionVector.position = position
-        [positionVector.x, positionVector.y] = self.calculate_direction()
+        [positionVector.x, positionVector.y] = self.calculate_prev_direction()
 
         positionVector.position = position
         positionVector.radius = 10.0
         positionVector.a = a
         positionVector.p = 1
-
-        hyp = 1 / np.arcsin(a)
-        # print(hyp)
-
-
-        longitude = average_position[0] + ((offset_unitary[0] * hyp) / (math.cos(average_position[1] * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
-        latitude = average_position[1] - ((offset_unitary[1] * hyp) / (EARTH_CIRCUMFERENCE / 360))
-        center = LatLon(latitude, longitude)
-
-        # print(f"center lon: {center.longitude} lat: {center.latitude}")
-
-        positionVector.center = center
 
         return positionVector
 
@@ -484,22 +504,23 @@ class SketchAction:
 
         if self.target_position_vector.movement == FORWARD:
 
-            target_offset = self.differenceInMeters(average_position, self.target_position_vector.position)
+            target_offset = self.difference_in_meters(average_position, self.target_position_vector.position)
+            distance = np.dot(target_offset, [self.target_position_vector.x, self.target_position_vector.y])
 
-            return np.dot(target_offset, [self.target_position_vector.x, self.target_position_vector.y]) > self.target_position_vector.distance
+            return distance > self.target_position_vector.distance
         else:
-            target_offset = self.differenceInMeters(self.target_position_vector.position, self.target_position_vector.center)
-            hyp = self.differenceInMeters(average_position, self.target_position_vector.center)
-
-            # print(f"({target_offset} / {hyp}) > math.sin({self.target_position_vector.a} * {self.target_position_vector.p}) = {(target_offset / hyp) > math.sin(self.target_position_vector.a * self.target_position_vector.p)}")
-            # return (target_offset / hyp) > math.sin(self.target_position_vector.a * self.target_position_vector.p)
-            # return False
+            center = calculateTurnCenter(self.target_position_vector)
+            target_offset = self.difference_in_meters(self.target_position_vector.position, center)
+            hyp = self.difference_in_meters(average_position, center)
 
             target_angle = math.fabs(self.target_position_vector.a * self.target_position_vector.p)
 
-            angle = math.acos( ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (self.magnitude(target_offset) * self.magnitude(hyp)))
+            intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (self.magnitude(target_offset) * self.magnitude(hyp))
+            if intermediate > 1:
+                intermediate = 1
+            angle = math.acos(intermediate)
 
-            # self.logger.info(f"Angle: {angle} passed: {angle} > {target_angle} = {angle > target_angle}")
+            print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
             return angle > target_angle
 
 
@@ -507,20 +528,7 @@ class SketchAction:
         self.navigate_subscription.dispose()
         self.leader_broadcast_subscrition.dispose()
 
-def gaussians(x, y, gaussian_list):
-    value = 0
-    for gaussian in gaussian_list:
-        value = value + gaussian_value(x, y, gaussian)
-    return value
-
-def gaussian_value(x, y, gaussian):
-    xoffset = x - gaussian[0][0]
-    yoffset = y - gaussian[0][1]
-    varX = gaussian[1][0]
-    varY = gaussian[1][1]
-    return np.exp ( - (xoffset * xoffset / (2*varX)) - (yoffset * yoffset / (2*varY)))
-
-def plot_plume(plt):
+def plot_plume(plt, threshold):
     ax = plt.gca()
 
     scale = 1000.0
@@ -536,9 +544,10 @@ def plot_plume(plt):
 
     r = calculateCO2xyvect(y, x)
 
-    contour = measure.find_contours(r, 421)
+    contour = measure.find_contours(r, threshold)
 
-    ax.plot(contour[0][:, 0] * lonRes + lon[0], contour[0][:, 1] * latRes + lat[0], linewidth=3, color="lightgreen",zorder=-1, label="Plume boundary")
+    if len(contour) > 0:
+        ax.plot(contour[0][:, 0] * lonRes + lon[0], contour[0][:, 1] * latRes + lat[0], linewidth=3, color="lightgreen",zorder=-1, label="Plume boundary")
 
 def main():
 
@@ -562,15 +571,12 @@ def main():
     action1.step()
     action2.step()
 
-    # sketchSubject.on_next(dotdict({'movement': FORWARD}))
-    # sketchSubject.subscribe(on_next = lambda value: print(value))
-
     df1p = LatLon(35.191558837890625, -106.59635925292969)
     df2p = LatLon(35.19157791137695, -106.59661102294922)
 
     def addOffset(position, offset):
-        longitude = position.longitude + (offset[0] / (math.cos(position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
-        latitude = position.latitude + (offset[1] / (EARTH_CIRCUMFERENCE / 360))
+        longitude = position.longitude + ((offset[0]/2) / (math.cos(position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
+        latitude = position.latitude + ((offset[1]/2) / (EARTH_CIRCUMFERENCE / 360))
         return LatLon(latitude, longitude)
 
     df1latitudes = []
@@ -580,9 +586,11 @@ def main():
 
     def addAlgorithmDetails(token):
         if (token.movement == FORWARD):
-            pass
+            plt.arrow(token.position.longitude, token.position.latitude, token.x * 0.00005, token.y * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='k', ec='k')
         if (token.movement == TURN):
-            plt.scatter(token.center.longitude, token.center.latitude, color='b', s=3)
+            center = calculateTurnCenter(token)
+            plt.scatter(center.longitude, center.latitude, color='b', s=3)
+            plt.arrow(token.position.longitude, token.position.latitude, token.x * 0.00005, token.y * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='b', ec='b')
 
     sketchSubject.subscribe(on_next = lambda value: addAlgorithmDetails(value))
 
@@ -590,9 +598,11 @@ def main():
     plt.figure(figsize=(6, 10))
     plt.ticklabel_format(style='plain', useOffset=False)
 
-    plot_plume(plt)
+    plot_plume(plt, 421)
 
-    for i in range(160):
+    plt.plot(VIRTUAL_SOURCE.longitude, VIRTUAL_SOURCE.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
+
+    for i in range(1000):
         # print(i)
         df1co2v = calculateCO2(df1p)
         df2co2v = calculateCO2(df2p)
