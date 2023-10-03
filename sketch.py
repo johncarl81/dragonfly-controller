@@ -5,6 +5,7 @@ import rx.operators as ops
 import numpy as np
 import matplotlib.pyplot as plt
 from skimage import measure
+from sklearn.linear_model import LinearRegression
 
 from rx.subject import Subject, BehaviorSubject
 
@@ -81,6 +82,12 @@ class PositionVector:
         # self.center = center
         # self.a = a
         # self.p = p
+
+def calculate_angle(one, two):
+    intermediate = ((one[0] * two[0]) + (one[1] * two[1])) / (np.linalg.norm(one) * np.linalg.norm(two))
+    if intermediate > 1:
+        intermediate = 1
+    return math.acos(intermediate)
 
 def differenceInMeters(one, two):
     earthCircumference = 40008000
@@ -165,9 +172,11 @@ class SketchAction:
         self.position_vector_publisher = position_vector_publisher
 
         self.navigate_subscription = rx.empty().subscribe()
-        self.leader_broadcast_subscrition = rx.empty().subscribe()
+        self.leader_broadcast_subscription = rx.empty().subscribe()
         self.target_position_vector = None
         self.encountered = False
+
+        self.position_reading_queue = []
 
     def navigate(self, input):
 
@@ -213,7 +222,7 @@ class SketchAction:
             ).subscribe(lambda vectors: self.navigate(vectors))
 
             if self.leader:
-                self.leader_broadcast_subscrition = rx.combine_latest(
+                self.leader_broadcast_subscription = rx.combine_latest(
                     self.setupSubject(self.partner),
                     self.setupSubject(self.id)
                 ).subscribe(lambda positionReadingVector: self.broadcast_target(positionReadingVector[0], positionReadingVector[1]))
@@ -361,6 +370,12 @@ class SketchAction:
 
         average_position =  LatLon((self_position.latitude + partner_position.latitude) / 2, (self_position.longitude + partner_position.longitude) / 2)
 
+        self.position_reading_queue.append(partner_position)
+        self.position_reading_queue.append(self_position)
+
+        while len(self.position_reading_queue) > 100:
+            self.position_reading_queue.pop(0)
+
         if not self.target_position_vector:
             positionVector = PositionVector()
             positionVector.movement = FORWARD
@@ -369,7 +384,7 @@ class SketchAction:
             positionVector.x = 0.0
             positionVector.y = 1.0
             positionVector.position = position
-            positionVector.distance = 10.0
+            positionVector.distance = 5.0
 
             self.target_position_vector = positionVector
 
@@ -382,6 +397,20 @@ class SketchAction:
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
         self.position_vector_publisher.on_next(self.target_position_vector)
         self.dragonfly_sketch_subject.on_next(self.target_position_vector)
+
+    def calculate_gradient(self):
+        x = []
+        y = []
+
+        for readingPosition in self.position_reading_queue:
+            x.append([readingPosition.longitude, readingPosition.latitude])
+            y.append(readingPosition.value)
+
+        x, y = np.array(x), np.array(y)
+
+        model = LinearRegression().fit(x, y)
+
+        return self.unitary([model.coef_[0], model.coef_[1]])
 
     # Algorithm 1 Ensures the robots are at distance √
     #
@@ -427,14 +456,16 @@ class SketchAction:
 
 
     def cross_boundary(self, d1, d2, a):
-        return self.turn(d1, d2, a)
+        gradient = self.calculate_gradient()
+        print(f"gradient: {gradient}")
+        return self.turn(d1, d2, a, gradient)
 
     # Algorithm 3 Initially, robots are √λ apart; one inside and one outside
     def boundary_sketch(self, d1, d2):
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.05
+        lambda_value = 0.3
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
@@ -463,19 +494,39 @@ class SketchAction:
 
     def forward(self, d1, d2):
 
+        gradient = self.calculate_gradient()
+
         positionVector = PositionVector()
         positionVector.movement = FORWARD
         position = self.average(d1, d2)
         positionVector.position = position
 
-        [positionVector.x, positionVector.y] = self.calculate_prev_direction()
+        [positionVector.x, positionVector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
+        # [positionVector.x, positionVector.y] = self.calculate_prev_direction()
         positionVector.position = position
 
         positionVector.distance = 10.0
 
         return positionVector
 
-    def turn(self, d1, d2, a):
+    def calculate_closest_gradient_tangent(self, direction, gradient):
+        gradient_positive = self.rotate_vector(gradient, math.pi/2)
+        gradient_negative = self.rotate_vector(gradient, -math.pi/2)
+
+        angle_positive = calculate_angle(direction, gradient_positive)
+        angle_negative = calculate_angle(direction, gradient_negative)
+
+
+        print(f"positive: {angle_positive} negative: {angle_negative}")
+        if math.fabs(angle_positive) > math.fabs(angle_negative):
+            perpendicular_gradient = gradient_negative
+        else:
+            perpendicular_gradient = gradient_positive
+
+        print(perpendicular_gradient)
+        return perpendicular_gradient
+
+    def turn(self, d1, d2, a, gradient):
         if a == self.target_position_vector.a:
             self.target_position_vector.p += 1
             print(f"p : {self.target_position_vector.p}")
@@ -486,12 +537,15 @@ class SketchAction:
 
         position = self.average(d1, d2)
         positionVector.position = position
-        [positionVector.x, positionVector.y] = self.calculate_prev_direction()
+
+        [positionVector.x, positionVector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
 
         positionVector.position = position
         positionVector.radius = 10.0
         positionVector.a = a
         positionVector.p = 1
+
+        positionVector.gradient = gradient
 
         return positionVector
 
@@ -520,13 +574,13 @@ class SketchAction:
                 intermediate = 1
             angle = math.acos(intermediate)
 
-            print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
+            # print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
             return angle > target_angle
 
 
     def stop(self):
         self.navigate_subscription.dispose()
-        self.leader_broadcast_subscrition.dispose()
+        self.leader_broadcast_subscription.dispose()
 
 def plot_plume(plt, threshold):
     ax = plt.gca()
@@ -592,6 +646,10 @@ def main():
             plt.scatter(center.longitude, center.latitude, color='b', s=3)
             plt.arrow(token.position.longitude, token.position.latitude, token.x * 0.00005, token.y * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='b', ec='b')
 
+            plt.arrow(token.position.longitude, token.position.latitude, token.gradient[0] * 0.00005, token.gradient[1] * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='r', ec='r')
+            # plt.arrow(token.position.longitude, token.position.latitude, token.gradient_positive[0] * 0.00005, token.gradient_positive[1] * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='r', ec='r')
+            # plt.arrow(token.position.longitude, token.position.latitude, token.gradient_negative[0] * 0.00005, token.gradient_negative[1] * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='r', ec='r')
+
     sketchSubject.subscribe(on_next = lambda value: addAlgorithmDetails(value))
 
 
@@ -602,7 +660,7 @@ def main():
 
     plt.plot(VIRTUAL_SOURCE.longitude, VIRTUAL_SOURCE.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
 
-    for i in range(1000):
+    for i in range(800):
         # print(i)
         df1co2v = calculateCO2(df1p)
         df2co2v = calculateCO2(df2p)
