@@ -95,25 +95,35 @@ def difference_in_meters(one, two):
         ((one.latitude - two.latitude) * (EARTH_CIRCUMFERENCE / 360))
     ]
 VIRTUAL_SOURCE = LatLon(35.19465, -106.59625)
+VIRTUAL_SOURCE2 = LatLon(35.1943, -106.59535)
+VIRTUAL_SOURCE3 = LatLon(35.1943, -106.5971)
 
 def calculate_co2_xy(latitude, longitude):
     return calculate_co2(LatLon(latitude, longitude))
 
-def calculate_co2(position):
-
-    [y, x] = difference_in_meters(position, VIRTUAL_SOURCE)
+def calculate_co2_from_source(position, source, Q):
+    [y, x] = difference_in_meters(position, source)
 
     if x >= 0:
-        return 420.0
+        return 0
+
 
     # Simple gaussian plume model adapted from: https://epubs.siam.org/doi/pdf/10.1137/10080991X
     # See equation 3.10, page 358.
-    Q = 5000 # kg/s Emission Rate
+    # Q = 5000 # kg/s Emission Rate
     K = 2 # Diffusion Constant
     H = 2 # m Height
     u = 1 # m/s Wind Speed
 
-    value = (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
+    return (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
+
+
+
+def calculate_co2(position):
+
+    value = calculate_co2_from_source(position, VIRTUAL_SOURCE, 5000) + \
+            calculate_co2_from_source(position, VIRTUAL_SOURCE2, 3000) + \
+            calculate_co2_from_source(position, VIRTUAL_SOURCE3, 3000)
 
     if value < 0:
         return 420.0
@@ -177,6 +187,7 @@ class SketchAction:
         self.leader_broadcast_subscription = rx.empty().subscribe()
         self.target_position_vector = None
         self.encountered = False
+        self.right_handed = True
 
         self.position_reading_queue = []
 
@@ -301,10 +312,12 @@ class SketchAction:
             self_center_distance = self.magnitude(self_center)
             partner_center_distance = self.magnitude(difference_in_meters(center, partner_position))
 
+            base_velocity = 3
+
             if self_center_distance > partner_center_distance:
-                velocity = 3
+                velocity = base_velocity
             else:
-                velocity = (self_center_distance / partner_center_distance) * 3
+                velocity = (self_center_distance / partner_center_distance) * base_velocity
 
             vector_to_center = unitary(self_center)
 
@@ -317,7 +330,7 @@ class SketchAction:
             # print(f"Angle: {angle}, rotated_vector: {rotated_vector}")
 
             forward_force = np.array([rotated_vector[0] * velocity, rotated_vector[1] * velocity])
-            centripetal_force = np.array([vector_to_center[0] * (velocity / self_center_distance), vector_to_center[1] * (velocity / self_center_distance)])
+            centripetal_force = np.array([vector_to_center[0] * (5.5 * velocity / self_center_distance), vector_to_center[1] * (5.5 * velocity / self_center_distance)])
 
             # print(f"forward_force: {forward_force}, centripetal_force: {centripetal_force}")
             # print(f"hyp: {hyp} target_offset: {target_offset}")
@@ -446,19 +459,26 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.3
+        lambda_value = 0.8
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
+            self.right_handed = self.inside(d1)
             return self.forward(d1, d2)
 
         if not self.inside(d1) and not self.inside(d2):
             print("Outside")
-            a = -math.sqrt(lambda_value)
+            if self.right_handed:
+                a = math.sqrt(lambda_value)
+            else:
+                a = -math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
         elif self.inside(d1) and self.inside(d2):
             print("Inside")
-            a = math.sqrt(lambda_value)
+            if self.right_handed:
+                a = -math.sqrt(lambda_value)
+            else:
+                a = math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
 
     def calculate_prev_direction(self):
@@ -482,8 +502,10 @@ class SketchAction:
         position = average(d1, d2)
         position_vector.position = position
 
-        [position_vector.x, position_vector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
-        # [positionVector.x, positionVector.y] = self.calculate_prev_direction()
+        if self.target_position_vector.movement == TURN:
+            [position_vector.x, position_vector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
+        else:
+            [position_vector.x, position_vector.y] = self.calculate_prev_direction()
         position_vector.position = position
 
         position_vector.distance = 10.0
@@ -556,6 +578,7 @@ class SketchAction:
 
             # print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
             return angle > target_angle
+            # return False
 
 
     def stop(self):
@@ -605,8 +628,8 @@ def main():
     action1.step()
     action2.step()
 
-    df1p = LatLon(35.191558837890625, -106.59635925292969)
-    df2p = LatLon(35.19157791137695, -106.59661102294922)
+    df1p = LatLon(35.191, -106.5955)
+    df2p = LatLon(35.191, -106.5957)
 
     def addOffset(position, offset):
         longitude = position.longitude + ((offset[0]/2) / (math.cos(position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
@@ -637,8 +660,10 @@ def main():
     plot_plume(plt, 421)
 
     plt.plot(VIRTUAL_SOURCE.longitude, VIRTUAL_SOURCE.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
+    plt.plot(VIRTUAL_SOURCE2.longitude, VIRTUAL_SOURCE2.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
+    plt.plot(VIRTUAL_SOURCE3.longitude, VIRTUAL_SOURCE3.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
 
-    for i in range(800):
+    for i in range(1000):
         # print(i)
         df1co2v = calculate_co2(df1p)
         df2co2v = calculate_co2(df2p)
