@@ -187,7 +187,6 @@ class SketchAction:
         self.leader_broadcast_subscription = rx.empty().subscribe()
         self.target_position_vector = None
         self.encountered = False
-        self.right_handed = True
 
         self.position_reading_queue = []
 
@@ -257,10 +256,7 @@ class SketchAction:
         tandem_angle = self.calculate_tandem_angle(partner_position, self_position, positionVector)
         straight_line = self.calculate_straight_line(positionVector)
         turning = self.calculate_turn(partner_position, self_position, positionVector)
-        offset_error_correction = [0,0]#self.calculate_error_correction(partner_position, self_position, positionVector)
-        # offset_error_correction = self.calculate_error_correction(partner_position, self_position, positionVector)
-
-        # print(f"{self.id} tandem_offset: {tandem_offset} tandem_angle: {tandem_angle} straight_line: {straight_line}")
+        offset_error_correction = self.calculate_error_correction(partner_position, self_position, positionVector)
 
         return [tandem_offset, tandem_angle, straight_line, turning, offset_error_correction]
 
@@ -349,16 +345,18 @@ class SketchAction:
             dot_product = np.dot([position_vector.x, position_vector.y], vector_to_target)
 
             vector_to_line = [
-                vector_to_target[0] - (dot_product * position_vector.x),
-                vector_to_target[1] - (dot_product * position_vector.y)
+                (dot_product * position_vector.x) - vector_to_target[0],
+                (dot_product * position_vector.y) - vector_to_target[1]
             ]
 
             magnitude = self.magnitude(vector_to_line)
 
-            if magnitude == 0:
-                return [0, 0]
+            max_magnitude = 0.1
+
+            if magnitude > max_magnitude:
+                return vector_to_line / (magnitude/ max_magnitude)
             else:
-                return vector_to_line / self.magnitude(vector_to_line)
+                return vector_to_line
         else:
             return [0, 0]
 
@@ -451,7 +449,7 @@ class SketchAction:
 
     def cross_boundary(self, d1, d2, a):
         gradient = self.calculate_gradient()
-        print(f"gradient: {gradient}")
+        # print(f"gradient: {gradient}")
         return self.turn(d1, d2, a, gradient)
 
     # Algorithm 3 Initially, robots are √λ apart; one inside and one outside
@@ -463,34 +461,27 @@ class SketchAction:
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
-            self.right_handed = self.inside(d1)
             return self.forward(d1, d2)
 
         if not self.inside(d1) and not self.inside(d2):
             print("Outside")
-            if self.right_handed:
-                a = math.sqrt(lambda_value)
-            else:
-                a = -math.sqrt(lambda_value)
+            a = math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
         elif self.inside(d1) and self.inside(d2):
             print("Inside")
-            if self.right_handed:
-                a = -math.sqrt(lambda_value)
-            else:
-                a = math.sqrt(lambda_value)
+            a = -math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
 
     def calculate_prev_direction(self):
         if self.target_position_vector.movement == FORWARD:
             direction = [self.target_position_vector.x, self.target_position_vector.y]
-            print(f"forward: {direction}")
+            # print(f"forward: {direction}")
             return direction
         if self.target_position_vector.movement == TURN:
             prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
             angle =  self.target_position_vector.a * self.target_position_vector.p
             direction = rotate_vector(prev_vector, angle)
-            print(f"turn {self.target_position_vector.a} * {self.target_position_vector.p} = {angle * 57.2958}: {direction} {rotate_vector(prev_vector, angle)}")
+            # print(f"turn {self.target_position_vector.a} * {self.target_position_vector.p} = {angle * 57.2958}: {direction} {rotate_vector(prev_vector, angle)}")
             return direction
 
     def forward(self, d1, d2):
@@ -520,19 +511,19 @@ class SketchAction:
         angle_negative = calculate_angle(direction, gradient_negative)
 
 
-        print(f"positive: {angle_positive} negative: {angle_negative}")
+        # print(f"positive: {angle_positive} negative: {angle_negative}")
         if math.fabs(angle_positive) > math.fabs(angle_negative):
             perpendicular_gradient = gradient_negative
         else:
             perpendicular_gradient = gradient_positive
 
-        print(perpendicular_gradient)
+        # print(perpendicular_gradient)
         return perpendicular_gradient
 
     def turn(self, d1, d2, a, gradient):
         if a == self.target_position_vector.a:
             self.target_position_vector.p += 1
-            print(f"p : {self.target_position_vector.p}")
+            # print(f"p : {self.target_position_vector.p}")
             return self.target_position_vector
 
         position_vector = PositionVector()
@@ -578,7 +569,6 @@ class SketchAction:
 
             # print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
             return angle > target_angle
-            # return False
 
 
     def stop(self):
