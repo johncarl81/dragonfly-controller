@@ -8,6 +8,5 @@ float64 x
 float64 y
 float64 distance
 float64 radius
-LatLon center
 float64 a
 int32 p
