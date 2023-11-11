@@ -1,6 +1,6 @@
 #!/bin/bash
 
-source /opt/ros/humble/setup.bash
+source /opt/ros/galactic/setup.bash
 source /home/ubuntu/dev/dragonfly/install/setup.bash
 
 exec 3>&1 1>>logs/script.log 2>&1
