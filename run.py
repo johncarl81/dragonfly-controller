@@ -18,18 +18,23 @@ def template(templateFileName, values):
 
 def run(args):
     processes = []
-    tempfiles = []
 
     dragonfly_dir = "/home/ubuntu/dev/dragonfly"
 
     env = os.environ.copy()
     if args.cyclone_network:
-        parameters = {'networkInterface': args.cyclone_network}
-        cyclone_dds_config = template(f"{dragonfly_dir}/templates/cyclonedds.xml.template", parameters)
+        cyclone_parameters = {'networkInterface': args.cyclone_network}
+        cyclone_dds_config = template(f"{dragonfly_dir}/templates/cyclonedds.xml.template", cyclone_parameters)
         env['CYCLONEDDS_URI'] = f"file://{cyclone_dds_config.name}"
 
+    mavros_parameters = {
+        'name': args.name,
+        'sysid_thismav': args.sysid_thismav,
+    }
+    mavros_params = template(f"{dragonfly_dir}/templates/mavros.launch.yaml.template", mavros_parameters)
+
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 launch {dragonfly_dir}/config/apm.launch name:={args.name} tgt_system:={args.sysid_thismav} fcu_url:=/dev/ttypixhawk:921600", env=env, shell=True))
+    processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name} >> {dragonfly_dir}/logs/run.log", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name} >> {dragonfly_dir}/logs/pump.log", env=env, shell=True))
@@ -38,9 +43,6 @@ def run(args):
 
     for p in processes:
         p.wait()
-
-    for file in tempfiles:
-        file.close()
 
 def get_args():
     parser = argparse.ArgumentParser(description='Dragonfly controller')
