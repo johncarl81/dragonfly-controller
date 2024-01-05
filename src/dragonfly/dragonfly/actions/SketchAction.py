@@ -454,7 +454,7 @@ class SketchAction:
         return position_vector
 
     def inside(self, d):
-        return d.value > 421
+        return d.value > 425
 
     def passed(self, average_position):
         if self.target_position_vector is None:

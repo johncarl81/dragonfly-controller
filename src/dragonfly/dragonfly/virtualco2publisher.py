@@ -19,8 +19,8 @@ class dotdict(dict):
 
 class VirtualCO2Publisher:
     VIRTUAL_SOURCE = dotdict({
-        "latitude": 35.19465,
-        "longitude": -106.59625
+        "latitude": 35.195036,
+        "longitude": -106.596225
     })
 
     def __init__(self, id, node):
