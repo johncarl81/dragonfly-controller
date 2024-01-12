@@ -36,7 +36,7 @@ def run(args):
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly virtualco2publisher {args.name}", env=env, shell=True))
-    # processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name} >> {dragonfly_dir}/logs/run.log", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name} >> {dragonfly_dir}/logs/pump.log", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name} >> {dragonfly_dir}/logs/command.log", env=env, shell=True))

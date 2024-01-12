@@ -40,6 +40,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Waypoint.msg"
   "msg/Calibrate.msg"
   "msg/Sketch.msg"
+  "msg/Plume.msg"
   "msg/PositionVector.msg"
   "srv/DDSA.srv"
   "srv/DDSAWaypoints.srv"
@@ -49,6 +50,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "srv/Mission.srv"
   "srv/Navigation.srv"
   "srv/Setup.srv"
+  "srv/SetupPlumes.srv"
   "srv/Simple.srv"
   "srv/Pump.srv"
  )
