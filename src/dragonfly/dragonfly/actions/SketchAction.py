@@ -83,7 +83,7 @@ class SketchAction:
     SAMPLE_RATE = 0.1
 
     def __init__(self, id, log_publisher, logger, local_setvelocity_publisher, announce_stream, offset, partner, leader,
-                 drone_stream_factory, dragonfly_sketch_subject, position_vector_publisher):
+                 drone_stream_factory, dragonfly_sketch_subject, position_vector_publisher, threshold):
         self.log_publisher = log_publisher
         self.logger = logger
         self.local_setvelocity_publisher = local_setvelocity_publisher
@@ -91,6 +91,7 @@ class SketchAction:
         self.partner = partner
         self.offset = offset
         self.leader = leader
+        self.threshold = threshold
         self.started = False
         self.ros_subscriptions = []
         self.announce_stream = announce_stream
@@ -454,7 +455,7 @@ class SketchAction:
         return position_vector
 
     def inside(self, d):
-        return d.value > 425
+        return d.value > self.threshold
 
     def passed(self, average_position):
         if self.target_position_vector is None:
