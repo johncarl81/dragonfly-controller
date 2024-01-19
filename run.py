@@ -33,13 +33,17 @@ def run(args):
     }
     mavros_params = template(f"{dragonfly_dir}/templates/mavros.launch.yaml.template", mavros_parameters)
 
+    runLog = open(f"{dragonfly_dir}/logs/run.log", "w")
+    pumpLog = open(f"{dragonfly_dir}/logs/run.log", "w")
+    commandLog = open(f"{dragonfly_dir}/logs/run.log", "w")
+
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly virtualco2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name} >> {dragonfly_dir}/logs/run.log", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name} >> {dragonfly_dir}/logs/pump.log", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name} >> {dragonfly_dir}/logs/command.log", env=env, shell=True))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name}", env=env, shell=True, srdout=runLog))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name}", env=env, shell=True, stdout=pumpLog))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name}", env=env, shell=True, stdout=commandLog))
     processes.append(subprocess.Popen(f"ros2 run dragonfly announce {args.name}", env=env, shell=True))
 
     for p in processes:
