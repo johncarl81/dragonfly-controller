@@ -299,8 +299,8 @@ class SketchAction:
             # print(f"Encountered plume: {partner_position.value} {self_position.value}")
 
         if self.encountered and self.passed(average_position):
-            # print(f"PASSED! {position_vector} | {self.target_position_vector}")
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
+        print(f"PV: {self.target_position_vector}")
         self.position_vector_publisher.publish(self.target_position_vector)
         self.dragonfly_sketch_subject.on_next(self.target_position_vector)
 
@@ -369,7 +369,7 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.8
+        lambda_value = 0.6
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
