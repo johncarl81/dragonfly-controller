@@ -40,8 +40,10 @@ def difference_in_meters(one, two):
     ]
 
 def unitary(vector):
-    magnitude = np.linalg.norm(vector)
-    return [vector[0] / magnitude, vector[1] / magnitude]
+    vector_magnitude = np.linalg.norm(vector)
+    if vector_magnitude == 0 and vector[0] == 0:
+        return vector
+    return [vector[0] / vector_magnitude, vector[1] / vector_magnitude]
 
 def rotate_vector(vector, angle):
     rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],
@@ -185,24 +187,16 @@ class SketchAction:
         tandem_distance = position_offset * (2 / max(2, offset_magnitude))
         return tandem_distance
 
-    def calculate_tandem_angle(self, partner_position, self_position, positionVector):
-        if positionVector.movement == PositionVector.FORWARD:
+    def calculate_tandem_angle(self, partner_position, self_position, position_vector):
+        if position_vector.movement == PositionVector.FORWARD:
             distance_m = difference_in_meters(self_position, partner_position)
             offset_unitary = unitary(distance_m)
 
-            direction_vector = np.array([positionVector.x, positionVector.y])
+            direction_vector = np.array([position_vector.x, position_vector.y])
 
             return -4 * (np.dot(offset_unitary, direction_vector)) * direction_vector
         else:
             return [0, 0]
-
-            # average_position =  dotdict({'latitude':  (self_position.latitude + partner_position.latitude) / 2,
-            #                              'longitude': (self_position.longitude + partner_position.longitude) / 2})
-            #
-            # distance_m = self.differenceInMeters(average_position, positionVector.center)
-            # distance_unitary = unitary(distance_m);
-            #
-            # return [distance_unitary[1], distance_unitary[0]]
 
     def calculate_straight_line(self, position_vector):
         if position_vector.movement == PositionVector.FORWARD:
@@ -257,7 +251,15 @@ class SketchAction:
             else:
                 return vector_to_line
         else:
-            return [0, 0]
+            # Maintain distance-to-center
+            center = calculate_turn_center(position_vector) # position_vector.position ?
+            expected_distance_to_center = magnitude(difference_in_meters(position_vector.position, center))
+
+            average_to_center = difference_in_meters(average(self_position, partner_position), center)
+
+            center_correction = unitary(average_to_center) * np.array(expected_distance_to_center - magnitude(average_to_center))
+
+            return center_correction
 
     def broadcast_target(self, partner_position, self_position):
 
@@ -283,7 +285,6 @@ class SketchAction:
 
         if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
             self.encountered = True
-            # print(f"Encountered plume: {partner_position.value} {self_position.value}")
 
         if self.encountered and self.passed(average_position):
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
@@ -356,7 +357,7 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.6
+        lambda_value = 0.1
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")

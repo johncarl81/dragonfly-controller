@@ -95,7 +95,7 @@ def difference_in_meters(one, two):
         ((one.latitude - two.latitude) * (EARTH_CIRCUMFERENCE / 360))
     ]
 
-VIRTUAL_SOURCE = LatLon(35.196903228759766, -106.59574890136719)
+VIRTUAL_SOURCE = LatLon(35.1973, -106.5972)
 VIRTUAL_SOURCE2 = LatLon(35.1943, -106.59535)
 VIRTUAL_SOURCE3 = LatLon(35.1943, -106.5971)
 
@@ -103,7 +103,7 @@ def calculate_co2_xy(latitude, longitude):
     return calculate_co2(LatLon(latitude, longitude))
 
 def calculate_co2_from_source(position, source, Q):
-    [y, x] = difference_in_meters(position, source)
+    [y, x] = rotate_vector(difference_in_meters(position, source), -30 * math.pi / 180)
 
     if x >= 0:
         return 0
@@ -114,7 +114,7 @@ def calculate_co2_from_source(position, source, Q):
     # Q = 5000 # kg/s Emission Rate
     K = 2 # Diffusion Constant
     H = 2 # m Height
-    u = 1 # m/s Wind Speed
+    u = 0.2 # m/s Wind Speed
 
     return (Q / (2 * math.pi * K * -x)) * math.exp(- (u * ((pow(y, 2) + pow(H, 2))) / (4 * K * -x)))
 
@@ -122,7 +122,7 @@ def calculate_co2_from_source(position, source, Q):
 
 def calculate_co2(position):
 
-    value = calculate_co2_from_source(position, VIRTUAL_SOURCE, 5000)
+    value = calculate_co2_from_source(position, VIRTUAL_SOURCE, 80000)
             # calculate_co2_from_source(position, VIRTUAL_SOURCE2, 3000) + \
             # calculate_co2_from_source(position, VIRTUAL_SOURCE3, 3000)
 
@@ -132,8 +132,10 @@ def calculate_co2(position):
         return 420.0 + value
 
 def unitary(vector):
-    magnitude = np.linalg.norm(vector)
-    return [vector[0] / magnitude, vector[1] / magnitude]
+    vector_magnitude = np.linalg.norm(vector)
+    if vector_magnitude == 0 and vector[0] == 0:
+        return vector
+    return [vector[0] / vector_magnitude, vector[1] / vector_magnitude]
 
 def rotate_vector(vector, angle):
     rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],
@@ -272,12 +274,13 @@ class SketchAction:
         tandem_distance = position_offset * (2 / max(2, offset_magnitude))
         return tandem_distance
 
-    def calculate_tandem_angle(self, partner_position, self_position, positionVector):
-        if positionVector.movement == FORWARD:
+    def calculate_tandem_angle(self, partner_position, self_position, position_vector):
+        # print("self_position: ", self_position)
+        if position_vector.movement == FORWARD:
             distance_m = difference_in_meters(self_position, partner_position)
             offset_unitary = unitary(distance_m)
 
-            direction_vector = np.array([positionVector.x, positionVector.y])
+            direction_vector = np.array([position_vector.x, position_vector.y])
 
             return -2 * (np.dot(offset_unitary, direction_vector)) * direction_vector
         else:
@@ -344,7 +347,15 @@ class SketchAction:
             else:
                 return vector_to_line
         else:
-            return [0, 0]
+            # Maintain distance-to-center
+            center = calculate_turn_center(position_vector) # position_vector.position ?
+            expected_distance_to_center = magnitude(difference_in_meters(position_vector.position, center))
+
+            average_to_center = difference_in_meters(average(self_position, partner_position), center)
+
+            center_correction = unitary(average_to_center) * np.array(expected_distance_to_center - magnitude(average_to_center))
+
+            return center_correction
 
     def broadcast_target(self, partner_position, self_position):
 
@@ -441,7 +452,7 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.8
+        lambda_value = 0.1
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             print("Sandwich")
@@ -596,7 +607,7 @@ def main():
     streamFactory.put_drone("DF1", df1Position, df1co2)
     streamFactory.put_drone("DF2", df2Position, df2co2)
 
-    threshold = 425
+    threshold = 450
 
     action1 = SketchAction("DF1", df1SetVelocity, announceStream, 10, "DF2", True, threshold, streamFactory, sketchSubject, vector1Publisher)
     action2 = SketchAction("DF2", df2SetVelocity, announceStream, 10, "DF1", False, threshold, streamFactory, sketchSubject, vector2Publisher)
@@ -604,8 +615,8 @@ def main():
     action1.step()
     action2.step()
 
-    df1p = LatLon(35.19599914550781, -106.59565)
-    df2p = LatLon(35.19599914550781, -106.59555)
+    df1p = LatLon(35.1953, -106.5959)
+    df2p = LatLon(35.1953, -106.5958)
 
     def addOffset(position, offset):
         longitude = position.longitude + ((offset[0]/2) / (math.cos(position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
@@ -622,7 +633,7 @@ def main():
             plt.arrow(token.position.longitude, token.position.latitude, token.x * 0.00005, token.y * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='k', ec='k')
         if token.movement == TURN:
             center = calculate_turn_center(token)
-            plt.scatter(center.longitude, center.latitude, color='b', s=3)
+            plt.scatter(center.longitude, center.latitude, color='b', marker='x')
             plt.arrow(token.position.longitude, token.position.latitude, token.x * 0.00005, token.y * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='b', ec='b')
 
             plt.arrow(token.position.longitude, token.position.latitude, token.gradient[0] * 0.00005, token.gradient[1] * 0.00005, head_width=0.00002, head_length=0.00002, width=0.000002, fc='r', ec='r')
@@ -630,16 +641,24 @@ def main():
     sketchSubject.subscribe(on_next = lambda value: add_algorithm_details(value))
 
 
-    plt.figure(figsize=(6, 10))
+    plt.figure(figsize=(10, 8))
     plt.ticklabel_format(style='plain', useOffset=False)
 
     plot_plume(plt, threshold)
+
+    rtl_boundary= [ [-106.59560571790382, 35.194970536767734],
+                    [-106.59468168252396, 35.19708285919182],
+                    [-106.59740227218711, 35.197794979053691537],
+                    [-106.59836367437691, 35.19570830789695],
+                    [-106.59560571790382, 35.194970536767734]]
+    xs, ys = zip(*rtl_boundary)
+    plt.plot(xs,ys)
 
     plt.plot(VIRTUAL_SOURCE.longitude, VIRTUAL_SOURCE.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
     # plt.plot(VIRTUAL_SOURCE2.longitude, VIRTUAL_SOURCE2.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
     # plt.plot(VIRTUAL_SOURCE3.longitude, VIRTUAL_SOURCE3.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
 
-    for i in range(200):
+    for i in range(450):
         # print(i)
         df1co2v = calculate_co2(df1p)
         df2co2v = calculate_co2(df2p)

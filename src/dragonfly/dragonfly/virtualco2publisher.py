@@ -3,6 +3,7 @@
 import argparse
 import math
 import sys
+import numpy as np
 
 import rclpy
 from rclpy.qos import QoSProfile, ReliabilityPolicy, HistoryPolicy
@@ -34,8 +35,7 @@ class VirtualCO2Publisher:
         value = 0
         h = 2
         for plume in self.plumes:
-
-            [y, x] = self.differenceInMeters(position, plume.source)
+            [y, x] = self.rotate_vector(self.differenceInMeters(position, plume.source), plume.wind_direction * math.pi / 180)
 
             if x < 0:
                 # Simple gaussian plume model adapted from: https://epubs.siam.org/doi/pdf/10.1137/10080991X
@@ -46,6 +46,11 @@ class VirtualCO2Publisher:
             return 420.0
         else:
             return 420.0 + value
+
+    def rotate_vector(self, vector, angle):
+        rotation_matrix = np.array([[np.cos(angle), -np.sin(angle)],
+                                    [np.sin(angle), np.cos(angle)]])
+        return np.dot(rotation_matrix, vector)
 
     def position_callback(self, data):
 
