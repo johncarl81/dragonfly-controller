@@ -179,14 +179,10 @@ class SketchAction:
         distance_m = difference_in_meters(partner_position, self_position)
         offset_unitary = unitary(distance_m)
 
-        position_offset = [distance_m[0] - (offset_unitary[0] * self.offset),
-                           distance_m[1] - (offset_unitary[1] * self.offset)]
+        position_offset = np.array(distance_m) - (np.array(offset_unitary) * self.offset)
         offset_magnitude = magnitude(position_offset)
 
-        tandem_distance = [
-            2 * position_offset[0] / max(2, offset_magnitude),
-            2 * position_offset[1] / max(2, offset_magnitude)
-        ]
+        tandem_distance = position_offset * (2 / max(2, offset_magnitude))
         return tandem_distance
 
     def calculate_tandem_angle(self, partner_position, self_position, positionVector):
@@ -194,9 +190,9 @@ class SketchAction:
             distance_m = difference_in_meters(self_position, partner_position)
             offset_unitary = unitary(distance_m)
 
-            direction_vector = [positionVector.x, positionVector.y]
+            direction_vector = np.array([positionVector.x, positionVector.y])
 
-            return -4 * (np.dot(offset_unitary, direction_vector)) * np.array(direction_vector)
+            return -4 * (np.dot(offset_unitary, direction_vector)) * direction_vector
         else:
             return [0, 0]
 
@@ -233,18 +229,12 @@ class SketchAction:
             vector_to_center = unitary(self_center)
 
             starting_position = difference_in_meters(center, position_vector.position)
-            # print(f"{self_center} {starting_position}")
             angle = math.atan2(self_center[1], self_center[0]) - math.atan2(starting_position[1], starting_position[0])
 
             rotated_vector = rotate_vector([position_vector.x, position_vector.y], angle)
 
-            # print(f"Angle: {angle}, rotated_vector: {rotated_vector}")
-
-            forward_force = np.array([rotated_vector[0] * velocity, rotated_vector[1] * velocity])
-            centripetal_force = np.array([vector_to_center[0] * (5.5 * velocity / self_center_distance), vector_to_center[1] * (5.5 * velocity / self_center_distance)])
-
-            # print(f"forward_force: {forward_force}, centripetal_force: {centripetal_force}")
-            # print(f"hyp: {hyp} target_offset: {target_offset}")
+            forward_force = np.array(rotated_vector) * velocity
+            centripetal_force = np.array(vector_to_center) * 5.5 * velocity / self_center_distance
 
             return forward_force + centripetal_force
         else:
@@ -256,10 +246,7 @@ class SketchAction:
 
             dot_product = np.dot([position_vector.x, position_vector.y], vector_to_target)
 
-            vector_to_line = [
-                (dot_product * position_vector.x) - vector_to_target[0],
-                (dot_product * position_vector.y) - vector_to_target[1]
-            ]
+            vector_to_line = dot_product * np.array([position_vector.x, position_vector.y]) - vector_to_target
 
             magnitude_calc = magnitude(vector_to_line)
 
@@ -274,7 +261,7 @@ class SketchAction:
 
     def broadcast_target(self, partner_position, self_position):
 
-        average_position =  average(self_position, partner_position)
+        average_position = average(self_position, partner_position)
 
         self.position_reading_queue.append(partner_position)
         self.position_reading_queue.append(self_position)

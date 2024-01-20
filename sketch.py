@@ -164,6 +164,9 @@ def calculate_turn_center(token):
 
     return center
 
+def magnitude(vector):
+    return np.linalg.norm(vector)
+
 class SketchAction:
     SAMPLE_RATE = 0.1
 
@@ -205,9 +208,6 @@ class SketchAction:
             twist.twist.linear.x,
             twist.twist.linear.y
         ]
-
-    def magnitude(self, vector):
-        return np.linalg.norm(vector)
 
     def step(self):
         if not self.started:
@@ -264,14 +264,10 @@ class SketchAction:
         distance_m = difference_in_meters(partner_position, self_position)
         offset_unitary = unitary(distance_m)
 
-        position_offset = [distance_m[0] - (offset_unitary[0] * self.offset),
-                            distance_m[1] - (offset_unitary[1] * self.offset)]
-        offset_magnitude = self.magnitude(position_offset)
+        position_offset = np.array(distance_m) - (np.array(offset_unitary) * self.offset)
+        offset_magnitude = magnitude(position_offset)
 
-        tandem_distance = [
-            2 * position_offset[0] / max(2, offset_magnitude),
-            2 * position_offset[1] / max(2, offset_magnitude)
-        ]
+        tandem_distance = position_offset * (2 / max(2, offset_magnitude))
         return tandem_distance
 
     def calculate_tandem_angle(self, partner_position, self_position, positionVector):
@@ -279,9 +275,9 @@ class SketchAction:
             distance_m = difference_in_meters(self_position, partner_position)
             offset_unitary = unitary(distance_m)
 
-            direction_vector = [positionVector.x, positionVector.y]
+            direction_vector = np.array([positionVector.x, positionVector.y])
 
-            return -2 * (np.dot(offset_unitary, direction_vector)) * np.array(direction_vector)
+            return -2 * (np.dot(offset_unitary, direction_vector)) * direction_vector
         else:
             return [0, 0]
 
@@ -305,8 +301,8 @@ class SketchAction:
             center = calculate_turn_center(position_vector)
 
             self_center = difference_in_meters(center, self_position)
-            self_center_distance = self.magnitude(self_center)
-            partner_center_distance = self.magnitude(difference_in_meters(center, partner_position))
+            self_center_distance = magnitude(self_center)
+            partner_center_distance = magnitude(difference_in_meters(center, partner_position))
 
             base_velocity = 3
 
@@ -318,18 +314,12 @@ class SketchAction:
             vector_to_center = unitary(self_center)
 
             starting_position = difference_in_meters(center, position_vector.position)
-            # print(f"{self_center} {starting_position}")
             angle = math.atan2(self_center[1], self_center[0]) - math.atan2(starting_position[1], starting_position[0])
 
             rotated_vector = rotate_vector([position_vector.x, position_vector.y], angle)
 
-            # print(f"Angle: {angle}, rotated_vector: {rotated_vector}")
-
-            forward_force = np.array([rotated_vector[0] * velocity, rotated_vector[1] * velocity])
-            centripetal_force = np.array([vector_to_center[0] * (5.5 * velocity / self_center_distance), vector_to_center[1] * (5.5 * velocity / self_center_distance)])
-
-            # print(f"forward_force: {forward_force}, centripetal_force: {centripetal_force}")
-            # print(f"hyp: {hyp} target_offset: {target_offset}")
+            forward_force = np.array(rotated_vector) * velocity
+            centripetal_force = np.array(vector_to_center) * 5.5 * velocity / self_center_distance
 
             return forward_force + centripetal_force
         else:
@@ -337,24 +327,18 @@ class SketchAction:
 
     def calculate_error_correction(self, partner_position, self_position, position_vector):
         if position_vector.movement == FORWARD:
-            lat_ave = (self_position.latitude + partner_position.latitude) / 2
-            lon_ave = (self_position.longitude + partner_position.longitude) / 2
-
-            vector_to_target =  difference_in_meters(LatLon(lat_ave, lon_ave), position_vector.position)
+            vector_to_target =  difference_in_meters(average(self_position, partner_position), position_vector.position)
 
             dot_product = np.dot([position_vector.x, position_vector.y], vector_to_target)
 
-            vector_to_line = [
-                (dot_product * position_vector.x) - vector_to_target[0],
-                (dot_product * position_vector.y) - vector_to_target[1]
-            ]
+            vector_to_line = dot_product * np.array([position_vector.x, position_vector.y]) - vector_to_target
 
-            magnitude = self.magnitude(vector_to_line)
+            magnitude_calc = magnitude(vector_to_line)
 
             max_magnitude = 0.1
 
-            if magnitude > max_magnitude:
-                return vector_to_line / (magnitude/ max_magnitude)
+            if magnitude_calc > max_magnitude:
+                return vector_to_line / (magnitude_calc / max_magnitude)
             else:
                 return vector_to_line
         else:
@@ -362,7 +346,7 @@ class SketchAction:
 
     def broadcast_target(self, partner_position, self_position):
 
-        average_position =  LatLon((self_position.latitude + partner_position.latitude) / 2, (self_position.longitude + partner_position.longitude) / 2)
+        average_position = average(self_position, partner_position)
 
         self.position_reading_queue.append(partner_position)
         self.position_reading_queue.append(self_position)
@@ -384,10 +368,8 @@ class SketchAction:
 
         if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
             self.encountered = True
-            # print(f"Encountered plume: {partner_position.value} {self_position.value}")
 
         if self.encountered and self.passed(average_position):
-            # print(f"PASSED! {position_vector} | {self.target_position_vector}")
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
         self.position_vector_publisher.on_next(self.target_position_vector)
         self.dragonfly_sketch_subject.on_next(self.target_position_vector)
@@ -562,7 +544,7 @@ class SketchAction:
 
             target_angle = math.fabs(self.target_position_vector.a)
 
-            intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (self.magnitude(target_offset) * self.magnitude(hyp))
+            intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (magnitude(target_offset) * magnitude(hyp))
             if intermediate > 1:
                 intermediate = 1
             angle = math.acos(intermediate)
