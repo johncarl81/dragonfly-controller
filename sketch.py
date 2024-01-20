@@ -94,7 +94,8 @@ def difference_in_meters(one, two):
         ((one.longitude - two.longitude) * (EARTH_CIRCUMFERENCE / 360) * math.cos(one.latitude * 0.01745)),
         ((one.latitude - two.latitude) * (EARTH_CIRCUMFERENCE / 360))
     ]
-VIRTUAL_SOURCE = LatLon(35.19465, -106.59625)
+
+VIRTUAL_SOURCE = LatLon(35.196903228759766, -106.59574890136719)
 VIRTUAL_SOURCE2 = LatLon(35.1943, -106.59535)
 VIRTUAL_SOURCE3 = LatLon(35.1943, -106.5971)
 
@@ -121,9 +122,9 @@ def calculate_co2_from_source(position, source, Q):
 
 def calculate_co2(position):
 
-    value = calculate_co2_from_source(position, VIRTUAL_SOURCE, 5000) + \
-            calculate_co2_from_source(position, VIRTUAL_SOURCE2, 3000) + \
-            calculate_co2_from_source(position, VIRTUAL_SOURCE3, 3000)
+    value = calculate_co2_from_source(position, VIRTUAL_SOURCE, 5000)
+            # calculate_co2_from_source(position, VIRTUAL_SOURCE2, 3000) + \
+            # calculate_co2_from_source(position, VIRTUAL_SOURCE3, 3000)
 
     if value < 0:
         return 420.0
@@ -170,7 +171,7 @@ def magnitude(vector):
 class SketchAction:
     SAMPLE_RATE = 0.1
 
-    def __init__(self, id, local_setvelocity_publisher, announce_stream, offset, partner, leader,
+    def __init__(self, id, local_setvelocity_publisher, announce_stream, offset, partner, leader, threshold,
                  drone_stream_factory, dragonfly_sketch_subject, position_vector_publisher):
         # self.log_publisher = log_publisher
         # self.logger = logger
@@ -180,6 +181,7 @@ class SketchAction:
         self.offset = offset
         self.leader = leader
         self.started = False
+        self.threshold = threshold
         self.ros_subscriptions = []
         self.announce_stream = announce_stream
         self.drone_stream_factory = drone_stream_factory
@@ -525,7 +527,7 @@ class SketchAction:
         return position_vector
 
     def inside(self, d):
-        return d.value > 421
+        return d.value > self.threshold
 
     def passed(self, average_position):
         if self.target_position_vector is None:
@@ -594,14 +596,16 @@ def main():
     streamFactory.put_drone("DF1", df1Position, df1co2)
     streamFactory.put_drone("DF2", df2Position, df2co2)
 
-    action1 = SketchAction("DF1", df1SetVelocity, announceStream, 10, "DF2", True, streamFactory, sketchSubject, vector1Publisher)
-    action2 = SketchAction("DF2", df2SetVelocity, announceStream, 10, "DF1", False, streamFactory, sketchSubject, vector2Publisher)
+    threshold = 425
+
+    action1 = SketchAction("DF1", df1SetVelocity, announceStream, 10, "DF2", True, threshold, streamFactory, sketchSubject, vector1Publisher)
+    action2 = SketchAction("DF2", df2SetVelocity, announceStream, 10, "DF1", False, threshold, streamFactory, sketchSubject, vector2Publisher)
 
     action1.step()
     action2.step()
 
-    df1p = LatLon(35.191, -106.5955)
-    df2p = LatLon(35.191, -106.5957)
+    df1p = LatLon(35.19599914550781, -106.59565)
+    df2p = LatLon(35.19599914550781, -106.59555)
 
     def addOffset(position, offset):
         longitude = position.longitude + ((offset[0]/2) / (math.cos(position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
@@ -629,13 +633,13 @@ def main():
     plt.figure(figsize=(6, 10))
     plt.ticklabel_format(style='plain', useOffset=False)
 
-    plot_plume(plt, 421)
+    plot_plume(plt, threshold)
 
     plt.plot(VIRTUAL_SOURCE.longitude, VIRTUAL_SOURCE.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
-    plt.plot(VIRTUAL_SOURCE2.longitude, VIRTUAL_SOURCE2.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
-    plt.plot(VIRTUAL_SOURCE3.longitude, VIRTUAL_SOURCE3.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
+    # plt.plot(VIRTUAL_SOURCE2.longitude, VIRTUAL_SOURCE2.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
+    # plt.plot(VIRTUAL_SOURCE3.longitude, VIRTUAL_SOURCE3.latitude, marker='*', c='r',markeredgewidth=1, markeredgecolor=(0, 0, 0, 1), markersize=12)
 
-    for i in range(1000):
+    for i in range(200):
         # print(i)
         df1co2v = calculate_co2(df1p)
         df2co2v = calculate_co2(df2p)
