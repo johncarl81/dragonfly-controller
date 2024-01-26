@@ -19,6 +19,7 @@ from .TakeoffAction import TakeoffAction
 from .WaitForDisarmAction import WaitForDisarmAction
 from .WaitForZeroAction import WaitForZeroAction
 from .WaypointAction import WaypointAction
+from .VerticalTransectDownAction import VerticalTransectDownAction
 from .PlumeAwareLawnmowerAction import PlumeAwareLawnmowerAction
 from .PumpAction import PumpAction
 from .CalibrateAction import CalibrateAction

@@ -446,9 +446,18 @@ class DragonflyCommand:
                                        step.sketch_step.offset, step.sketch_step.partner, step.sketch_step.leader, self.drone_stream_factory,
                                        self.dragonfly_sketch_subject, self.position_vector_publisher, step.sketch_step.threshold))
 
+            elif step.msg_type == MissionStep.TYPE_VERTICAL_TRANSECT:
+                self.logger.info("Vertical Transect")
+                [waypoint, distance_threshold] = self.findWaypoint(step.vertical_transect_step.waypoint, request.waypoints)
+                max_altitude_waypoint = createWaypoint(waypoint.pose.position.x, waypoint.pose.position.y, step.vertical_transect_step.maximum_altitude, waypoint.pose.orientation)
 
+                self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.goto_step.waypoint}")) \
+                    .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
+                                         distance_threshold, self.local_velocity_observable, self.local_position_observable)) \
+                    .push(VerticalTransectDownAction(self.logger, self.id, self.logPublisher, self.drone_stream_factory, step.vertical_transect_step.minimum_altitude, self.local_setvelocity_publisher)) \
+                    .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, max_altitude_waypoint,
+                                         distance_threshold, self.local_velocity_observable, self.local_position_observable))
 
-            else:
                 self.logger.info(f"Mission step not recognized: {step.msg_type}")
 
         self.actionqueue.push(LogAction(self.logPublisher, "Mission complete"))

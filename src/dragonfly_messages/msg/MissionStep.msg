@@ -14,6 +14,7 @@ int8 TYPE_CURTAIN=12
 int8 TYPE_PUMP=13
 int8 TYPE_CALIBRATE=14
 int8 TYPE_SKETCH=15
+int8 TYPE_VERTICAL_TRANSECT=16
 
 int8 msg_type
 
@@ -30,3 +31,4 @@ Curtain curtain_step
 PumpMission pump_step
 Calibrate calibrate_step
 Sketch sketch_step
+VerticalTransect vertical_transect_step

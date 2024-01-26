@@ -38,6 +38,7 @@ rosidl_generate_interfaces(${PROJECT_NAME}
   "msg/Sleep.msg"
   "msg/Takeoff.msg"
   "msg/Waypoint.msg"
+  "msg/VerticalTransect.msg"
   "msg/Calibrate.msg"
   "msg/Sketch.msg"
   "msg/Plume.msg"
