@@ -26,7 +26,7 @@ class VerticalTransectDownAction:
             self.range_finder_subscription = self.range_finder_subject.subscribe(on_next = lambda msg: self.check_minimum_range(msg))
 
         if self.status == ActionState.WORKING and self.reached_minimum:
-            self.local_setvelocity_publisher.on_next(TwistStamped()) # Stop
+            self.local_setvelocity_publisher.publish(TwistStamped()) # Stop
             self.status = ActionState.SUCCESS
         else:
             self.navigate_down()
@@ -34,7 +34,7 @@ class VerticalTransectDownAction:
         return self.status
 
     def check_minimum_range(self, msg):
-        if 0 < msg.range <= self.minimum_altitude:
+        if not self.reached_minimum and 0 < msg.range <= self.minimum_altitude:
             self.logPublisher.publish(String(data="Reached minimum altitude."))
             self.reached_minimum = True
 
