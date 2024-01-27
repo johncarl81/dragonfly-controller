@@ -10,6 +10,7 @@ def run_controllers(args):
         processes.append(subprocess.Popen(f"/entrypoint.sh ros2 run dragonfly announce {name}", shell=True))
         processes.append(subprocess.Popen(f"/entrypoint.sh ros2 run dragonfly command {name}", shell=True))
         processes.append(subprocess.Popen(f"/entrypoint.sh ros2 run dragonfly virtualco2publisher {name}", shell=True))
+        processes.append(subprocess.Popen(f"/entrypoint.sh ros2 run dragonfly virtualRangefinder {name}", shell=True))
         processes.append(subprocess.Popen(f"/entrypoint.sh ros2 run dragonfly pump {name} --sim", shell=True))
 
     for p in processes:
