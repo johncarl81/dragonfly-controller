@@ -268,7 +268,7 @@ class SketchAction:
         self.position_reading_queue.append(partner_position)
         self.position_reading_queue.append(self_position)
 
-        while len(self.position_reading_queue) > 100:
+        while len(self.position_reading_queue) > 200:
             self.position_reading_queue.pop(0)
 
         if not self.target_position_vector:
