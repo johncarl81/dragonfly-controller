@@ -495,9 +495,8 @@ class DragonflyCommand:
 
     def flock(self, request, response):
         flockCommand = request.steps[0]  # @TODO: check if this is right
-        self.actionqueue.push(self.logger, ModeAction(self.setmode_service, 'GUIDED')) \
-            .push(
-            FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
+        self.actionqueue.push(ModeAction(self.logger, self.setmode_service, 'GUIDED')) \
+            .push(FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
                            flockCommand.leader, self.node))
 
         return Flock.Response(success=True, message=f"Flocking {self.id} with {flockCommand.leader}.")
