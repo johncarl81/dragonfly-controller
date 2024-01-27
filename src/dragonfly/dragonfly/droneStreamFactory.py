@@ -3,6 +3,7 @@ from rx.subject import Subject
 
 from sensor_msgs.msg import NavSatFix
 from geometry_msgs.msg import TwistStamped
+from sensor_msgs.msg import Range
 from dragonfly_messages.msg import CO2
 from rclpy.qos import QoSProfile, QoSHistoryPolicy, HistoryPolicy, ReliabilityPolicy
 
@@ -55,7 +56,7 @@ class DroneStream:
 
     def get_rangefinder(self):
         if not self.rangefinder_subject_init:
-            self.node.create_subscription(TwistStamped, f"{self.name}/mavros/rangefinder/rangefinder",
+            self.node.create_subscription(Range, f"{self.name}/mavros/rangefinder/rangefinder",
                                           lambda value: self.rangefinder_subject.on_next(value),
                                           qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
             self.rangefinder_subject_init = True
