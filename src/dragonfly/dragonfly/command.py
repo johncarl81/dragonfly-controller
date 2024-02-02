@@ -406,7 +406,7 @@ class DragonflyCommand:
                 self.logger.info("Flock")
                 self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
                     .push(FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
-                                         step.flock_step.x, step.flock_step.y, step.flock_step.leader, self.drone_stream_factory))
+                                         step.flock_step.x, step.flock_step.y, step.flock_step.leader, self.drone_stream_factory, self.semaphore_observable))
             elif step.msg_type == MissionStep.TYPE_GRADIENT:
                 self.logger.info("Gradient")
                 self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
@@ -459,6 +459,10 @@ class DragonflyCommand:
                     .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, max_altitude_waypoint,
                                          distance_threshold, self.local_velocity_observable, self.local_position_observable)) \
                     .push(LogAction(self.logPublisher, f"Reached maximum"))
+            elif step.msg_type == MissionStep.TYPE_STOP_FLOCK:
+                self.logger.info("Stop flocking")
+                self.actionqueue.push(StopFlockingAction(self.logger, self.id, self.semaphore_publisher)) \
+                    .push(LogAction(self.logPublisher, "Stopped flocking"))
             else:
                 self.logger.info(f"Mission step not recognized: {step.msg_type}")
 
@@ -499,7 +503,7 @@ class DragonflyCommand:
         flockCommand = request.steps[0]  # @TODO: check if this is right
         self.actionqueue.push(ModeAction(self.logger, self.setmode_service, 'GUIDED')) \
             .push(FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
-                           flockCommand.leader, self.node))
+                           flockCommand.leader, self.node, self.drone_stream_factory, self.semaphore_observable))
 
         return Flock.Response(success=True, message=f"Flocking {self.id} with {flockCommand.leader}.")
 

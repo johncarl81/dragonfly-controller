@@ -24,3 +24,4 @@ from .PlumeAwareLawnmowerAction import PlumeAwareLawnmowerAction
 from .PumpAction import PumpAction
 from .CalibrateAction import CalibrateAction
 from .SketchAction import SketchAction
+from .StopFlockingAction import StopFlockingAction

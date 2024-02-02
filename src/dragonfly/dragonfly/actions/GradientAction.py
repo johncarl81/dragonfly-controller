@@ -46,7 +46,7 @@ class GradientAction:
         self.max_value = None
 
     def checkForMax(self, readingPosition):
-        if self.max_value is None or readingPosition.value > self.max_value.value:
+        if self.max_value is None or readingPosition.value > self.max_value.value + 1:
             self.timerSubscription.dispose()
             self.timerSubscription = rx.timer(10) \
                 .subscribe(on_next=lambda v: self.complete())

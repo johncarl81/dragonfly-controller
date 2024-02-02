@@ -8,6 +8,7 @@ from rx.subject import Subject
 from std_msgs.msg import String
 
 from .ActionState import ActionState
+from .StopFlockingAction import build_flocking_end_id
 
 
 class FlockingAction:
@@ -18,7 +19,7 @@ class FlockingAction:
     POSITION_ATTRACTION = 2.0
     POSITION_ATTRACTION_RADIUS = 3.0
 
-    def __init__(self, logger, id, log_publisher, local_setvelocity_publisher, announce_stream, xoffset, yoffset, leader, drone_stream_factory):
+    def __init__(self, logger, id, log_publisher, local_setvelocity_publisher, announce_stream, xoffset, yoffset, leader, drone_stream_factory, semaphore_observable):
         self.logger = logger
         self.log_publisher = log_publisher
         self.local_setvelocity_publisher = local_setvelocity_publisher
@@ -30,6 +31,7 @@ class FlockingAction:
         self.ros_subscriptions = []
         self.announce_stream = announce_stream
         self.drone_stream_factory = drone_stream_factory
+        self.semaphore_observable = semaphore_observable
 
         self.flock_coordinates = {}
 
@@ -39,6 +41,8 @@ class FlockingAction:
         self.flocking_subscription = rx.empty().subscribe()
         self.flockSubscription = rx.empty().subscribe()
         self.navigate_subscription = rx.empty().subscribe()
+        self.receive_semaphore_subscription = rx.empty().subscribe()
+        self.status = ActionState.WORKING
 
     def navigate(self, input):
 
@@ -166,13 +170,21 @@ class FlockingAction:
             self.flocking_subscription = self.announce_stream.subscribe(
                 on_next = lambda name: self.flock_announce(name.data)
             )
+            self.receive_semaphore_subscription = self.semaphore_observable.subscribe(on_next = lambda token: self.listen_for_stop(token))
 
             self.log_publisher.publish(String(data="Flocking"))
 
-        return ActionState.WORKING
+        return self.status
+
+    def listen_for_stop(self, token):
+        self.logger.info(f"{self.id}: Received token")
+        if token.id == build_flocking_end_id(self.leader):
+            self.status = ActionState.SUCCESS
+            self.stop()
 
     def stop(self):
         self.zero_velocity_debounce_subscription.dispose()
         self.flocking_subscription.dispose()
         self.navigate_subscription.dispose()
         self.flockSubscription.dispose()
+        self.receive_semaphore_subscription.dispose()

@@ -28,7 +28,7 @@ class SemaphoreAction:
         token = SemaphoreToken()
         token.drone = self.id
         token.id = self.semaphore_id
-        self.semaphore_publisher.publish(token)  # @TODO this is wrong
+        self.semaphore_publisher.publish(token)
 
     def handleToken(self, token):
         self.logger.info(f"{self.id}: Received token")
@@ -57,7 +57,7 @@ class SemaphoreAction:
                 on_next=self.publishSemaphore,
                 on_error=lambda e: self.printError(e))
 
-            self.receive_semaphore_subscription = self.semaphore_observable.subscribe(lambda token: self.handleToken(token))
+            self.receive_semaphore_subscription = self.semaphore_observable.subscribe(on_next = lambda token: self.handleToken(token))
 
         return self.status
 
