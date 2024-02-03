@@ -9,6 +9,7 @@ from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import String
 from rx.subject import Subject
 from dragonfly_messages.msg import LatLon, PositionVector
+from dragonfly_messages.msg import SemaphoreToken
 
 from .ActionState import ActionState
 
@@ -83,9 +84,10 @@ def calculate_turn_center(token):
 
 class SketchAction:
     SAMPLE_RATE = 0.1
+    SKETCH_STARTING_THRESHOLD = 20 # m
 
     def __init__(self, id, log_publisher, logger, local_setvelocity_publisher, announce_stream, offset, partner, leader,
-                 drone_stream_factory, dragonfly_sketch_subject, position_vector_publisher, threshold):
+                 drone_stream_factory, semaphore_observable, semaphore_publisher, dragonfly_sketch_subject, position_vector_publisher, threshold):
         self.log_publisher = log_publisher
         self.logger = logger
         self.local_setvelocity_publisher = local_setvelocity_publisher
@@ -94,19 +96,26 @@ class SketchAction:
         self.offset = offset
         self.leader = leader
         self.threshold = threshold
-        self.started = False
         self.ros_subscriptions = []
         self.announce_stream = announce_stream
         self.drone_stream_factory = drone_stream_factory
         self.dragonfly_sketch_subject = dragonfly_sketch_subject
         self.position_vector_publisher = position_vector_publisher
+        self.semaphore_observable = semaphore_observable
+        self.semaphore_publisher = semaphore_publisher
 
         self.navigate_subscription = rx.empty().subscribe()
         self.leader_broadcast_subscription = rx.empty().subscribe()
+        self.receive_semaphore_subscription = rx.empty().subscribe()
+
         self.target_position_vector = None
         self.encountered = False
-
+        self.starting_position = None
+        self.sketch_started = False
         self.position_reading_queue = []
+        self.started = False
+
+        self.status = ActionState.WORKING
 
     def navigate(self, input):
 
@@ -147,10 +156,32 @@ class SketchAction:
                     self.setup_subject(self.partner),
                     self.setup_subject(self.id)
                 ).subscribe(lambda position_reading_vector: self.broadcast_target(position_reading_vector[0], position_reading_vector[1]))
+            else:
+                self.receive_semaphore_subscription = self.semaphore_observable.subscribe(on_next = lambda token: self.listen_for_stop(token))
 
             self.log_publisher.publish(String(data="Sketch"))
 
-        return ActionState.WORKING
+        return self.status
+
+    @staticmethod
+    def build_sketch_end_id(id):
+        return f"sketch.{id}"
+
+    def listen_for_stop(self, token):
+        self.logger.info(f"{self.id}: Received token")
+        if token.id == self.build_sketch_end_id(self.partner):
+            self.end_sketch()
+
+    def broadcast_end(self):
+        self.logger.info(f"{self.id}: Publishing sketch stop")
+        token = SemaphoreToken()
+        token.drone = self.id
+        token.id =  self.build_sketch_end_id(self.id)
+        self.semaphore_publisher.publish(token)
+
+    def end_sketch(self):
+        self.status = ActionState.SUCCESS
+        self.stop()
 
     def setup_subject(self, drone):
 
@@ -285,10 +316,22 @@ class SketchAction:
 
         if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
             self.encountered = True
+            self.starting_position = average_position
+            self.logger.info("Encountered")
+
+        if self.encountered and not self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) > (2 * self.SKETCH_STARTING_THRESHOLD):
+            self.sketch_started = True
+            self.logger.info("Sketch started")
+
+        if self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) < self.SKETCH_STARTING_THRESHOLD:
+            # We must be back to the start
+            self.logger.info("Sketch ended")
+            self.broadcast_end()
+            self.end_sketch()
 
         if self.encountered and self.passed(average_position):
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
-        print(f"PV: {self.target_position_vector}")
+        # self.logger.info(f"PV: {self.target_position_vector}")
         self.position_vector_publisher.publish(self.target_position_vector)
         self.dragonfly_sketch_subject.on_next(self.target_position_vector)
 
@@ -360,15 +403,15 @@ class SketchAction:
         lambda_value = 0.1
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
-            print("Sandwich")
+            self.logger.info("Sandwich")
             return self.forward(d1, d2)
 
         if not self.inside(d1) and not self.inside(d2):
-            print("Outside")
+            self.logger.info("Outside")
             a = math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
         elif self.inside(d1) and self.inside(d2):
-            print("Inside")
+            self.logger.info("Inside")
             a = -math.sqrt(lambda_value)
             return self.cross_boundary(d1, d2, a)
 
@@ -474,3 +517,4 @@ class SketchAction:
     def stop(self):
         self.navigate_subscription.dispose()
         self.leader_broadcast_subscription.dispose()
+        self.receive_semaphore_subscription.dispose()
