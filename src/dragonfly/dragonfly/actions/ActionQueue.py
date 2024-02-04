@@ -14,8 +14,10 @@ class ActionQueue:
             result = action.step()
 
             if result == ActionState.SUCCESS:
+                action.stop()
                 self.queue.pop(0)
             elif result == ActionState.FAILURE:
+                action.stop()
                 self.stop()
                 return ActionState.FAILURE
             return ActionState.WORKING

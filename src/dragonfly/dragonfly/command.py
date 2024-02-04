@@ -542,7 +542,9 @@ class DragonflyCommand:
         try:
             rate = self.node.create_rate(1)
             while rclpy.ok():
-                self.actionqueue.step()
+                result = self.actionqueue.step()
+                if not result == ActionState.WORKING:
+                    self.actionqueue.stop()
                 rate.sleep()
         except KeyboardInterrupt:
             self.logger.info("Shutting down...")

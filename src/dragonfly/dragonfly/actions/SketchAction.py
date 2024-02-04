@@ -181,7 +181,6 @@ class SketchAction:
 
     def end_sketch(self):
         self.status = ActionState.SUCCESS
-        self.stop()
 
     def setup_subject(self, drone):
 
@@ -190,13 +189,9 @@ class SketchAction:
         position_subject = drone_streams.get_position()
         co2_subject = drone_streams.get_co2()
 
-        position_value_subject = Subject()
-
-        rx.combine_latest(position_subject, co2_subject).pipe(
+        return rx.combine_latest(position_subject, co2_subject).pipe(
             ops.map(lambda tuple, offset=drone_streams.mean: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm - offset))
-        ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
-
-        return position_value_subject
+        )
 
     def tandem(self, partner_position, self_position, positionVector):
 

@@ -60,8 +60,6 @@ class WaypointAction:
 
                 if distance(self.waypoint.pose.position, alteredposition) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
-
-                    self.stop()
                 elif time > self.WAIT_FOR_WAYPOINT and magnitude < self.STOP_VELOCITY_THRESHOLD:
                     WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.waypoint.pose.position.x - pose.x
                     WaypointAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.waypoint.pose.position.y - pose.y

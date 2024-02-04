@@ -37,7 +37,6 @@ class SemaphoreAction:
 
         if self.responded == self.drones:
             self.status = ActionState.SUCCESS
-            self.stop()
             rx.interval(1).pipe(
                 ops.take(10)
             ).subscribe(

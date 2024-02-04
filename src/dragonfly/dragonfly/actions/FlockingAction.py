@@ -180,7 +180,6 @@ class FlockingAction:
         self.logger.info(f"{self.id}: Received token")
         if token.id == build_flocking_end_id(self.leader):
             self.status = ActionState.SUCCESS
-            self.stop()
 
     def stop(self):
         self.zero_velocity_debounce_subscription.dispose()

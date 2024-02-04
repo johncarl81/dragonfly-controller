@@ -104,7 +104,6 @@ class PlumeAwareLawnmowerAction:
                             self.logPublisher.publish(String(data=f"Goto {self.name} {self.current_waypoint_index + 1}/{len(self.waypoints)}"))
                         else:
                             self.status = ActionState.SUCCESS
-                            self.stop()
                     elif (time - self.last_waypoint_time) > self.WAIT_FOR_WAYPOINT and magnitude < self.STOP_VELOCITY_THRESHOLD:
                         PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['x'] += self.current_waypoint.pose.position.x - pose.x
                         PlumeAwareLawnmowerAction.WAYPOINT_ACCEPTANCE_ADJUSTMENT['y'] += self.current_waypoint.pose.position.y - pose.y
