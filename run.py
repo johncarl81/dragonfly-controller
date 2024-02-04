@@ -8,8 +8,7 @@ from string import Template
 def template(templateFileName, values):
     fp = tempfile.NamedTemporaryFile(mode = "w")
 
-    template = Template(open(templateFileName).read())
-    result = template.substitute(values)
+    result = Template(open(templateFileName).read()).substitute(values)
 
     fp.write(result)
 
@@ -33,17 +32,17 @@ def run(args):
     }
     mavros_params = template(f"{dragonfly_dir}/templates/mavros.launch.yaml.template", mavros_parameters)
 
-    runLog = open(f"{dragonfly_dir}/logs/run.log", "a")
-    pumpLog = open(f"{dragonfly_dir}/logs/pump.log", "a")
-    commandLog = open(f"{dragonfly_dir}/logs/command.log", "a")
+    run_log = open(f"{dragonfly_dir}/logs/run.log", "a")
+    pump_log = open(f"{dragonfly_dir}/logs/pump.log", "a")
+    command_log = open(f"{dragonfly_dir}/logs/command.log", "a")
 
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly virtualco2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name}", env=env, shell=True, stdout=runLog))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name}", env=env, shell=True, stdout=pumpLog))
-    processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name}", env=env, shell=True, stdout=commandLog))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name}", env=env, shell=True, stdout=run_log, stderr=subprocess.STDOUT))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly pump {args.name}", env=env, shell=True, stdout=pump_log, stderr=subprocess.STDOUT))
+    processes.append(subprocess.Popen(f"ros2 run dragonfly command {args.name}", env=env, shell=True, stdout=command_log, stderr=subprocess.STDOUT))
     processes.append(subprocess.Popen(f"ros2 run dragonfly announce {args.name}", env=env, shell=True))
 
     for p in processes:

@@ -6,7 +6,6 @@ import rclpy
 
 from datetime import datetime, timedelta
 from rclpy.qos import ReliabilityPolicy
-from .led import LED
 from rclpy.qos import QoSProfile
 from sensor_msgs.msg import NavSatFix, TimeReference
 from std_msgs.msg import String
@@ -15,15 +14,18 @@ from dragonfly_messages.msg import CO2
 
 class co2Logger:
 
-    def __init__(self, id):
+    def __init__(self, id, sim):
         self.node = None
         self.id = id
         self.position = None
         self.positionReceived = None
         self.co2Received = None
-        self.led = LED()
         self.zeroing = False
         self.time_offset = timedelta(seconds=0)
+        self.sim = sim
+        if not sim:
+            from .led import LED
+            self.led = LED()
 
     def validUpdate(self, inputTime):
         return inputTime is not None and self.getDate() - inputTime < timedelta(seconds=3)
@@ -36,10 +38,11 @@ class co2Logger:
         previous = self.zeroing
         if data is not None:
             self.zeroing = data.warming or data.zeroing
-        if self.zeroing and not previous:
-            self.led.blink()
-        elif not self.zeroing and previous:
-            self.led.solid()
+        if not self.sim:
+            if self.zeroing and not previous:
+                self.led.blink()
+            elif not self.zeroing and previous:
+                self.led.solid()
 
     def updateLED(self):
         validPosition = self.validUpdate(self.positionReceived)
@@ -82,8 +85,8 @@ class co2Logger:
         self.node.create_subscription(CO2, f"/{self.id}/co2", self.co2Callback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
         self.node.create_subscription(String, f"/{self.id}/log", self.logCallback, qos_profile=QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT, depth=10))
 
-        rx.interval(1).subscribe(
-            on_next=lambda time: self.updateLED())
+        if not self.sim:
+            rx.interval(1).subscribe(on_next=lambda time: self.updateLED())
 
         rclpy.spin(self.node)
 
@@ -91,9 +94,10 @@ class co2Logger:
 def main():
     parser = argparse.ArgumentParser(description='Log the given drone\'s GPS And CO2.')
     parser.add_argument('id', type=str, help='Name of the drone.')
+    parser.add_argument('--sim', help='Is the sim running', action='store_true')
     args = parser.parse_args()
 
-    co2Logger(args.id).listener()
+    co2Logger(args.id, args.sim).listener()
 
 
 if __name__ == '__main__':
