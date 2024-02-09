@@ -1,12 +1,10 @@
 #!/usr/bin/env python3
-import math
-
-import rx
+import math, rx, time
 import rx.operators as ops
-from std_msgs.msg import String
-
 from rx.subject import Subject
-
+from std_msgs.msg import String
+from geometry_msgs.msg import TwistStamped
+from dragonfly_messages.srv import Pump
 from .ActionState import ActionState
 
 
@@ -24,7 +22,9 @@ class WaypointAction:
     WAIT_FOR_WAYPOINT = 10
     WAYPOINT_ACCEPTANCE_ADJUSTMENT = {'x': 0, 'y': 0, 'z': 0}
 
-    def __init__(self, logger, id, logPublisher, local_setposition_publisher, waypoint, distance_threshold, local_velocity_observable, local_pose_observable):
+    def __init__(self, logger, id, logPublisher, local_setposition_publisher, waypoint, distance_threshold,
+                 local_velocity_observable, local_setvelocity_publisher, local_pose_observable, drone_stream_factory,
+                 pump_service, run_pump=False, pump_threshold=math.inf, pump_num=-1, pump_duration=60):
         self.logger = logger
         self.id = id
         self.logPublisher = logPublisher
@@ -33,15 +33,45 @@ class WaypointAction:
         self.local_setposition_publisher = local_setposition_publisher
         self.status = ActionState.WORKING
         self.commanded = False
+
         self.position_update = None
         self.velocity_update = None
         self.velocity_subject = Subject()
         self.pose_subject = Subject()
         self.waypointAcceptanceSubscription = rx.empty().subscribe()
+        self.co2_monitor_subscription = rx.empty().subscribe()
         self.local_velocity_observable = local_velocity_observable
         self.local_pose_observable = local_pose_observable
+        self.drone_stream_factory = drone_stream_factory
+        self.local_setvelocity_publisher = local_setvelocity_publisher
+        self.run_pump = run_pump
+        self.pump_service = pump_service
+        self.pump_num = pump_num
+        self.pump_threshold = pump_threshold
+        self.pump_duration = pump_duration
+        self.pump_start = 0
+        self.pump_setup = False
+        self.pumping = False
 
     def step(self):
+        if not self.pump_setup and self.run_pump:
+            self_drone = self.drone_stream_factory.get_drone(self.id)
+            self.co2_monitor_subscription = self_drone.get_co2().subscribe(
+                on_next=self.monitor_co2,
+                on_error=lambda e: self.logger.error(f"Error monitoring co2 threshold", e)
+            )
+
+            self.pump_setup = True
+        if self.pumping:
+            if self.pump_start == 0:
+                self.pump_start = time.time()
+                self.pump_service.call(Pump.Request(pump_num=self.pump_num))
+            elif time.time() - self.pump_start > self.pump_duration:
+                self.logger.info(f"Restarting waypoint")
+                self.pumping = False
+                # Re-command
+                self.commanded = False
+
         if not self.commanded:
             self.commanded = True
 
@@ -76,5 +106,15 @@ class WaypointAction:
 
         return self.status
 
+    def monitor_co2(self, message):
+        if message.ppm > self.pump_threshold:
+            self.logger.info(f"Reached co2 threshold: {message.ppm} > {self.pump_threshold}")
+            self.stop()
+            # Stop drone in position
+            self.local_setvelocity_publisher.publish(TwistStamped())
+            self.pumping = True
+
+
     def stop(self):
         self.waypointAcceptanceSubscription.dispose()
+        self.co2_monitor_subscription.dispose()

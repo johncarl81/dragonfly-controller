@@ -343,7 +343,9 @@ class DragonflyCommand:
                 if waypoint is not None:
                     self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.goto_step.waypoint}")) \
                         .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                                             distance_threshold, self.local_velocity_observable, self.local_position_observable))
+                                             distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                             self.local_position_observable, self.drone_stream_factory, self.pump_service,
+                                             step.goto_step.run_pump, step.goto_step.pump_threshold, step.goto_step.pump_num))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 self.logger.info("Semaphore")
                 self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
@@ -374,9 +376,9 @@ class DragonflyCommand:
                         waypoint.pose.position.y,
                         waypoint.pose.position.z + (step.ddsa_step.radius * step.ddsa_step.swarm_index),
                         self.orientation)
-                    self.actionqueue.push(
-                        WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint,
-                                       step.ddsa_step.distance_threshold, self.local_velocity_observable, self.local_position_observable))
+                    self.actionqueue.push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint,
+                                                         step.ddsa_step.distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                                         self.local_position_observable, self.drone_stream_factory, self.pump_service))
                     self.runWaypoints("DDSA", waypoints, step.ddsa_step.wait_time, step.ddsa_step.distance_threshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 self.logger.info("Lawnmower")
@@ -454,11 +456,13 @@ class DragonflyCommand:
 
                 self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.vertical_transect_step.waypoint}")) \
                     .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                                         distance_threshold, self.local_velocity_observable, self.local_position_observable)) \
+                                         distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                         self.local_position_observable, self.drone_stream_factory, self.pump_service)) \
                     .push(VerticalTransectDownAction(self.logger, self.id, self.logPublisher, self.drone_stream_factory, step.vertical_transect_step.minimum_altitude, self.local_setvelocity_publisher)) \
                     .push(LogAction(self.logPublisher, f"Goto maximum")) \
                     .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, max_altitude_waypoint,
-                                         distance_threshold, self.local_velocity_observable, self.local_position_observable)) \
+                                         distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                         self.local_position_observable, self.drone_stream_factory, self.pump_service)) \
                     .push(LogAction(self.logPublisher, f"Reached maximum"))
             elif step.msg_type == MissionStep.TYPE_STOP_FLOCK:
                 self.logger.info("Stop flocking")
@@ -485,9 +489,9 @@ class DragonflyCommand:
         for i, waypoint in enumerate(waypoints):
             self.actionqueue.push(
                 LogAction(self.logPublisher, f"Goto {waypoints_name} {i + 1}/{len(waypoints)}"))
-            self.actionqueue.push(
-                WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                               distance_threshold, self.local_velocity_observable, self.local_position_observable))
+            self.actionqueue.push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
+                                                 distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                                 self.local_position_observable, self.drone_stream_factory, self.pump_service))
             if wait_time > 0:
                 self.actionqueue.push(SleepAction(self.logger, wait_time))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
