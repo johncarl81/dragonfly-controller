@@ -8,7 +8,7 @@
         repo: john@10.42.0.100:/home/john/dev/dragonfly-controller
         dest: /home/ubuntu/dev/dragonfly/
         update: yes
-        version: sketch
+        version: master
       become: yes
       become_user: ubuntu
 
