@@ -6,7 +6,6 @@ import rx.operators as ops
 import numpy as np
 from geometry_msgs.msg import TwistStamped
 from std_msgs.msg import String
-from rx.subject import Subject
 from sklearn.linear_model import LinearRegression
 
 from .ActionState import ActionState
@@ -46,7 +45,7 @@ class GradientAction:
         self.max_value = None
 
     def checkForMax(self, readingPosition):
-        if self.max_value is None or readingPosition.value > self.max_value.value:
+        if self.max_value is None or readingPosition.value > self.max_value.value + 1:
             self.timerSubscription.dispose()
             self.timerSubscription = rx.timer(10) \
                 .subscribe(on_next=lambda v: self.complete())
@@ -97,6 +96,7 @@ class GradientAction:
 
     def stop(self):
         self.gradient_subscription.dispose()
+        self.timerSubscription.dispose()
         self.navigate(dotdict({"x": 0, "y": 0}))
 
     def setupSubject(self, drone):
@@ -106,13 +106,9 @@ class GradientAction:
         position_subject = drone_streams.get_position()
         co2_subject = drone_streams.get_co2()
 
-        position_value_subject = Subject()
-
-        rx.combine_latest(position_subject, co2_subject).pipe(
+        return rx.combine_latest(position_subject, co2_subject).pipe(
             ops.map(lambda tuple, offset=drone_streams.mean: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm - offset))
-        ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
-
-        return position_value_subject
+        )
 
     def complete(self):
         self.log_publisher.publish(String(data=

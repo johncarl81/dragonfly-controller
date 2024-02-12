@@ -35,8 +35,6 @@ class ArmedStateAction:
                     self.logger.info("Is not armed, continue")
                     self.status = ActionState.SUCCESS
 
-                    self.stop()
-
             self.status_subscription = self.status_observable.pipe(
                 ops.take(1)
             ).subscribe(

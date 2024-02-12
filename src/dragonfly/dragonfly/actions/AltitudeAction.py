@@ -48,7 +48,6 @@ class AltitudeAction:
 
                 if distance(self.waypoint.pose.position, localposition.pose.position) < self.distance_threshold:
                     self.status = ActionState.SUCCESS
-                    self.stop()
 
             self.position_update = self.local_position_observable.subscribe(on_next = lambda position: updatePosition(position))
 

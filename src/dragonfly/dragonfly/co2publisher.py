@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 
 import argparse
-import threading
 import rclpy
 import serial
 import sys
 import re
+import threading
 
 from rclpy.qos import QoSProfile
 from rclpy.qos import HistoryPolicy
@@ -100,6 +100,10 @@ def main():
 
   publisher = CO2Publisher(args.id, node)
   publisher.publish()
+
+  node.destroy_node()
+  rclpy.shutdown()
+  thread.join()
 
 if __name__ == '__main__':
   main()

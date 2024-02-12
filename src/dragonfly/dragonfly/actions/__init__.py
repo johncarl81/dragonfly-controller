@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .ActionQueue import ActionQueue
+from .ActionState import ActionState
 from .AltitudeAction import AltitudeAction
 from .ArmAction import ArmAction
 from .ArmedStateAction import ArmedStateAction
@@ -19,6 +20,9 @@ from .TakeoffAction import TakeoffAction
 from .WaitForDisarmAction import WaitForDisarmAction
 from .WaitForZeroAction import WaitForZeroAction
 from .WaypointAction import WaypointAction
+from .VerticalTransectDownAction import VerticalTransectDownAction
 from .PlumeAwareLawnmowerAction import PlumeAwareLawnmowerAction
 from .PumpAction import PumpAction
 from .CalibrateAction import CalibrateAction
+from .SketchAction import SketchAction
+from .StopFlockingAction import StopFlockingAction

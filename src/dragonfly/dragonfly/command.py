@@ -3,9 +3,9 @@ import argparse
 import sys
 import threading
 import time
-from datetime import datetime, timedelta
-
 import rclpy
+
+from datetime import datetime, timedelta
 from geometry_msgs.msg import TwistStamped, PoseStamped
 from mavros_msgs.msg import State
 from mavros_msgs.srv import SetMode, CommandBool, CommandTOL, ParamSetV2
@@ -15,7 +15,7 @@ from sensor_msgs.msg import NavSatFix
 from std_msgs.msg import String
 from rx.subject import Subject
 
-from dragonfly_messages.msg import MissionStep, SemaphoreToken, CO2
+from dragonfly_messages.msg import MissionStep, SemaphoreToken, CO2, PositionVector
 from dragonfly_messages.srv import *
 from .droneStreamFactory import DroneStreamFactory
 from .actions import *
@@ -52,6 +52,7 @@ class DragonflyCommand:
         self.local_velocity_observable = Subject()
         self.dragonfly_announce_subject = Subject()
         self.semaphore_observable = Subject()
+        self.dragonfly_sketch_subject = Subject()
 
     def setmode(self, mode):
         self.logger.info(f"Set Mode {mode}")
@@ -342,7 +343,9 @@ class DragonflyCommand:
                 if waypoint is not None:
                     self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.goto_step.waypoint}")) \
                         .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                                             distance_threshold, self.local_velocity_observable, self.local_position_observable))
+                                             distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                             self.local_position_observable, self.drone_stream_factory, self.pump_service,
+                                             step.goto_step.run_pump, step.goto_step.pump_threshold, step.goto_step.pump_num))
             elif step.msg_type == MissionStep.TYPE_SEMAPHORE:
                 self.logger.info("Semaphore")
                 self.actionqueue.push(LogAction(self.logPublisher, "Waiting for semaphore...")) \
@@ -373,9 +376,9 @@ class DragonflyCommand:
                         waypoint.pose.position.y,
                         waypoint.pose.position.z + (step.ddsa_step.radius * step.ddsa_step.swarm_index),
                         self.orientation)
-                    self.actionqueue.push(
-                        WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint,
-                                       step.ddsa_step.distance_threshold, self.local_velocity_observable, self.local_position_observable))
+                    self.actionqueue.push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, position_waypoint,
+                                                         step.ddsa_step.distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                                         self.local_position_observable, self.drone_stream_factory, self.pump_service))
                     self.runWaypoints("DDSA", waypoints, step.ddsa_step.wait_time, step.ddsa_step.distance_threshold)
             elif step.msg_type == MissionStep.TYPE_LAWNMOWER:
                 self.logger.info("Lawnmower")
@@ -405,7 +408,7 @@ class DragonflyCommand:
                 self.logger.info("Flock")
                 self.actionqueue.push(LogAction(self.logPublisher, "Flock")) \
                     .push(FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
-                                         step.flock_step.x, step.flock_step.y, step.flock_step.leader, self.drone_stream_factory))
+                                         step.flock_step.x, step.flock_step.y, step.flock_step.leader, self.drone_stream_factory, self.semaphore_observable))
             elif step.msg_type == MissionStep.TYPE_GRADIENT:
                 self.logger.info("Gradient")
                 self.actionqueue.push(LogAction(self.logPublisher, "Following Gradient")) \
@@ -438,6 +441,33 @@ class DragonflyCommand:
                 self.logger.info("Pump")
                 self.actionqueue.push(LogAction(self.logPublisher, "Pump")) \
                     .push(PumpAction(step.pump_step.pump_num, self.pump_service))
+            elif step.msg_type == MissionStep.TYPE_SKETCH:
+                self.logger.info("Sketch")
+                self.actionqueue.push(LogAction(self.logPublisher, "Sketch")) \
+                    .push(SketchAction(self.id, self.logPublisher, self.logger, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
+                                       step.sketch_step.offset, step.sketch_step.partner, step.sketch_step.leader, self.drone_stream_factory,
+                                       self.semaphore_observable, self.semaphore_publisher,
+                                       self.dragonfly_sketch_subject, self.position_vector_publisher, step.sketch_step.threshold))
+
+            elif step.msg_type == MissionStep.TYPE_VERTICAL_TRANSECT:
+                self.logger.info("Vertical Transect")
+                [waypoint, distance_threshold] = self.findWaypoint(step.vertical_transect_step.waypoint, request.waypoints)
+                max_altitude_waypoint = createWaypoint(waypoint.pose.position.x, waypoint.pose.position.y, step.vertical_transect_step.maximum_altitude, waypoint.pose.orientation)
+
+                self.actionqueue.push(LogAction(self.logPublisher, f"Goto {step.vertical_transect_step.waypoint}")) \
+                    .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
+                                         distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                         self.local_position_observable, self.drone_stream_factory, self.pump_service)) \
+                    .push(VerticalTransectDownAction(self.logger, self.id, self.logPublisher, self.drone_stream_factory, step.vertical_transect_step.minimum_altitude, self.local_setvelocity_publisher)) \
+                    .push(LogAction(self.logPublisher, f"Goto maximum")) \
+                    .push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, max_altitude_waypoint,
+                                         distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                         self.local_position_observable, self.drone_stream_factory, self.pump_service)) \
+                    .push(LogAction(self.logPublisher, f"Reached maximum"))
+            elif step.msg_type == MissionStep.TYPE_STOP_FLOCK:
+                self.logger.info("Stop flocking")
+                self.actionqueue.push(StopFlockingAction(self.logger, self.id, self.semaphore_publisher)) \
+                    .push(LogAction(self.logPublisher, "Stopped flocking"))
             else:
                 self.logger.info(f"Mission step not recognized: {step.msg_type}")
 
@@ -459,9 +489,9 @@ class DragonflyCommand:
         for i, waypoint in enumerate(waypoints):
             self.actionqueue.push(
                 LogAction(self.logPublisher, f"Goto {waypoints_name} {i + 1}/{len(waypoints)}"))
-            self.actionqueue.push(
-                WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
-                               distance_threshold, self.local_velocity_observable, self.local_position_observable))
+            self.actionqueue.push(WaypointAction(self.logger, self.id, self.logPublisher, self.local_setposition_publisher, waypoint,
+                                                 distance_threshold, self.local_velocity_observable, self.local_setvelocity_publisher,
+                                                 self.local_position_observable, self.drone_stream_factory, self.pump_service))
             if wait_time > 0:
                 self.actionqueue.push(SleepAction(self.logger, wait_time))
             self.actionqueue.push(WaitForZeroAction(self.logPublisher, self))
@@ -476,10 +506,9 @@ class DragonflyCommand:
 
     def flock(self, request, response):
         flockCommand = request.steps[0]  # @TODO: check if this is right
-        self.actionqueue.push(self.logger, ModeAction(self.setmode_service, 'GUIDED')) \
-            .push(
-            FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
-                           flockCommand.leader, self.node))
+        self.actionqueue.push(ModeAction(self.logger, self.setmode_service, 'GUIDED')) \
+            .push(FlockingAction(self.logger, self.id, self.logPublisher, self.local_setvelocity_publisher, flockCommand.x, flockCommand.y,
+                           flockCommand.leader, self.node, self.drone_stream_factory, self.semaphore_observable))
 
         return Flock.Response(success=True, message=f"Flocking {self.id} with {flockCommand.leader}.")
 
@@ -517,7 +546,9 @@ class DragonflyCommand:
         try:
             rate = self.node.create_rate(1)
             while rclpy.ok():
-                self.actionqueue.step()
+                result = self.actionqueue.step()
+                if not result == ActionState.WORKING:
+                    self.actionqueue.stop()
                 rate.sleep()
         except KeyboardInterrupt:
             self.logger.info("Shutting down...")
@@ -558,6 +589,11 @@ class DragonflyCommand:
         self.node.create_subscription(String, "/dragonfly/announce",
                                       lambda name: self.dragonfly_announce_subject.on_next(name),
                                       qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.node.create_subscription(PositionVector, "/dragonfly/sketch",
+                                      lambda positionVector: self.dragonfly_sketch_subject.on_next(positionVector),
+                                      qos_profile=QoSProfile(depth=10, reliability=ReliabilityPolicy.BEST_EFFORT))
+        self.position_vector_publisher = self.node.create_publisher(PositionVector, "/dragonfly/sketch",
+                                                              qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
         self.semaphore_publisher = self.node.create_publisher(SemaphoreToken, "/dragonfly/semaphore",
                                                               qos_profile=QoSProfile(history=HistoryPolicy.KEEP_LAST, depth=10))
 

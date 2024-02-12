@@ -23,6 +23,7 @@ setup(
             'announce = dragonfly.announce:main',
             'command = dragonfly.command:main',
             'virtualco2publisher = dragonfly.virtualco2publisher:main',
+            'virtualRangefinder = dragonfly.virtualRangefinder:main',
             'logger = dragonfly.logger:main',
             'co2publisher = dragonfly.co2publisher:main',
             'pump = dragonfly.pump:main'

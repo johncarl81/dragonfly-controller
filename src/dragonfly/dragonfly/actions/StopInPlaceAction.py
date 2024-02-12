@@ -25,8 +25,6 @@ class StopInPlaceAction:
                 self.local_setposition_publisher.publish(localposition)
                 self.status = ActionState.SUCCESS
 
-                self.stop()
-
                 self.logger.info("Stop in place")
                 self.log_publisher.publish(String(data="Stopped"))
 

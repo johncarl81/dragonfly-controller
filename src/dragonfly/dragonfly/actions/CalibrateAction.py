@@ -50,5 +50,4 @@ class CalibrateAction:
         return ActionState.SUCCESS
 
     def stop(self):
-        #self.gradient_subscription.dispose()
         pass

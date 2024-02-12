@@ -5,10 +5,10 @@
   tasks:
     - name: Git clone local dragonfly-controller
       ansible.builtin.git:
-        repo: john@10.42.0.20:/home/john/dev/dragonfly-controller
+        repo: john@10.42.0.100:/home/john/dev/dragonfly-controller
         dest: /home/ubuntu/dev/dragonfly/
         update: yes
-        version: master
+        version: sketch
       become: yes
       become_user: ubuntu
 

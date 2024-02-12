@@ -1,0 +1,3 @@
+string waypoint
+float64 minimum_altitude
+float64 maximum_altitude

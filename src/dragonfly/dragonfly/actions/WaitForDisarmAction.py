@@ -24,7 +24,6 @@ class WaitForDisarmAction:
 
                 if not state.armed:
                     self.status = ActionState.SUCCESS
-                    self.stop()
                     self.log_publisher.publish(String(data="Disarmed"))
 
             self.status_subscription = self.status_observable.subscribe(
