@@ -2,6 +2,7 @@
 import argparse
 import subprocess
 import tempfile
+import time
 import os
 from string import Template
 
@@ -35,9 +36,12 @@ def run(args):
     run_log = open(f"{dragonfly_dir}/logs/run.log", "a")
     pump_log = open(f"{dragonfly_dir}/logs/pump.log", "a")
     command_log = open(f"{dragonfly_dir}/logs/command.log", "a")
+    mavros_log = open(f"{dragonfly_dir}/logs/mavros.log", "a")
 
     processes.append(subprocess.Popen(f"ros2 daemon start", env=env, shell=True))
-    processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True))
+    time.sleep(10)
+    processes.append(subprocess.Popen(f"ros2 run mavros mavros_node --ros-args -r __ns:=/{args.name}/mavros --params-file {mavros_params.name}", env=env, shell=True, stdout=mavros_log, stderr=subprocess.STDOUT))
+    time.sleep(10)
     processes.append(subprocess.Popen(f"ros2 run dragonfly virtualco2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly co2publisher {args.name}", env=env, shell=True))
     processes.append(subprocess.Popen(f"ros2 run dragonfly logger {args.name}", env=env, shell=True, stdout=run_log, stderr=subprocess.STDOUT))
