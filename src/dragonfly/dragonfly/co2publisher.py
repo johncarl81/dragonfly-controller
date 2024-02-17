@@ -39,6 +39,16 @@ class CO2Publisher:
           detector_temp=float(sba5_data[8]),
           source_temp=float(sba5_data[9]),
           status=int(sba5_data[10]))
+    elif sba5_data[0] == 'M' and len(sba5_data) == 9:
+      # M 50885 48094 500.96 55.0 0.0 0.0 829 55.0 55.0 00
+      reading = CO2(ppm=float(sba5_data[3]),
+          average_temp=float(sba5_data[4]),
+          humidity=float(sba5_data[5]),
+          humidity_sensor_temp=float(sba5_data[6]),
+          atmospheric_pressure=int(sba5_data[7]),
+          detector_temp=float(sba5_data[4]),
+          source_temp=float(sba5_data[4]),
+          status=int(sba5_data[8]))
     elif sba5_data[0] == 'Z' and len(sba5_data) == 4:
       # Z,22 of 25\r\n
       reading = CO2(zeroing=True,
