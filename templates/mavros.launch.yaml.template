@@ -22,7 +22,7 @@ ${name}:
           - gps_input
           - gps_rtk
           # - gps_status
-          #- guided_target
+          # - guided_target
           - hil
           # - home_position
           - imu
@@ -64,7 +64,7 @@ ${name}:
 
 /**:
   ros__parameters:
-    fcu_url: /dev/ttypixhawk:921600
+    fcu_url: /dev/ttypixhawk:115200
     target_component_id: 1
     fcu_protocol: v2.0
     target_system_id: ${sysid_thismav}
