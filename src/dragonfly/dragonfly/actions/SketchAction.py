@@ -159,8 +159,6 @@ class SketchAction:
             else:
                 self.receive_semaphore_subscription = self.semaphore_observable.subscribe(on_next = lambda token: self.listen_for_stop(token))
 
-            self.log_publisher.publish(String(data="Sketch"))
-
         return self.status
 
     @staticmethod
@@ -312,15 +310,21 @@ class SketchAction:
         if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
             self.encountered = True
             self.starting_position = average_position
-            self.logger.info("Encountered")
+            self.log_publisher.publish(String(data="Encountered plume"))
 
         if self.encountered and not self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) > (2 * self.SKETCH_STARTING_THRESHOLD):
             self.sketch_started = True
-            self.logger.info("Sketch started")
+            self.log_publisher.publish(String(data="Sketch started"))
 
         if self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) < self.SKETCH_STARTING_THRESHOLD:
             # We must be back to the start
-            self.logger.info("Sketch ended")
+            self.log_publisher.publish(String(data="Sketch ended where it started"))
+            self.broadcast_end()
+            self.end_sketch()
+
+        if self.target_position_vector.movement == PositionVector.TURN and self.target_position_vector.a * self.target_position_vector.p > 4 * math.pi:
+            # We are in a death spiral
+            self.log_publisher.publish(String(data="Sketch ended from losing plume"))
             self.broadcast_end()
             self.end_sketch()
 
