@@ -324,6 +324,12 @@ class SketchAction:
             self.broadcast_end()
             self.end_sketch()
 
+        if self.target_position_vector.movement == PositionVector.TURN and self.target_position_vector.a * self.target_position_vector.p > 4 * math.pi:
+            # We are in a death spiral
+            self.logger.info("Sketch ended")
+            self.broadcast_end()
+            self.end_sketch()
+
         if self.encountered and self.passed(average_position):
             self.target_position_vector = self.boundary_sketch(partner_position, self_position)
         # self.logger.info(f"PV: {self.target_position_vector}")
