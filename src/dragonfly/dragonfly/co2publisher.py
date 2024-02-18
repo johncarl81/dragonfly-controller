@@ -40,7 +40,7 @@ class CO2Publisher:
           source_temp=float(sba5_data[9]),
           status=int(sba5_data[10]))
     elif sba5_data[0] == 'M' and len(sba5_data) == 9:
-      # M 50885 48094 500.96 55.0 0.0 0.0 829 55.0 55.0 00
+      # M 50885 48094 500.96 55.0 0.0 0.0 829 00
       reading = CO2(ppm=float(sba5_data[3]),
           average_temp=float(sba5_data[4]),
           humidity=float(sba5_data[5]),
