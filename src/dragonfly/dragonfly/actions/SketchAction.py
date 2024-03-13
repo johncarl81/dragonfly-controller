@@ -60,14 +60,14 @@ def average(one, two):
 def magnitude(vector):
     return np.linalg.norm(vector)
 
-def calculate_turn_center(token):
+def calculate_turn_center(token, distance_lambda):
     direction_vector = [token.x, token.y]
     rotated_direction_vector = rotate_vector(direction_vector, token.a)
 
-    opposite = np.array(unitary(rotated_direction_vector)) * (10 / 2) # lambda / 2
+    opposite = np.array(unitary(rotated_direction_vector)) * (distance_lambda / 2) # lambda / 2
 
 
-    hypotenuse = np.array(unitary(rotate_vector(rotated_direction_vector, math.pi / 2))) * ((10 / 2) / math.tan(token.a / 2))
+    hypotenuse = np.array(unitary(rotate_vector(rotated_direction_vector, math.pi / 2))) * ((distance_lambda / 2) / math.sin(token.a / 2))
 
     # print(f"op: {opposite} hyp: {hypotenuse}")
 
@@ -86,14 +86,16 @@ class SketchAction:
     SAMPLE_RATE = 0.1
     SKETCH_STARTING_THRESHOLD = 20 # m
 
-    def __init__(self, id, log_publisher, logger, local_setvelocity_publisher, announce_stream, offset, partner, leader,
+    def __init__(self, id, log_publisher, logger, local_setvelocity_publisher, announce_stream, distance_sqrt_lambda, lambda_value, partner, leader,
                  drone_stream_factory, semaphore_observable, semaphore_publisher, dragonfly_sketch_subject, position_vector_publisher, threshold):
         self.log_publisher = log_publisher
         self.logger = logger
         self.local_setvelocity_publisher = local_setvelocity_publisher
         self.id = id
         self.partner = partner
-        self.offset = offset
+        self.distance_sqrt_lambda = distance_sqrt_lambda
+        self.lambda_value = lambda_value
+        self.distance_lambda = self.distance_sqrt_lambda * lambda_value / (math.sqrt(lambda_value))
         self.leader = leader
         self.threshold = threshold
         self.ros_subscriptions = []
@@ -205,7 +207,7 @@ class SketchAction:
         distance_m = difference_in_meters(partner_position, self_position)
         offset_unitary = unitary(distance_m)
 
-        position_offset = np.array(distance_m) - (np.array(offset_unitary) * self.offset)
+        position_offset = np.array(distance_m) - (np.array(offset_unitary) * self.distance_sqrt_lambda)
         offset_magnitude = magnitude(position_offset)
 
         tandem_distance = position_offset * (2 / max(2, offset_magnitude))
@@ -231,7 +233,7 @@ class SketchAction:
     def calculate_turn(self, partner_position, self_position, position_vector):
         if position_vector.movement == PositionVector.TURN:
 
-            center = calculate_turn_center(position_vector)
+            center = calculate_turn_center(position_vector, self.distance_lambda)
 
             self_center = difference_in_meters(center, self_position)
             self_center_distance = magnitude(self_center)
@@ -276,7 +278,7 @@ class SketchAction:
                 return vector_to_line
         else:
             # Maintain distance-to-center
-            center = calculate_turn_center(position_vector) # position_vector.position ?
+            center = calculate_turn_center(position_vector, self.distance_lambda) # position_vector.position ?
             expected_distance_to_center = magnitude(difference_in_meters(position_vector.position, center))
 
             average_to_center = difference_in_meters(average(self_position, partner_position), center)
@@ -295,7 +297,7 @@ class SketchAction:
         while len(self.position_reading_queue) > 200:
             self.position_reading_queue.pop(0)
 
-        if not self.target_position_vector:
+        if self.target_position_vector is None:
             position_vector = PositionVector()
             position_vector.movement = PositionVector.FORWARD
             position = createLatLon(average_position.latitude, average_position.longitude)
@@ -399,7 +401,7 @@ class SketchAction:
         # D1, D2 ← the two robots
         # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
         # α ← √λ
-        lambda_value = 0.1
+        lambda_value = self.lambda_value
         if self.inside(d1) ^ self.inside(d2):
             # D1 and D2 both move λ distance in the direction of ∇
             self.logger.info("Sandwich")
@@ -441,7 +443,7 @@ class SketchAction:
             [position_vector.x, position_vector.y] = self.calculate_prev_direction()
         position_vector.position = position
 
-        position_vector.distance = 10.0
+        position_vector.distance = self.distance_lambda
 
         return position_vector
 
@@ -498,7 +500,7 @@ class SketchAction:
 
             return distance > self.target_position_vector.distance
         else:
-            center = calculate_turn_center(self.target_position_vector)
+            center = calculate_turn_center(self.target_position_vector, self.distance_lambda)
             target_offset = rotate_vector(difference_in_meters(self.target_position_vector.position, center), (self.target_position_vector.a * (self.target_position_vector.p - 1)))
             hyp = difference_in_meters(average_position, center)
 

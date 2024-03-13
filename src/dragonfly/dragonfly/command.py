@@ -445,7 +445,7 @@ class DragonflyCommand:
                 self.logger.info("Sketch")
                 self.actionqueue.push(LogAction(self.logPublisher, "Sketch")) \
                     .push(SketchAction(self.id, self.logPublisher, self.logger, self.local_setvelocity_publisher, self.dragonfly_announce_subject,
-                                       step.sketch_step.offset, step.sketch_step.partner, step.sketch_step.leader, self.drone_stream_factory,
+                                       step.sketch_step.offset, step.sketch_step.lambda_value, step.sketch_step.partner, step.sketch_step.leader, self.drone_stream_factory,
                                        self.semaphore_observable, self.semaphore_publisher,
                                        self.dragonfly_sketch_subject, self.position_vector_publisher, step.sketch_step.threshold))
 
