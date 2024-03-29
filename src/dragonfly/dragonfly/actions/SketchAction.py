@@ -36,9 +36,14 @@ def calculate_angle(one, two):
 
 def difference_in_meters(one, two):
     return [
-        ((one.longitude - two.longitude) * (EARTH_CIRCUMFERENCE / 360) * math.cos(one.latitude * 0.01745)),
+        ((one.longitude - two.longitude) * (EARTH_CIRCUMFERENCE / 360) * math.cos(math.radians(one.latitude))),
         ((one.latitude - two.latitude) * (EARTH_CIRCUMFERENCE / 360))
     ]
+
+def latlon_plus_meters(position, offset):
+    longitude = position.longitude + ((offset[0]) / (math.cos(math.radians(position.latitude)) * (EARTH_CIRCUMFERENCE / 360)))
+    latitude = position.latitude + ((offset[1]) / (EARTH_CIRCUMFERENCE / 360))
+    return createLatLon(latitude, longitude)
 
 def unitary(vector):
     vector_magnitude = np.linalg.norm(vector)
@@ -76,11 +81,241 @@ def calculate_turn_center(token, distance_lambda):
     # center_offset = rotate_vector([token.x, token.y], math.pi / 2)
     center_offset = opposite + hypotenuse
 
-    longitude = token.position.longitude + ((center_offset[0]) / (math.cos(token.position.latitude * 0.01745) * (EARTH_CIRCUMFERENCE / 360)))
-    latitude = token.position.latitude + ((center_offset[1]) / (EARTH_CIRCUMFERENCE / 360))
-    center = createLatLon(latitude, longitude)
+    center = latlon_plus_meters(token.position, center_offset)
 
     return center
+
+class Sketch:
+
+    def __init__(self, distance_sqrt_lambda, lambda_value, threshold):
+        self.d1 = None
+        self.d2 = None
+        self.distance_sqrt_lambda = distance_sqrt_lambda
+        self.distance_lambda = self.distance_sqrt_lambda * lambda_value / (math.sqrt(lambda_value))
+        self.lambda_value = lambda_value
+        self.threshold = threshold
+
+        self.encountered = False
+        self.starting_location = None
+        self.position_reading_queue = []
+
+    def update(self, d1, d2):
+        self.d1 = d1
+        self.d2 = d2
+
+        if not self.encountered and (self.inside(self.d1) or self.inside(self.d2)):
+            self.encountered = True
+            self.starting_location = average(self.d1, self.d2)
+
+        self.position_reading_queue.append(d1)
+        self.position_reading_queue.append(d2)
+
+        while len(self.position_reading_queue) > 200:
+            self.position_reading_queue.pop(0)
+
+    # Algorithm 3 Initially, robots are √λ apart; one inside and one outside
+    def boundary_sketch(self):
+
+        while self.d1 is None or self.d2 is None:
+            yield None
+
+        self.target_position_vector = self.initial_direction(self.d1, self.d2)
+        yield from self.until(self.target_position_vector, lambda: self.encountered)
+
+        while self.incomplete():
+            # D1, D2 ← the two robots
+            # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
+            # α ← √λ
+            lambda_value = self.lambda_value
+            if self.inside(self.d1) ^ self.inside(self.d2):
+                # D1 and D2 both move λ distance in the direction of ∇
+                # print("Sandwich")
+                self.target_position_vector = self.forward(self.d1, self.d2)
+                yield from self.until(self.target_position_vector, lambda: self.moved_forward_lambda(self.target_position_vector, self.d1, self.d2))
+
+            if not self.inside(self.d1) and not self.inside(self.d2):
+                # print("Outside")
+                a = math.sqrt(lambda_value)
+                yield from self.cross_boundary(a)
+            elif self.inside(self.d1) and self.inside(self.d2):
+                # print("Inside")
+                a = -math.sqrt(lambda_value)
+                yield from self.cross_boundary(a)
+
+    # Algorithm 2 Reestablishes “Sandwich” Invariant
+    def cross_boundary(self, a):
+        was_inside = self.inside(self.d1)
+
+        #   p ← last position of D1 before crossing
+        #   R ← the vertices of the regular polygon including D1’s position with exterior angle √λ and
+        #       the edge beginning at D1’s position facing the direction of ∇ + α.
+        #   P ← the vertices of the convex hull of R ∪ {p}. For all i : 0 ≤ i ≤ |P| − 1, let
+        #       Pi be the i-th vertex in this convex hull, ordered such that P0 = p and P1 = D1’s current position.
+        #   ∇ ← gradient at the last boundary crossing of D1
+        #   i ← 1.
+        i = 1
+        #   while neither robot has crossed the boundary AND i + 1 < |P| do
+        while self.inside(self.d1) == was_inside and self.inside(self.d2) == was_inside and i < math.fabs(2*math.pi / a):
+            #   D1 moves to Pi+1.
+            #   D2 moves to closest point from it that is √λ distance away from Pi and orthogonal to ∇ + iα
+            self.target_position_vector = self.turn(self.d1, self.d2, a)
+            yield from self.until(self.target_position_vector, lambda: self.turned_lambda(self.target_position_vector, self.distance_lambda, i, self.d1, self.d2))
+            #   i ← i + 1
+            i = i + 1
+
+        print("crossed boundary", i < math.fabs(2*math.pi / a), i, math.fabs(2*math.pi / a), a)
+
+        #   while neither robot has crossed the boundary do
+        # while self.inside(d1) == was_inside and self.inside(d2) == was_inside:
+        #       D1 moves towards point p taking steps of length λ.
+        #       D2 moves to closest point from it that is √λ distance away from D1 and orthogonal to D1’s direction.
+        #     pass
+        #   if D2 crossed the boundary then
+        # if not self.inside(d2) == was_inside:
+        #       SYNCHRONIZE (D1, D2)
+        #     self.synchronize(d1, d2)
+        #   else
+        # else:
+        #   ∇ ← the current direction of D1.
+        #     pass
+
+    # Algorithm 1 Ensures the robots are at distance √λ from each other and are oriented in the same direction.
+    def synchronize(self, d1, d2):
+        print("synchronize")
+        #   Path ← the polyline path of D2 from last crossing of BOUNDARY-SKETCH with the shape till current position.
+        #   ∇ ← the gradient at the last boundary crossing for D2.
+        #   L1 ← the line in the direction of ∇ through D1’s position.
+        #   L2 ← the line in the direction of ∇ through D2’s position.
+
+        #   if L1 crosses Path then
+        if self.line_cross(d1):
+            #       Move D2 in its current direction until it is √λ distance away from L1.
+            #       Change direction to ∇ and take a single step of length λ.
+            #       Move D1 along L1 until it is √λ away from D2.
+            pass
+        #   else
+        else:
+            pass
+        #       Move D1 in its current direction until it is √ λ distance away from L2.
+        #
+        #
+        #   Change direction to ∇ and move until the distance from D2 is √λ.
+
+    def forward(self, d1, d2):
+        gradient = self.calculate_gradient()
+
+        # D1 and D2 both move λ distance in the direction of ∇
+        position_vector = PositionVector()
+        position_vector.movement = PositionVector.FORWARD
+        if self.target_position_vector.movement == PositionVector.TURN:
+            prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
+            angle =  self.target_position_vector.a * self.target_position_vector.p
+            [position_vector.x, position_vector.y] = rotate_vector(prev_vector, angle)
+        else:
+            [position_vector.x, position_vector.y] = [self.target_position_vector.x, self.target_position_vector.y]
+
+        position_vector.position = average(d1, d2)
+        # position_vector.gradient = gradient
+
+        position_vector.distance = self.distance_lambda
+
+        return position_vector
+
+    def turn(self, d1, d2, a):
+        if a == self.target_position_vector.a:
+            self.target_position_vector.p += 1
+            # print(f"p : {self.target_position_vector.p}")
+            return self.target_position_vector
+
+        gradient = self.calculate_gradient()
+
+        position_vector = PositionVector()
+        position_vector.movement = PositionVector.TURN
+        [position_vector.x, position_vector.y] = self.calculate_closest_gradient_tangent([self.target_position_vector.x, self.target_position_vector.y], gradient)
+        position_vector.position = average(d1, d2)
+        # position_vector.position = self.calculate_position()
+        # direction = [self.target_position_vector.x, self.target_position_vector.y]
+        # print(f"turn: {direction, [position_vector.x, position_vector.y]}")
+        position_vector.a = a
+        position_vector.p = 1
+        # position_vector.gradient = gradient
+
+        return position_vector
+
+    def incomplete(self):
+        return True
+
+    def inside(self, d):
+        return d.value > self.threshold
+
+    def calculate_gradient(self):
+        x = []
+        y = []
+
+        for reading_position in self.position_reading_queue:
+            x.append([reading_position.longitude, reading_position.latitude])
+            y.append(reading_position.value)
+
+        x, y = np.array(x), np.array(y)
+
+        model = LinearRegression().fit(x, y)
+
+        return unitary([model.coef_[0], model.coef_[1]])
+
+    @staticmethod
+    def line_cross(d1):
+        return False
+
+    @staticmethod
+    def initial_direction(d1, d2):
+        average_position = average(d1, d2)
+
+        position_vector = PositionVector()
+        position_vector.movement = PositionVector.FORWARD
+        position_vector.x = 0.0
+        position_vector.y = 1.0
+        position_vector.position = createLatLon(average_position.latitude, average_position.longitude)
+        position_vector.distance = 5.0
+
+        return position_vector
+
+    @staticmethod
+    def until(position_vector, callback):
+        while not callback():
+            yield position_vector
+
+    @staticmethod
+    def moved_forward_lambda(target_position_vector, d1, d2):
+        target_offset = difference_in_meters(average(d1, d2), target_position_vector.position)
+        distance = np.dot(target_offset, [target_position_vector.x, target_position_vector.y])
+
+        return distance > target_position_vector.distance
+
+    @staticmethod
+    def turned_lambda(target_position_vector, distance_lambda, p, d1, d2):
+        center = calculate_turn_center(target_position_vector, distance_lambda)
+        target_offset = rotate_vector(difference_in_meters(target_position_vector.position, center), (target_position_vector.a * p))
+        hyp = difference_in_meters(average(d1, d2), center)
+
+        target_angle = math.fabs(target_position_vector.a)
+
+        intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (magnitude(target_offset) * magnitude(hyp))
+        if intermediate > 1:
+            intermediate = 1
+        angle = math.acos(intermediate)
+
+        # print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
+        return angle < target_angle
+
+    @staticmethod
+    def calculate_closest_gradient_tangent(direction, gradient):
+        sign = np.dot(np.array(direction), np.array(rotate_vector(gradient, math.pi / 2))) > 0
+
+        if sign:
+            return rotate_vector(gradient, math.pi / 2)
+        else:
+            return rotate_vector(gradient, -math.pi / 2)
+
 
 class SketchAction:
     SAMPLE_RATE = 0.1
@@ -111,9 +346,9 @@ class SketchAction:
         self.receive_semaphore_subscription = rx.empty().subscribe()
 
         self.target_position_vector = None
-        self.encountered = False
-        self.starting_position = None
-        self.sketch_started = False
+        self.sketch = Sketch(distance_sqrt_lambda, lambda_value, threshold)
+        self.sketch_generator = self.sketch.boundary_sketch()
+
         self.position_reading_queue = []
         self.started = False
 
@@ -149,7 +384,6 @@ class SketchAction:
                 self_drone.get_position(),
                 self.dragonfly_sketch_subject
             ).pipe(
-                ops.sample(self.SAMPLE_RATE),
                 ops.map(lambda positions: self.tandem(positions[0], positions[1], positions[2]))
             ).subscribe(lambda vectors: self.navigate(vectors))
 
@@ -157,7 +391,7 @@ class SketchAction:
                 self.leader_broadcast_subscription = rx.combine_latest(
                     self.setup_subject(self.partner),
                     self.setup_subject(self.id)
-                ).subscribe(lambda position_reading_vector: self.broadcast_target(position_reading_vector[0], position_reading_vector[1]))
+                ).subscribe(lambda position_reading_vector: self.broadcast_command(position_reading_vector[0], position_reading_vector[1]))
             else:
                 self.receive_semaphore_subscription = self.semaphore_observable.subscribe(on_next = lambda token: self.listen_for_stop(token))
 
@@ -189,9 +423,25 @@ class SketchAction:
         position_subject = drone_streams.get_position()
         co2_subject = drone_streams.get_co2()
 
-        return rx.combine_latest(position_subject, co2_subject).pipe(
+        position_value_subject = Subject()
+
+        rx.combine_latest(position_subject, co2_subject).pipe(
+            ops.pairwise(),
+            ops.filter(lambda tuple: tuple[0][0] != tuple[0][1] and tuple[1][0] != tuple[1][1]),
+            ops.map(lambda tuple: [tuple[1][0], tuple[1][1]]),
             ops.map(lambda tuple, offset=drone_streams.mean: ReadingPosition(tuple[0].latitude, tuple[0].longitude, tuple[1].ppm - offset))
-        )
+        ).subscribe(on_next=lambda v: position_value_subject.on_next(v))
+
+        return position_value_subject
+
+    def broadcast_command(self, partner_position, self_position):
+        self.sketch.update(self_position, partner_position)
+
+        self.target_position_vector = next(self.sketch_generator)
+
+        if self.target_position_vector is not None:
+            self.position_vector_publisher.publish(self.target_position_vector)
+            self.dragonfly_sketch_subject.on_next(self.target_position_vector)
 
     def tandem(self, partner_position, self_position, positionVector):
 
@@ -220,9 +470,15 @@ class SketchAction:
 
             direction_vector = np.array([position_vector.x, position_vector.y])
 
-            return -4 * (np.dot(offset_unitary, direction_vector)) * direction_vector
+            return -2 * (np.dot(offset_unitary, direction_vector)) * direction_vector
         else:
-            return [0, 0]
+            prev_vector = [position_vector.x, position_vector.y]
+            angle =  position_vector.a * position_vector.p
+            direction = rotate_vector(prev_vector, angle)
+
+            offset_unitary = unitary(difference_in_meters(self_position, partner_position))
+
+            return -(np.dot(offset_unitary, direction)) * direction
 
     def calculate_straight_line(self, position_vector):
         if position_vector.movement == PositionVector.FORWARD:
@@ -287,235 +543,6 @@ class SketchAction:
 
             return center_correction
 
-    def broadcast_target(self, partner_position, self_position):
-
-        average_position = average(self_position, partner_position)
-
-        self.position_reading_queue.append(partner_position)
-        self.position_reading_queue.append(self_position)
-
-        while len(self.position_reading_queue) > 200:
-            self.position_reading_queue.pop(0)
-
-        if self.target_position_vector is None:
-            position_vector = PositionVector()
-            position_vector.movement = PositionVector.FORWARD
-            position = createLatLon(average_position.latitude, average_position.longitude)
-
-            position_vector.x = 0.0
-            position_vector.y = 1.0
-            position_vector.position = position
-            position_vector.distance = 5.0
-
-            self.target_position_vector = position_vector
-
-        if not self.encountered and (self.inside(partner_position) or self.inside(self_position)):
-            self.encountered = True
-            self.starting_position = average_position
-            self.log_publisher.publish(String(data="Encountered plume"))
-
-        if self.encountered and not self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) > (2 * self.SKETCH_STARTING_THRESHOLD):
-            self.sketch_started = True
-            self.log_publisher.publish(String(data="Sketch started"))
-
-        if self.sketch_started and magnitude(difference_in_meters(self.starting_position, average_position)) < self.SKETCH_STARTING_THRESHOLD:
-            # We must be back to the start
-            self.log_publisher.publish(String(data="Sketch ended where it started"))
-            self.broadcast_end()
-            self.end_sketch()
-
-        if self.target_position_vector.movement == PositionVector.TURN and self.target_position_vector.a * self.target_position_vector.p > 4 * math.pi:
-            # We are in a death spiral
-            self.log_publisher.publish(String(data="Sketch ended from losing plume"))
-            self.broadcast_end()
-            self.end_sketch()
-
-        if self.encountered and self.passed(average_position):
-            self.target_position_vector = self.boundary_sketch(partner_position, self_position)
-        # self.logger.info(f"PV: {self.target_position_vector}")
-        self.position_vector_publisher.publish(self.target_position_vector)
-        self.dragonfly_sketch_subject.on_next(self.target_position_vector)
-
-    def calculate_gradient(self):
-        x = []
-        y = []
-
-        for reading_position in self.position_reading_queue:
-            x.append([reading_position.longitude, reading_position.latitude])
-            y.append(reading_position.value)
-
-        x, y = np.array(x), np.array(y)
-
-        model = LinearRegression().fit(x, y)
-
-        return unitary([model.coef_[0], model.coef_[1]])
-
-    # Algorithm 1 Ensures the robots are at distance √
-    #
-    # λ from each other and are oriented in the same direction.
-    # Additional discussion with illustrative diagrams of this synchronization is in Appendix D.
-    #
-    # procedure SYNCHRONIZE(D1, D2)
-    #   Path ← the polyline path of D2 from last crossing of BOUNDARY-SKETCH with the shape till current position.
-    #   ∇ ← the gradient at the last boundary crossing for D2.
-    #   L1 ← the line in the direction of ∇ through D1’s position.
-    #   L2 ← the line in the direction of ∇ through D2’s position.
-    #   if L1 crosses Path then
-    #       Move D2 in its current direction until it is √λ distance away from L1.
-    #       Change direction to ∇ and take a single step of length λ.
-    #       Move D1 along L1 until it is √λ away from D2.
-    #
-    #   else
-    #       Move D1 in its current direction until it is √ λ distance away from L2.
-    #
-    #   Change direction to ∇ and move until the distance from D2 is √λ.
-
-    # Algorithm 2 Reestablishes “Sandwich” Invariant
-    # procedure CROSS-BOUNDARY(D1, D2, α)
-    #   p ← last position of D1 before crossing
-    #   R ← the vertices of the regular polygon including D1’s position with exterior angle √λ and
-    #       the edge beginning at D1’s position facing the direction of ∇ + α.
-    #   P ← the vertices of the convex hull of R ∪ {p}. For all i : 0 ≤ i ≤ |P| − 1, let
-    #       Pi be the i-th vertex in this convex hull, ordered such that P0 = p and P1 = D1’s current position.
-    #   ∇ ← gradient at the last boundary crossing of D1
-    #   i ← 1.
-    #   while neither robot has crossed the boundary AND i + 1 < |P| do
-    #       D1 moves to Pi+1.
-    #       D2 moves to closest point from it that is √λ distance away from Pi and orthogonal to ∇ + iα
-    #       i ← i + 1
-    #   while neither robot has crossed the boundary do
-    #       D1 moves towards point p taking steps of length λ.
-    #       D2 moves to closest point from it that is √λ distance away from D1 and orthogonal to D1’s direction.
-    #   if D2 crossed the boundary then
-    #       SYNCHRONIZE (D1, D2)
-    #   else
-    #       ∇ ← the current direction of D1.
-
-    def cross_boundary(self, d1, d2, a):
-        gradient = self.calculate_gradient()
-        # print(f"gradient: {gradient}")
-        return self.turn(d1, d2, a, gradient)
-
-    # Algorithm 3 Initially, robots are √λ apart; one inside and one outside
-    def boundary_sketch(self, d1, d2):
-        # D1, D2 ← the two robots
-        # ∇ ← boundary gradient at point of crossing with line segment between D1 and D2
-        # α ← √λ
-        lambda_value = self.lambda_value
-        if self.inside(d1) ^ self.inside(d2):
-            # D1 and D2 both move λ distance in the direction of ∇
-            self.logger.info("Sandwich")
-            return self.forward(d1, d2)
-
-        if not self.inside(d1) and not self.inside(d2):
-            self.logger.info("Outside")
-            a = math.sqrt(lambda_value)
-            return self.cross_boundary(d1, d2, a)
-        elif self.inside(d1) and self.inside(d2):
-            self.logger.info("Inside")
-            a = -math.sqrt(lambda_value)
-            return self.cross_boundary(d1, d2, a)
-
-    def calculate_prev_direction(self):
-        if self.target_position_vector.movement == PositionVector.FORWARD:
-            direction = [self.target_position_vector.x, self.target_position_vector.y]
-            # print(f"forward: {direction}")
-            return direction
-        if self.target_position_vector.movement == PositionVector.TURN:
-            prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
-            angle =  self.target_position_vector.a * self.target_position_vector.p
-            direction = rotate_vector(prev_vector, angle)
-            # print(f"turn {self.target_position_vector.a} * {self.target_position_vector.p} = {angle * 57.2958}: {direction} {rotate_vector(prev_vector, angle)}")
-            return direction
-
-    def forward(self, d1, d2):
-
-        gradient = self.calculate_gradient()
-
-        position_vector = PositionVector()
-        position_vector.movement = PositionVector.FORWARD
-        position = average(d1, d2)
-        position_vector.position = position
-
-        if self.target_position_vector.movement == PositionVector.TURN:
-            [position_vector.x, position_vector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
-        else:
-            [position_vector.x, position_vector.y] = self.calculate_prev_direction()
-        position_vector.position = position
-
-        position_vector.distance = self.distance_lambda
-
-        return position_vector
-
-    def calculate_closest_gradient_tangent(self, direction, gradient):
-        gradient_positive = rotate_vector(gradient, math.pi/2)
-        gradient_negative = rotate_vector(gradient, -math.pi/2)
-
-        angle_positive = calculate_angle(direction, gradient_positive)
-        angle_negative = calculate_angle(direction, gradient_negative)
-
-
-        # print(f"positive: {angle_positive} negative: {angle_negative}")
-        if math.fabs(angle_positive) > math.fabs(angle_negative):
-            perpendicular_gradient = gradient_negative
-        else:
-            perpendicular_gradient = gradient_positive
-
-        # print(perpendicular_gradient)
-        return perpendicular_gradient
-
-    def turn(self, d1, d2, a, gradient):
-        if a == self.target_position_vector.a:
-            self.target_position_vector.p += 1
-            # print(f"p : {self.target_position_vector.p}")
-            return self.target_position_vector
-
-        position_vector = PositionVector()
-        position_vector.movement = PositionVector.TURN
-
-        position = average(d1, d2)
-        position_vector.position = position
-
-        [position_vector.x, position_vector.y] = self.calculate_closest_gradient_tangent(self.calculate_prev_direction(), gradient)
-
-        position_vector.position = position
-        position_vector.a = a
-        position_vector.p = 1
-
-        # position_vector.gradient = gradient
-
-        return position_vector
-
-    def inside(self, d):
-        return d.value > self.threshold
-
-    def passed(self, average_position):
-        if self.target_position_vector is None:
-            return True
-
-        if self.target_position_vector.movement == PositionVector.FORWARD:
-
-            target_offset = difference_in_meters(average_position, self.target_position_vector.position)
-            distance = np.dot(target_offset, [self.target_position_vector.x, self.target_position_vector.y])
-
-            return distance > self.target_position_vector.distance
-        else:
-            center = calculate_turn_center(self.target_position_vector, self.distance_lambda)
-            target_offset = rotate_vector(difference_in_meters(self.target_position_vector.position, center), (self.target_position_vector.a * (self.target_position_vector.p - 1)))
-            hyp = difference_in_meters(average_position, center)
-
-            target_angle = math.fabs(self.target_position_vector.a)
-
-            intermediate = ((target_offset[0] * hyp[0]) + (target_offset[1] * hyp[1])) / (magnitude(target_offset) * magnitude(hyp))
-            if intermediate > 1:
-                intermediate = 1
-            angle = math.acos(intermediate)
-
-            # print(f"Turn passed: {angle} > {target_angle} = {angle > target_angle}")
-            return angle > target_angle
-
-
     def stop(self):
         self.navigate_subscription.dispose()
         self.leader_broadcast_subscription.dispose()
-        self.receive_semaphore_subscription.dispose()
