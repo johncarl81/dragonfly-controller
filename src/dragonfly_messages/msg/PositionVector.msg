@@ -1,5 +1,6 @@
 int8 FORWARD = 0
 int8 TURN = 1
+int8 SYNCHRONIZE = 2
 
 int8 movement
 
