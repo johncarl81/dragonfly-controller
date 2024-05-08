@@ -246,12 +246,10 @@ class Sketch:
             return calculate_angle([pv.x, pv.y], difference_in_meters(p, t))
 
         def polygon_facing_crossing():
-            # vector_to_crossing = unitary(difference_in_meters(self.latest_point_before_crossing, d1.position))
-            # current_heading = [self.target_position_vector.x, self.target_position_vector.y]
-            # print(f"{was_inside} {a}, {np.cross(vector_to_crossing, current_heading)} {np.dot(vector_to_crossing, current_heading)} {((np.cross(vector_to_crossing, current_heading) < 0) == was_inside) and (np.dot(vector_to_crossing, current_heading) > 0)}")
-            # return magnitude(vector_to_crossing) > 0 and np.cross(vector_to_crossing, current_heading) < 0
-            # Vectors are pointing the same direction and cross over from negative to positive cross product (or vice versa)
-            # return ((np.cross(vector_to_crossing, current_heading) < 0) == (a < 0)) and (np.dot(vector_to_crossing, current_heading) > 0)
+            if self.latest_point_before_crossing is not None:
+                angle = angle_to(self.target_position_vector, self.latest_point_before_crossing, drone1.position)
+                #                 print(f"cone: {angle} < {a}")
+                return angle < math.fabs(a)
             return False
 
         i = 1
@@ -261,7 +259,6 @@ class Sketch:
                not polygon_facing_crossing()):
             #   D1 moves to Pi+1.
             #   D2 moves to closest point from it that is √λ distance away from Pi and orthogonal to ∇ + iα
-            # print(f"looping on turn: {a} {i} {self.d1}")
             self.target_position_vector = self.turn(drone1, drone2, a)
             yield from self.until(self.target_position_vector, lambda: self.turned_lambda(self.target_position_vector, self.distance_lambda, i, drone1, drone2))
             #   i ← i + 1
@@ -276,7 +273,10 @@ class Sketch:
             print("back to point")
             #       D1 moves towards point p taking steps of length λ.
             #       D2 moves to closest point from it that is √λ distance away from D1 and orthogonal to D1’s direction.
-            pass
+            #   if self.latest_point_before_crossing is not None:
+            direction_back = difference_in_meters(self.latest_point_before_crossing, drone1.position)
+            self.target_position_vector = self.forward_by_vector(self.drone1, self.drone2, direction_back)
+            yield from self.until(self.target_position_vector, lambda: self.moved_forward_lambda(self.target_position_vector, self.drone1, self.drone2))
         #   if D2 crossed the boundary then
         if self.inside(drone2) != was_inside:
             # SYNCHRONIZE (D1, D2)
@@ -285,11 +285,18 @@ class Sketch:
         #   ∇ ← the current direction of D1.
 
     def synchronized(self, position_vector, drone1:Drone, drone2:Drone):
-        return True
+
+        distance_to_center = magnitude(difference_in_meters(average(drone1.position, drone2.position), position_vector.position))
+        angle_to_direction = math.fabs(calculate_angle([position_vector.x, position_vector.y], difference_in_meters(drone1.position, drone2.position))) + (math.pi / 2)
+
+        while angle_to_direction > math.pi / 2:
+            angle_to_direction -= math.pi
+
+        return distance_to_center < 1 and angle_to_direction < 0.2
 
     # Algorithm 1 Ensures the robots are at distance √λ from each other and are oriented in the same direction.
     def synchronize(self, drone1:Drone, drone2:Drone, left):
-        print("synchronize")
+        #         print("synchronize")
         #   Path ← the polyline path of D2 from last crossing of BOUNDARY-SKETCH with the shape till current position.
         #   ∇ ← the gradient at the last boundary crossing for D2.
         #   L1 ← the line in the direction of ∇ through D1’s position.
@@ -301,7 +308,7 @@ class Sketch:
         [position_vector.x, position_vector.y] = eta
 
         #   if L1 crosses Path then
-        if np.dot(self.drone2.gradient, difference_in_meters(drone2.position, drone1.position)) < 0:
+        if np.dot(self.drone2.gradient, difference_in_meters(drone2.position, drone1.position)) > 0:
             # Move D2 in its current direction until it is √λ distance away from L1.
             # Change direction to ∇ and take a single step of length λ.
             # Move D1 along L1 until it is √λ away from D2.
@@ -319,6 +326,14 @@ class Sketch:
         #   Change direction to ∇ and move until the distance from D2 is √λ.
 
     def forward(self, drone1:Drone, drone2:Drone):
+        if self.target_position_vector.movement == PositionVector.TURN:
+            prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
+            angle =  self.target_position_vector.a * self.target_position_vector.p
+            return self.forward_by_vector(drone1, drone2, rotate_vector(prev_vector, angle))
+        else:
+            return self.forward_by_vector(drone1, drone2, [self.target_position_vector.x, self.target_position_vector.y])
+
+    def forward_by_vector(self, drone1:Drone, drone2:Drone, direction_vector):
         self.clear_crossing()
         gradient = self.calculate_gradient()
         drone1.update_before_crossing()
@@ -327,12 +342,7 @@ class Sketch:
         # D1 and D2 both move λ distance in the direction of ∇
         position_vector = PositionVector()
         position_vector.movement = PositionVector.FORWARD
-        if self.target_position_vector.movement == PositionVector.TURN:
-            prev_vector = [self.target_position_vector.x, self.target_position_vector.y]
-            angle =  self.target_position_vector.a * self.target_position_vector.p
-            [position_vector.x, position_vector.y] = rotate_vector(prev_vector, angle)
-        else:
-            [position_vector.x, position_vector.y] = [self.target_position_vector.x, self.target_position_vector.y]
+        [position_vector.x, position_vector.y] = direction_vector
 
         position_vector.position = average(drone1.position, drone2.position)
         # position_vector.gradient = gradient
@@ -345,8 +355,9 @@ class Sketch:
         if a == self.target_position_vector.a:
             self.target_position_vector.p += 1
             # print(f"p : {self.target_position_vector.p}")
-            # self.target_position_vector.vector_to_crossing = unitary(difference_in_meters(self.latest_point_before_crossing, d1))
-            # self.target_position_vector.updated_position = d1
+            # if self.latest_point_before_crossing is not None:
+            #     self.target_position_vector.vector_to_crossing = unitary(difference_in_meters(self.latest_point_before_crossing, drone1.position))
+            #     self.target_position_vector.updated_position = drone1.position
             return self.target_position_vector
 
         gradient = self.calculate_gradient()
@@ -363,8 +374,9 @@ class Sketch:
         #position_vector.gradient = gradient
         #position_vector.prev_pt = self.latest_point_before_crossing
 
-        #position_vector.vector_to_crossing = unitary(difference_in_meters(self.latest_point_before_crossing, d1))
-        #position_vector.updated_position = d1
+        # if self.latest_point_before_crossing is not None:
+        #     position_vector.vector_to_crossing = unitary(difference_in_meters(self.latest_point_before_crossing, drone1.position))
+        #     position_vector.updated_position = drone1.position
 
         return position_vector
 
@@ -692,6 +704,17 @@ class SketchAction:
             center_correction = unitary(average_to_center) * np.array(expected_distance_to_center - magnitude(average_to_center))
 
             return center_correction
+        elif position_vector.movement == PositionVector.SYNCHRONIZE:
+            vector_to_target =  difference_in_meters(position_vector.position, average(self_position, partner_position))
+
+            magnitude_calc = magnitude(vector_to_target)
+
+            max_magnitude = 1
+
+            if magnitude_calc > max_magnitude:
+                return vector_to_target / (magnitude_calc / max_magnitude)
+            else:
+                return vector_to_target
         else:
             return [0, 0]
 
