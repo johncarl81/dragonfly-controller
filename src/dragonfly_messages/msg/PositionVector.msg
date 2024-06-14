@@ -11,3 +11,5 @@ float64 distance
 float64 radius
 float64 a
 int32 p
+
+float64[2] gradient

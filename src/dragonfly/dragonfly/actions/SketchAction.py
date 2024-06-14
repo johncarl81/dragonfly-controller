@@ -14,6 +14,9 @@ from .ActionState import ActionState
 
 EARTH_CIRCUMFERENCE = 40008000
 
+def position_equals(p1, p2):
+    return p1.latitude == p2.latitude and p1.longitude == p2.longitude and p1.value == p2.value
+
 class Drone:
 
     def __init__(self, threshold, latest_gradient):
@@ -27,7 +30,7 @@ class Drone:
 
     def update(self, position):
 
-        if len(self.position_reading_queue) == 0 or not position == self.position_reading_queue[-1]:
+        if len(self.position_reading_queue) == 0 or not position_equals(position, self.position_reading_queue[-1]):
             self.position_reading_queue.append(position)
 
         while len(self.position_reading_queue) > 3:
@@ -167,6 +170,7 @@ class Sketch:
         self.starting_direction = starting_direction
 
         self.encountered = False
+        self.armed = False
         self.starting_location = None
         self.position_reading_queue = []
         self.latest_crossing_point = None
@@ -187,6 +191,9 @@ class Sketch:
         if not self.encountered and (self.inside(self.drone1) or self.inside(self.drone1)):
             self.encountered = True
             self.starting_location = average(self.drone1.position, self.drone2.position)
+
+        if self.encountered and magnitude(difference_in_meters(average(self.drone1.position, self.drone2.position), self.starting_location)) > (2 * self.distance_sqrt_lambda):
+            self.armed = True
 
         self.position_reading_queue.append(d1)
         self.position_reading_queue.append(d2)
@@ -345,7 +352,7 @@ class Sketch:
         [position_vector.x, position_vector.y] = direction_vector
 
         position_vector.position = average(drone1.position, drone2.position)
-        # position_vector.gradient = gradient
+        position_vector.gradient = gradient
 
         position_vector.distance = self.distance_lambda
 
@@ -371,7 +378,7 @@ class Sketch:
         # print(f"turn: {direction, [position_vector.x, position_vector.y]}")
         position_vector.a = a
         position_vector.p = 1
-        #position_vector.gradient = gradient
+        position_vector.gradient = gradient
         #position_vector.prev_pt = self.latest_point_before_crossing
 
         # if self.latest_point_before_crossing is not None:
@@ -381,7 +388,10 @@ class Sketch:
         return position_vector
 
     def incomplete(self):
-        return True
+        if self.drone1.position is None or self.drone2.position is None or self.starting_location is None:
+            return True
+        distance_to_start = magnitude(difference_in_meters(average(self.drone1.position, self.drone2.position), self.starting_location))
+        return not (self.encountered and self.armed and distance_to_start < self.distance_sqrt_lambda)
 
     def inside(self, d:Drone):
         return d.position.value > self.threshold
@@ -500,8 +510,8 @@ class SketchAction:
         twist = TwistStamped()
 
         for vector in input:
-            twist.twist.linear.x += vector[0]
-            twist.twist.linear.y += vector[1]
+            twist.twist.linear.x += vector[0] / 2
+            twist.twist.linear.y += vector[1] / 2
 
         self.local_setvelocity_publisher.publish(twist)
 
@@ -592,10 +602,16 @@ class SketchAction:
 
 
     def broadcast_command(self, partner_position, self_position):
-
         self.sketch.update(self_position, partner_position)
 
-        self.target_position_vector = next(self.sketch_generator)
+        if self.sketch.incomplete():
+            self.target_position_vector = next(self.sketch_generator)
+        else:
+            self.logger.info("End sketch")
+            self.broadcast_end()
+            self.end_sketch()
+
+        self.log_publisher.publish(String(data=f"PV: {self.target_position_vector}"))
 
         if self.target_position_vector is not None:
             self.position_vector_publisher.publish(self.target_position_vector)
